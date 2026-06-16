@@ -1,0 +1,129 @@
+import { getExercise } from '../program/exercises'
+import { formatKg, prevRung } from '../program/ladder'
+import { useStore, type SessionSummary } from '../store/useStore'
+import { Coach } from '../ui/components'
+import { ArrowUp, Check, Trophy } from '../ui/icons'
+
+export function Summary({ summary }: { summary: SessionSummary }) {
+  const progress = useStore((s) => s.progress)
+  const setExerciseWeight = useStore((s) => s.setExerciseWeight)
+  const setTab = useStore((s) => s.setTab)
+  const closeOverlay = useStore((s) => s.closeOverlay)
+
+  const done = () => {
+    closeOverlay()
+    setTab('today')
+  }
+
+  return (
+    <div className="overlay">
+      <div className="overlay-body" style={{ paddingTop: 'calc(var(--safe-top) + 28px)' }}>
+        <div style={{ textAlign: 'center', marginBottom: 18 }}>
+          <div
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: 20,
+              background: 'var(--success-dim)',
+              color: 'var(--success)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Check size={34} />
+          </div>
+          <h1 style={{ margin: '14px 0 2px' }}>Session logged</h1>
+          <div className="muted small">
+            {summary.setsLogged} sets · {summary.durationMin} min
+          </div>
+        </div>
+
+        {summary.levelUps.length > 0 ? (
+          <>
+            <div className="eyebrow">
+              <span className="row" style={{ gap: 6 }}>
+                <Trophy size={14} /> Leveled up ({summary.levelUps.length})
+              </span>
+            </div>
+            <div className="card">
+              {summary.levelUps.map((lu) => (
+                <div className="set-row" key={lu.exerciseId}>
+                  <span style={{ color: 'var(--success)' }}>
+                    <ArrowUp size={20} />
+                  </span>
+                  <div className="grow">
+                    <div style={{ fontWeight: 700 }}>{getExercise(lu.exerciseId).name}</div>
+                    <div className="tiny faint">
+                      {lu.kind === 'time' ? 'hold target' : 'dumbbell'} raised
+                    </div>
+                  </div>
+                  <div style={{ fontWeight: 800 }}>
+                    <span className="muted" style={{ fontWeight: 600 }}>
+                      {lu.from}
+                    </span>{' '}
+                    → {lu.to}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <Coach tone="up">
+              After a jump your reps will drop — that&rsquo;s expected. Work them back
+              to the top of the range, then climb again.
+            </Coach>
+          </>
+        ) : (
+          <Coach tone="info">
+            No level-ups this time — that&rsquo;s normal. Beat at least one set next
+            session and you&rsquo;re trending the right way.
+          </Coach>
+        )}
+
+        {summary.startNudges.length > 0 && (
+          <>
+            <div className="eyebrow">Starting weight check</div>
+            {summary.startNudges.map((n) => {
+              const def = getExercise(n.exerciseId)
+              const cur = progress[n.exerciseId]?.currentWeightKg ?? def.startWeightKg
+              if (n.kind === 'too_heavy') {
+                const drop = prevRung(cur)
+                return (
+                  <div className="card" key={n.exerciseId}>
+                    <div style={{ fontWeight: 700, marginBottom: 4 }}>{def.name}</div>
+                    <div className="small muted" style={{ marginBottom: 10 }}>
+                      You couldn&rsquo;t hold the bottom of the range — the start weight
+                      looks a touch heavy.
+                    </div>
+                    {drop !== cur ? (
+                      <button
+                        className="btn btn-sm btn-block"
+                        onClick={() => setExerciseWeight(n.exerciseId, drop)}
+                      >
+                        Drop to {formatKg(drop)}
+                      </button>
+                    ) : (
+                      <div className="tiny faint">Already at the lightest setting.</div>
+                    )}
+                  </div>
+                )
+              }
+              return (
+                <div className="card" key={n.exerciseId}>
+                  <div style={{ fontWeight: 700, marginBottom: 4 }}>{def.name}</div>
+                  <div className="small muted">
+                    That looked easy — the start weight is light. You&rsquo;ll keep
+                    leveling up over the next session or two until it bites.
+                  </div>
+                </div>
+              )
+            })}
+          </>
+        )}
+
+        <button className="btn btn-primary btn-block btn-lg" style={{ marginTop: 24 }} onClick={done}>
+          Done
+        </button>
+      </div>
+    </div>
+  )
+}
