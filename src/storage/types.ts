@@ -35,6 +35,14 @@ export interface SessionLog {
   exercises: ExerciseLog[]
   bodyweightKg?: number
   notes?: string
+  /**
+   * Logical-workout id. Parts of one workout that was split across sittings
+   * (Part A, Part B, …) share a groupId, so the weekly "3 workouts" count
+   * treats them as one. Undefined = a standalone full session (its own group).
+   */
+  groupId?: string
+  /** 1-based part index within the group (1 = the first sitting). */
+  part?: number
 }
 
 /** Per-exercise progression state — the current rung each exercise sits on. */

@@ -1,6 +1,7 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useStore } from './useStore'
+import { overview } from '../program/analytics'
 
 async function flush() {
   // let fire-and-forget IndexedDB writes settle
@@ -76,5 +77,51 @@ describe('store: full workout → progression → persistence', () => {
     logSet('biceps-curl', 2, 8)
     useStore.getState().finishSession()
     expect(useStore.getState().progress['biceps-curl'].currentWeightKg).toBe(8) // unchanged
+  })
+})
+
+describe('store: splitting a workout into parts', () => {
+  beforeEach(async () => {
+    await useStore.getState().resetEverything()
+  })
+
+  it('commits performed exercises and queues the rest as Part 2', async () => {
+    const s = useStore.getState()
+    s.startSession()
+
+    // Do only the first two exercises, then split.
+    logSet('floor-press', 0, 10)
+    logSet('floor-press', 1, 10)
+    logSet('floor-press', 2, 10)
+    logSet('chest-flye', 0, 10)
+    logSet('chest-flye', 1, 10)
+    logSet('chest-flye', 2, 9)
+
+    const summary = useStore.getState().splitSession()
+    expect(summary?.split).toEqual({ remaining: 9, part: 2 })
+
+    // Part A is recorded with only the two performed exercises.
+    const sessions = useStore.getState().sessions
+    expect(sessions).toHaveLength(1)
+    expect(sessions[0].exercises.map((e) => e.exerciseId)).toEqual([
+      'floor-press',
+      'chest-flye',
+    ])
+
+    // Part B is the active session: the 9 remaining exercises, part 2, same group.
+    const partB = useStore.getState().activeSession!
+    expect(partB).not.toBeNull()
+    expect(partB.part).toBe(2)
+    expect(partB.exercises).toHaveLength(9)
+    expect(partB.groupId).toBe(sessions[0].groupId)
+    expect(partB.exercises.every((e) => e.sets.every((x) => !x.done))).toBe(true)
+
+    // Finish Part B → two sessions, but one logical workout for the week.
+    logSet('overhead-press', 0, 9)
+    useStore.getState().finishSession()
+    const all = useStore.getState().sessions
+    expect(all).toHaveLength(2)
+    expect(overview(all).thisWeek).toBe(1)
+    expect(overview(all).totalWorkouts).toBe(1)
   })
 })

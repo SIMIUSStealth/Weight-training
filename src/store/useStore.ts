@@ -28,6 +28,7 @@ import {
 import type {
   BackupFile,
   BodyStat,
+  ExerciseLog,
   ExerciseProgress,
   SessionLog,
   Settings,
@@ -57,6 +58,8 @@ export interface SessionSummary {
   setsLogged: number
   levelUps: LevelUp[]
   startNudges: { exerciseId: string; kind: Exclude<StartAssessment, null> }[]
+  /** Present when the session was split — the rest is queued as a later part. */
+  split?: { remaining: number; part: number }
 }
 
 export type Overlay =
@@ -97,6 +100,8 @@ interface StoreState {
   setWorkingWeight: (exerciseId: string, weightKg: number) => void
   setSessionBodyweight: (kg: number | undefined) => void
   finishSession: () => SessionSummary | null
+  /** Finish the performed exercises now and queue the untouched ones as a later part. */
+  splitSession: () => SessionSummary | null
 
   // manual progression overrides
   setExerciseWeight: (exerciseId: string, weightKg: number) => void
@@ -118,12 +123,96 @@ function freshActiveSession(progress: Record<string, ExerciseProgress>): Session
   return {
     id: uid(),
     startedAt: new Date().toISOString(),
+    part: 1,
     exercises: EXERCISES.map((def) => ({
       exerciseId: def.id,
       weightKg: progress[def.id]?.currentWeightKg ?? def.startWeightKg,
       sets: Array.from({ length: def.sets }, () => ({ done: false }) as SetLog),
     })),
   }
+}
+
+interface CommitResult {
+  /** Only the exercises that had at least one completed set. */
+  committedExercises: ExerciseLog[]
+  newProgress: Record<string, ExerciseProgress>
+  levelUps: LevelUp[]
+  startNudges: SessionSummary['startNudges']
+  setsLogged: number
+}
+
+/**
+ * Apply double-progression to every performed exercise in a session and collect
+ * what changed. Untouched exercises (zero completed sets) are dropped from the
+ * committed record — when splitting they carry over to the next part instead.
+ */
+function commitActive(
+  active: SessionLog,
+  sessions: SessionLog[],
+  progress: Record<string, ExerciseProgress>,
+): CommitResult {
+  const newProgress: Record<string, ExerciseProgress> = { ...progress }
+  const levelUps: LevelUp[] = []
+  const startNudges: SessionSummary['startNudges'] = []
+  const committedExercises: ExerciseLog[] = []
+  let setsLogged = 0
+
+  for (const log of active.exercises) {
+    const doneCount = log.sets.filter((s) => s.done).length
+    if (doneCount === 0) continue
+    setsLogged += doneCount
+
+    const def = getExercise(log.exerciseId)
+    const hadPrior = sessions.some(
+      (s) =>
+        s.completedAt &&
+        s.exercises.some(
+          (e) => e.exerciseId === log.exerciseId && e.sets.some((x) => x.done),
+        ),
+    )
+
+    const before = newProgress[log.exerciseId]
+    const res = applyProgression(def, before, log)
+    newProgress[log.exerciseId] = res.progress
+
+    const nudge = assessStartWeight(def, log, hadPrior)
+    if (nudge) startNudges.push({ exerciseId: log.exerciseId, kind: nudge })
+
+    if (res.leveledUp) {
+      if (def.kind === 'time') {
+        levelUps.push({
+          exerciseId: log.exerciseId,
+          kind: def.kind,
+          from: formatSeconds(before.targetSeconds ?? def.startSeconds ?? 0),
+          to: formatSeconds(res.newSeconds ?? 0),
+        })
+      } else {
+        levelUps.push({
+          exerciseId: log.exerciseId,
+          kind: def.kind,
+          from: formatKg(before.currentWeightKg),
+          to: formatKg(res.newWeightKg ?? before.currentWeightKg),
+        })
+      }
+      committedExercises.push({
+        ...log,
+        leveledUp: true,
+        newWeightKg: res.newWeightKg,
+        newSeconds: res.newSeconds,
+      })
+    } else {
+      committedExercises.push(log)
+    }
+  }
+
+  return { committedExercises, newProgress, levelUps, startNudges, setsLogged }
+}
+
+function durationMinutes(startedAt: string, completedAt: string): number {
+  return Math.max(
+    0,
+    Math.round((Date.parse(completedAt) - Date.parse(startedAt)) / 60000),
+  )
 }
 
 export const useStore = create<StoreState>((set, get) => ({
@@ -207,90 +296,98 @@ export const useStore = create<StoreState>((set, get) => ({
     const { activeSession, progress, sessions } = get()
     if (!activeSession) return null
 
-    const newProgress: Record<string, ExerciseProgress> = { ...progress }
-    const levelUps: LevelUp[] = []
-    const startNudges: SessionSummary['startNudges'] = []
-    let setsLogged = 0
-
-    const committed = activeSession.exercises.map((log) => {
-      const def = getExercise(log.exerciseId)
-      const doneCount = log.sets.filter((s) => s.done).length
-      setsLogged += doneCount
-      if (doneCount === 0) return log // skipped — don't progress or judge it
-
-      const hadPrior = sessions.some(
-        (s) =>
-          s.completedAt &&
-          s.exercises.some(
-            (e) => e.exerciseId === log.exerciseId && e.sets.some((x) => x.done),
-          ),
-      )
-
-      const before = newProgress[log.exerciseId]
-      const res = applyProgression(def, before, log)
-      newProgress[log.exerciseId] = res.progress
-
-      const nudge = assessStartWeight(def, log, hadPrior)
-      if (nudge) startNudges.push({ exerciseId: log.exerciseId, kind: nudge })
-
-      if (res.leveledUp) {
-        if (def.kind === 'time') {
-          levelUps.push({
-            exerciseId: log.exerciseId,
-            kind: def.kind,
-            from: formatSeconds(before.targetSeconds ?? def.startSeconds ?? 0),
-            to: formatSeconds(res.newSeconds ?? 0),
-          })
-        } else {
-          levelUps.push({
-            exerciseId: log.exerciseId,
-            kind: def.kind,
-            from: formatKg(before.currentWeightKg),
-            to: formatKg(res.newWeightKg ?? before.currentWeightKg),
-          })
-        }
-        return {
-          ...log,
-          leveledUp: true,
-          newWeightKg: res.newWeightKg,
-          newSeconds: res.newSeconds,
-        }
-      }
-      return log
-    })
+    const r = commitActive(activeSession, sessions, progress)
+    if (r.committedExercises.length === 0) {
+      // nothing was actually performed — discard the empty session
+      void putActiveSession(null)
+      set({ activeSession: null, overlay: null })
+      return null
+    }
 
     const completedAt = new Date().toISOString()
     const finished: SessionLog = {
       ...activeSession,
-      exercises: committed,
+      exercises: r.committedExercises,
       completedAt,
+      part: activeSession.part ?? 1,
     }
-    const durationMin = Math.max(
-      0,
-      Math.round(
-        (new Date(completedAt).getTime() -
-          new Date(activeSession.startedAt).getTime()) /
-          60000,
-      ),
-    )
-
     const summary: SessionSummary = {
       sessionId: finished.id,
       completedAt,
-      durationMin,
-      setsLogged,
-      levelUps,
-      startNudges,
+      durationMin: durationMinutes(activeSession.startedAt, completedAt),
+      setsLogged: r.setsLogged,
+      levelUps: r.levelUps,
+      startNudges: r.startNudges,
     }
 
     void putSession(finished)
-    void putProgress(Object.values(newProgress))
+    void putProgress(Object.values(r.newProgress))
     void putActiveSession(null)
 
     set({
       sessions: [...sessions, finished],
-      progress: newProgress,
+      progress: r.newProgress,
       activeSession: null,
+      overlay: { name: 'summary', summary },
+    })
+    return summary
+  },
+
+  splitSession: () => {
+    const { activeSession, progress, sessions } = get()
+    if (!activeSession) return null
+
+    const remaining = activeSession.exercises.filter(
+      (e) => !e.sets.some((s) => s.done),
+    )
+    // Nothing left untouched → this is just a normal finish.
+    if (remaining.length === 0) return get().finishSession()
+
+    const r = commitActive(activeSession, sessions, progress)
+    // Nothing performed yet → nothing to commit; leave the workout as-is.
+    if (r.committedExercises.length === 0) return null
+
+    const groupId = activeSession.groupId ?? activeSession.id
+    const part = activeSession.part ?? 1
+    const completedAt = new Date().toISOString()
+
+    const finished: SessionLog = {
+      ...activeSession,
+      exercises: r.committedExercises,
+      completedAt,
+      groupId,
+      part,
+    }
+    const partB: SessionLog = {
+      id: uid(),
+      startedAt: new Date().toISOString(),
+      groupId,
+      part: part + 1,
+      exercises: remaining.map((e) => ({
+        exerciseId: e.exerciseId,
+        weightKg: e.weightKg,
+        sets: e.sets.map(() => ({ done: false }) as SetLog),
+      })),
+    }
+
+    const summary: SessionSummary = {
+      sessionId: finished.id,
+      completedAt,
+      durationMin: durationMinutes(activeSession.startedAt, completedAt),
+      setsLogged: r.setsLogged,
+      levelUps: r.levelUps,
+      startNudges: r.startNudges,
+      split: { remaining: remaining.length, part: part + 1 },
+    }
+
+    void putSession(finished)
+    void putProgress(Object.values(r.newProgress))
+    void putActiveSession(partB)
+
+    set({
+      sessions: [...sessions, finished],
+      progress: r.newProgress,
+      activeSession: partB,
       overlay: { name: 'summary', summary },
     })
     return summary

@@ -152,7 +152,7 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
             <div className="eyebrow">History</div>
             <div className="card">
               {[...series].reverse().map((s, i) => (
-                <div className="list-row" key={i}>
+                <div className="list-row" key={i} style={{ alignItems: 'flex-start' }}>
                   <div className="grow">
                     <div style={{ fontWeight: 700 }}>{relativeDay(s.date)}</div>
                     <div className="tiny faint">
@@ -162,12 +162,21 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
                         month: 'short',
                       })}
                     </div>
+                    <div className="row wrap" style={{ gap: 6, marginTop: 6 }}>
+                      {s.sets.map((v, j) => (
+                        <span
+                          key={j}
+                          className="chip"
+                          style={{ background: 'var(--surface-3)', fontWeight: 700 }}
+                        >
+                          {isTime ? formatSeconds(v) : `${v}${def.perArm ? '/arm' : ''}`}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontWeight: 800 }}>
-                      {isTime
-                        ? formatSeconds(s.best)
-                        : `${s.total} reps`}
+                      {isTime ? formatSeconds(s.best) : `${s.total} reps`}
                     </div>
                     <div className="tiny faint">
                       {isTime ? `${def.sets} sets` : def.bodyweight ? '' : formatKg(s.weightKg)}

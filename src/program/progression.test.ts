@@ -156,6 +156,8 @@ describe('computeRecommendation', () => {
     const rec = computeRecommendation(floor, progressFor('floor-press'), sessions)
     expect(rec.headline).toContain('Beat 10 · 9 · 9')
     expect(rec.justLeveledUp).toBe(false)
+    expect(rec.lastSets).toEqual([10, 9, 9])
+    expect(rec.lastWeightKg).toBe(8)
   })
 
   it('explains the rep drop right after a level-up', () => {

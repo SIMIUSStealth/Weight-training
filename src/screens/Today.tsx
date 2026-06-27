@@ -28,6 +28,15 @@ export function Today() {
   const loggedSets = activeSession
     ? activeSession.exercises.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0)
     : 0
+  const exercisesLeft = activeSession
+    ? activeSession.exercises.filter((e) => !e.sets.some((s) => s.done)).length
+    : 0
+  const part = activeSession?.part ?? 1
+  const startLabel = !activeSession
+    ? 'Start workout'
+    : part > 1
+      ? `Continue · Part ${part} · ${exercisesLeft} left`
+      : `Resume workout · ${loggedSets} set${loggedSets === 1 ? '' : 's'} in`
 
   const greeting = (() => {
     const h = new Date().getHours()
@@ -55,8 +64,8 @@ export function Today() {
           <div className="label">this week</div>
         </div>
         <div className="stat">
-          <div className="num">{stats.totalSessions}</div>
-          <div className="label">total</div>
+          <div className="num">{stats.totalWorkouts}</div>
+          <div className="label">workouts</div>
         </div>
         <div className="stat">
           <div className="num">
@@ -68,9 +77,7 @@ export function Today() {
 
       <button className="btn btn-primary btn-lg btn-block" onClick={startSession}>
         <Play size={20} />
-        {activeSession
-          ? `Resume workout · ${loggedSets} set${loggedSets === 1 ? '' : 's'} in`
-          : 'Start workout'}
+        {startLabel}
       </button>
 
       <div className="coach coach-info" style={{ marginTop: 12 }}>

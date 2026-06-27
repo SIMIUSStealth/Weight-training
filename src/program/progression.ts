@@ -143,6 +143,8 @@ export interface Recommendation {
   targetSeconds?: number
   /** Per-set values from the most recent completed session (to beat). */
   lastSets: number[]
+  /** Weight used in that most recent completed session (kg). */
+  lastWeightKg?: number
   hasHistory: boolean
   justLeveledUp: boolean
   stalled: boolean
@@ -270,6 +272,7 @@ export function computeRecommendation(
   return {
     ...base,
     lastSets,
+    lastWeightKg: last.weightKg,
     hasHistory: true,
     justLeveledUp,
     stalled,

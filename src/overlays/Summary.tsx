@@ -9,6 +9,7 @@ export function Summary({ summary }: { summary: SessionSummary }) {
   const setExerciseWeight = useStore((s) => s.setExerciseWeight)
   const setTab = useStore((s) => s.setTab)
   const closeOverlay = useStore((s) => s.closeOverlay)
+  const resumeSession = useStore((s) => s.resumeSession)
 
   const done = () => {
     closeOverlay()
@@ -33,11 +34,27 @@ export function Summary({ summary }: { summary: SessionSummary }) {
           >
             <Check size={34} />
           </div>
-          <h1 style={{ margin: '14px 0 2px' }}>Session logged</h1>
+          <h1 style={{ margin: '14px 0 2px' }}>
+            {summary.split ? `Part ${summary.split.part - 1} logged` : 'Session logged'}
+          </h1>
           <div className="muted small">
             {summary.setsLogged} sets · {summary.durationMin} min
           </div>
         </div>
+
+        {summary.split && (
+          <div className="coach coach-info" style={{ marginBottom: 4 }}>
+            <span className="ico">
+              <Trophy size={17} />
+            </span>
+            <span>
+              {summary.split.remaining} exercise
+              {summary.split.remaining === 1 ? '' : 's'} saved as{' '}
+              <strong>Part {summary.split.part}</strong> — finish them whenever. It
+              still counts as one workout this week.
+            </span>
+          </div>
+        )}
 
         {summary.levelUps.length > 0 ? (
           <>
@@ -120,9 +137,26 @@ export function Summary({ summary }: { summary: SessionSummary }) {
           </>
         )}
 
-        <button className="btn btn-primary btn-block btn-lg" style={{ marginTop: 24 }} onClick={done}>
-          Done
-        </button>
+        {summary.split ? (
+          <div style={{ marginTop: 24 }}>
+            <button
+              className="btn btn-primary btn-block btn-lg"
+              onClick={() => {
+                closeOverlay()
+                resumeSession()
+              }}
+            >
+              Continue Part {summary.split.part} now
+            </button>
+            <button className="btn btn-ghost btn-block" style={{ marginTop: 8 }} onClick={done}>
+              Later
+            </button>
+          </div>
+        ) : (
+          <button className="btn btn-primary btn-block btn-lg" style={{ marginTop: 24 }} onClick={done}>
+            Done
+          </button>
+        )}
       </div>
     </div>
   )

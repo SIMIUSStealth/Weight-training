@@ -13,6 +13,8 @@ export interface ExercisePoint {
   total: number
   /** Rough work done: weight × total reps (reps), or total seconds (plank). */
   load: number
+  /** Per-set values (reps, or seconds for the plank). */
+  sets: number[]
   isTime: boolean
 }
 
@@ -40,6 +42,7 @@ export function exerciseSeries(
         best,
         total,
         load,
+        sets: vals,
         isTime,
       } satisfies ExercisePoint
     })
@@ -57,10 +60,17 @@ function startOfWeek(d: Date): Date {
 }
 
 export interface OverviewStats {
-  totalSessions: number
+  /** Distinct logical workouts (split parts count as one). */
+  totalWorkouts: number
+  /** Distinct logical workouts trained this week (toward the base of 3). */
   thisWeek: number
   lastSessionAt: string | null
   daysSinceLast: number | null
+}
+
+/** The logical-workout key — parts of a split day share it. */
+export function groupKey(s: SessionLog): string {
+  return s.groupId ?? s.id
 }
 
 export function overview(sessions: SessionLog[]): OverviewStats {
@@ -68,9 +78,12 @@ export function overview(sessions: SessionLog[]): OverviewStats {
     .filter((s) => s.completedAt)
     .sort((a, b) => (a.completedAt! < b.completedAt! ? 1 : -1))
   const weekStart = startOfWeek(new Date())
-  const thisWeek = completed.filter(
-    (s) => new Date(s.completedAt!) >= weekStart,
-  ).length
+  const allGroups = new Set(completed.map(groupKey))
+  const weekGroups = new Set(
+    completed
+      .filter((s) => new Date(s.completedAt!) >= weekStart)
+      .map(groupKey),
+  )
   const lastSessionAt = completed[0]?.completedAt ?? null
   let daysSinceLast: number | null = null
   if (lastSessionAt) {
@@ -78,8 +91,8 @@ export function overview(sessions: SessionLog[]): OverviewStats {
     daysSinceLast = Math.floor(ms / 86_400_000)
   }
   return {
-    totalSessions: completed.length,
-    thisWeek,
+    totalWorkouts: allGroups.size,
+    thisWeek: weekGroups.size,
     lastSessionAt,
     daysSinceLast,
   }
