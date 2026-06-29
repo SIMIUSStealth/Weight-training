@@ -44,6 +44,16 @@ body,
   margin: 0;
 }
 
+/*
+ * Always reserve the scrollbar gutter so navigating between a tall page
+ * (Today/Progress) and a short one (History) doesn't shift the centered
+ * column and bottom nav sideways. Harmless on overlay-scrollbar systems
+ * (iOS/macOS), essential on classic-scrollbar ones.
+ */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   background: var(--bg);
   color: var(--text);
