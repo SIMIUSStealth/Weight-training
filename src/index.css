@@ -44,16 +44,6 @@ body,
   margin: 0;
 }
 
-/*
- * Always reserve the scrollbar gutter so navigating between a tall page
- * (Today/Progress) and a short one (History) doesn't shift the centered
- * column and bottom nav sideways. Harmless on overlay-scrollbar systems
- * (iOS/macOS), essential on classic-scrollbar ones.
- */
-html {
-  scrollbar-gutter: stable;
-}
-
 body {
   background: var(--bg);
   color: var(--text);
@@ -77,18 +67,33 @@ select {
 
 /* ---------- app shell ---------- */
 
+/*
+ * Fixed-height app shell: the shell is exactly the viewport tall, the active
+ * screen scrolls INSIDE it, and the bottom nav is a normal element at the
+ * end. This avoids iOS standalone's `position: fixed; bottom: 0` bug, where a
+ * fixed bottom bar anchors to the bottom of short content (leaving a gap)
+ * instead of the screen. 100dvh tracks Safari's dynamic toolbar; 100vh is the
+ * fallback (and is correct in a home-screen PWA, which has no toolbar).
+ */
 .app {
   max-width: 520px;
   margin: 0 auto;
-  min-height: 100%;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   position: relative;
+  overflow: hidden;
 }
 
 .screen {
   flex: 1;
-  padding: calc(var(--safe-top) + 14px) 16px 96px;
+  min-height: 0; /* let the flex child actually scroll */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable; /* no sideways shift between tall/short tabs */
+  padding: calc(var(--safe-top) + 14px) 16px 28px;
 }
 
 .topbar {
@@ -125,17 +130,10 @@ select {
 /* ---------- bottom nav ---------- */
 
 .bottom-nav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 30;
-  max-width: 520px;
-  margin: 0 auto;
+  flex-shrink: 0; /* always sits at the bottom of the shell, never squished */
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   background: rgba(15, 20, 27, 0.92);
-  backdrop-filter: blur(14px);
   border-top: 1px solid var(--border);
   padding: 8px 8px calc(var(--safe-bottom) + 8px);
 }
@@ -526,6 +524,7 @@ select {
 }
 .overlay-body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 16px 16px 120px;
