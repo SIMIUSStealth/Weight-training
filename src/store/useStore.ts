@@ -114,6 +114,10 @@ interface StoreState {
   // settings + data
   updateSettings: (patch: Partial<Settings>) => void
   deleteSession: (id: string) => void
+  /** Build a backup object from the current in-memory state (synchronous). */
+  getBackup: () => BackupFile
+  /** Stamp "last backed up" as now. */
+  recordBackup: () => void
   exportData: () => Promise<BackupFile>
   importData: (file: BackupFile) => Promise<void>
   resetEverything: () => Promise<void>
@@ -437,6 +441,22 @@ export const useStore = create<StoreState>((set, get) => ({
     void dbDeleteSession(id)
     set({ sessions: get().sessions.filter((s) => s.id !== id), overlay: null })
   },
+
+  getBackup: () => {
+    const { sessions, progress, bodyStats, settings } = get()
+    return {
+      app: 'iron-ladder',
+      version: settings.version ?? 1,
+      exportedAt: new Date().toISOString(),
+      sessions,
+      progress: Object.values(progress),
+      bodyStats,
+      settings,
+    }
+  },
+
+  recordBackup: () =>
+    get().updateSettings({ lastBackupAt: new Date().toISOString() }),
 
   exportData: () => exportBackup(),
 

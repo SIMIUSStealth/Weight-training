@@ -4,8 +4,9 @@ import { computeRecommendation } from '../program/progression'
 import { formatKg } from '../program/ladder'
 import { formatSeconds, overview, relativeDay } from '../program/analytics'
 import { useStore } from '../store/useStore'
+import { performBackup, daysSince } from '../ui/backup'
 import { muscleColor } from '../ui/components'
-import { ArrowUp, Alert, Flame, Play, Timer } from '../ui/icons'
+import { ArrowUp, Alert, Download, Flame, Play, Timer } from '../ui/icons'
 
 export function Today() {
   const sessions = useStore((s) => s.sessions)
@@ -13,8 +14,19 @@ export function Today() {
   const activeSession = useStore((s) => s.activeSession)
   const startSession = useStore((s) => s.startSession)
   const openOverlay = useStore((s) => s.openOverlay)
+  const settings = useStore((s) => s.settings)
+  const getBackup = useStore((s) => s.getBackup)
+  const recordBackup = useStore((s) => s.recordBackup)
 
   const stats = useMemo(() => overview(sessions), [sessions])
+
+  const sinceBackup = daysSince(settings.lastBackupAt)
+  const backupOverdue =
+    sessions.length > 0 && (sinceBackup == null || sinceBackup >= 7)
+  const backupNow = async () => {
+    const res = await performBackup(getBackup())
+    if (res !== 'cancelled') recordBackup()
+  }
 
   const recs = useMemo(
     () =>
@@ -89,6 +101,28 @@ export function Today() {
           Take a rest day between sessions.
         </span>
       </div>
+
+      {backupOverdue && (
+        <div className="coach coach-stall" style={{ marginTop: 12 }}>
+          <span className="ico">
+            <Download size={17} />
+          </span>
+          <span className="grow">
+            Back up your training —{' '}
+            {sinceBackup == null
+              ? 'you haven’t yet'
+              : `last backup ${sinceBackup} days ago`}
+            .
+          </span>
+          <button
+            className="btn btn-sm"
+            style={{ flexShrink: 0, alignSelf: 'center' }}
+            onClick={backupNow}
+          >
+            Back up
+          </button>
+        </div>
+      )}
 
       <div className="eyebrow">Today&rsquo;s targets</div>
       <div className="card" style={{ padding: '4px 16px' }}>

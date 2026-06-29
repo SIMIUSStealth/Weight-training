@@ -80,6 +80,29 @@ describe('store: full workout → progression → persistence', () => {
   })
 })
 
+describe('store: backup', () => {
+  beforeEach(async () => {
+    await useStore.getState().resetEverything()
+  })
+
+  it('builds a backup from current state and stamps the time', async () => {
+    const s = useStore.getState()
+    s.startSession()
+    logSet('floor-press', 0, 9)
+    s.finishSession()
+
+    const backup = useStore.getState().getBackup()
+    expect(backup.app).toBe('iron-ladder')
+    expect(backup.sessions).toHaveLength(1)
+    expect(backup.progress.length).toBeGreaterThan(0)
+    expect(typeof backup.exportedAt).toBe('string')
+
+    expect(useStore.getState().settings.lastBackupAt).toBeUndefined()
+    useStore.getState().recordBackup()
+    expect(useStore.getState().settings.lastBackupAt).toBeTruthy()
+  })
+})
+
 describe('store: splitting a workout into parts', () => {
   beforeEach(async () => {
     await useStore.getState().resetEverything()

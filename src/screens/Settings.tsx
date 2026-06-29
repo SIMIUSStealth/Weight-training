@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react'
 import { useStore } from '../store/useStore'
+import { relativeDay } from '../program/analytics'
+import { performBackup, daysSince } from '../ui/backup'
 import { Modal, Segmented, Stepper } from '../ui/components'
 import { Download, Trash, Upload } from '../ui/icons'
 import type { BackupFile } from '../storage/types'
@@ -7,7 +9,8 @@ import type { BackupFile } from '../storage/types'
 export function Settings() {
   const settings = useStore((s) => s.settings)
   const updateSettings = useStore((s) => s.updateSettings)
-  const exportData = useStore((s) => s.exportData)
+  const getBackup = useStore((s) => s.getBackup)
+  const recordBackup = useStore((s) => s.recordBackup)
   const importData = useStore((s) => s.importData)
   const resetEverything = useStore((s) => s.resetEverything)
   const sessions = useStore((s) => s.sessions)
@@ -17,25 +20,14 @@ export function Settings() {
   const [confirmReset, setConfirmReset] = useState(false)
   const [showAbout, setShowAbout] = useState(false)
 
-  const doExport = async () => {
-    try {
-      const data = await exportData()
-      const blob = new Blob([JSON.stringify(data, null, 2)], {
-        type: 'application/json',
-      })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `iron-ladder-backup-${new Date().toISOString().slice(0, 10)}.json`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
-      setStatus('Backup downloaded.')
-    } catch {
-      setStatus('Could not export.')
-    }
+  const backupNow = async () => {
+    const res = await performBackup(getBackup())
+    if (res === 'cancelled') return
+    recordBackup()
+    setStatus(res === 'shared' ? 'Backup shared. ✓' : 'Backup downloaded. ✓')
   }
+
+  const lastBackup = daysSince(settings.lastBackupAt)
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -92,20 +84,38 @@ export function Settings() {
         </div>
       </div>
 
-      <div className="eyebrow">Your data</div>
+      <div className="eyebrow">Backup &amp; data</div>
       <div className="card">
+        <div className="row between" style={{ marginBottom: 10 }}>
+          <div className="small muted">Last backed up</div>
+          <div
+            className="small"
+            style={{
+              fontWeight: 700,
+              color:
+                lastBackup == null || lastBackup >= 7
+                  ? 'var(--accent)'
+                  : 'var(--success)',
+            }}
+          >
+            {settings.lastBackupAt ? relativeDay(settings.lastBackupAt) : 'never'}
+          </div>
+        </div>
         <div className="small muted" style={{ marginBottom: 12 }}>
-          Everything is stored on this device. Export a backup to move to a new
-          phone — or just to keep it safe.
+          Your data lives on this device. Back up weekly — on iPhone, tap below
+          and choose <strong>Mail</strong> to email it to yourself, or{' '}
+          <strong>Save to Files</strong> for iCloud.
         </div>
-        <div className="row" style={{ gap: 10 }}>
-          <button className="btn btn-block" onClick={doExport}>
-            <Download size={18} /> Export
-          </button>
-          <button className="btn btn-block" onClick={() => fileRef.current?.click()}>
-            <Upload size={18} /> Import
-          </button>
-        </div>
+        <button className="btn btn-primary btn-block" onClick={backupNow}>
+          <Download size={18} /> Back up now
+        </button>
+        <button
+          className="btn btn-block"
+          style={{ marginTop: 10 }}
+          onClick={() => fileRef.current?.click()}
+        >
+          <Upload size={18} /> Restore from a backup
+        </button>
         <input
           ref={fileRef}
           type="file"

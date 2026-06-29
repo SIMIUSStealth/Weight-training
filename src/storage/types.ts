@@ -73,6 +73,8 @@ export interface Settings {
   restAlert: boolean
   /** Target bodyweight for protein guidance, in kg (optional). */
   bodyweightKg?: number
+  /** ISO time of the last backup (export/share), for the weekly reminder. */
+  lastBackupAt?: string
   /** Schema version, for future migrations. */
   version: number
 }
