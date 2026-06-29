@@ -210,7 +210,35 @@ export function computeRecommendation(
   }
 
   const last = logs[0].log
-  const lastSets = doneSets(last).map((s) => setValue(s, def.kind))
+
+  // Per-set "last completed" values. For each set position, take the most
+  // recent session where THAT set was actually completed; if a position has
+  // never been completed, fall back to the most recent completed set overall.
+  // This way the workout always shows a real number to beat — never a blank
+  // for a set you didn't finish last time.
+  const completedLogs = logs.map((l) => l.log)
+  let lastCompletedValue: number | undefined
+  for (const log of completedLogs) {
+    for (let i = log.sets.length - 1; i >= 0; i--) {
+      if (log.sets[i]?.done) {
+        lastCompletedValue = setValue(log.sets[i], def.kind)
+        break
+      }
+    }
+    if (lastCompletedValue !== undefined) break
+  }
+  const lastSets: number[] = []
+  for (let i = 0; i < def.sets; i++) {
+    let v: number | undefined
+    for (const log of completedLogs) {
+      if (log.sets[i]?.done) {
+        v = setValue(log.sets[i], def.kind)
+        break
+      }
+    }
+    const filled = v ?? lastCompletedValue
+    if (filled !== undefined) lastSets.push(filled)
+  }
 
   // Just leveled up? Last session was logged a rung lower (reps), or held the
   // previous (lower) plank target on every set.

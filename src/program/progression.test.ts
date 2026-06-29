@@ -160,6 +160,41 @@ describe('computeRecommendation', () => {
     expect(rec.lastWeightKg).toBe(8)
   })
 
+  it('fills a set you did not finish with your last completed value (never null)', () => {
+    const partial: SetLog[] = [
+      { reps: 10, done: true },
+      { reps: 9, done: true },
+      { done: false }, // never finished the 3rd set
+    ]
+    const sessions = [
+      session('s1', '2026-01-01T10:00:00Z', [
+        { exerciseId: 'floor-press', weightKg: 8, sets: partial },
+      ]),
+    ]
+    const rec = computeRecommendation(floor, progressFor('floor-press'), sessions)
+    expect(rec.lastSets).toHaveLength(3)
+    expect(rec.lastSets).toEqual([10, 9, 9]) // 3rd falls back to last completed (9)
+  })
+
+  it('looks back to an earlier session for a set not completed recently', () => {
+    const older = session('s1', '2026-01-01T10:00:00Z', [
+      repLog('floor-press', 8, reps(11, 11, 11)),
+    ])
+    const recent = session('s2', '2026-01-03T10:00:00Z', [
+      {
+        exerciseId: 'floor-press',
+        weightKg: 8,
+        sets: [
+          { reps: 12, done: true },
+          { reps: 10, done: true },
+          { done: false },
+        ],
+      },
+    ])
+    const rec = computeRecommendation(floor, progressFor('floor-press'), [older, recent])
+    expect(rec.lastSets).toEqual([12, 10, 11]) // set 3 falls back to the older session
+  })
+
   it('explains the rep drop right after a level-up', () => {
     // Last session logged at 8kg hit 3x12; progress now sits on 9kg.
     const sessions = [session('s1', '2026-01-03T10:00:00Z', [repLog('floor-press', 8, reps(12, 12, 12))])]
