@@ -2,6 +2,21 @@
 // user, no accounts. All of it is JSON-serialisable so it can be exported and
 // re-imported as a backup.
 
+import type { Muscle } from '../program/exercises'
+
+/**
+ * One weekday in the weekly plan. A day trains a set of muscle groups; the
+ * exercises are derived from those groups' slots (using the global per-slot
+ * choice), minus any omitted slots, plus any added extras. Empty = rest day.
+ */
+export interface DayPlan {
+  muscles: Muscle[]
+  /** Slot ids excluded from this day. */
+  omit?: string[]
+  /** Extra exercise ids added to this day (beyond the slot defaults). */
+  add?: string[]
+}
+
 /** One logged set within an exercise. */
 export interface SetLog {
   /** Reps achieved (reps exercises). */
@@ -48,6 +63,8 @@ export interface SessionLog {
   groupId?: string
   /** 1-based part index within the group (1 = the first sitting). */
   part?: number
+  /** Which weekly-plan day this session belongs to (0 = Mon … 6 = Sun). */
+  weekday?: number
 }
 
 /** Per-exercise progression state — the current rung each exercise sits on. */
@@ -85,6 +102,8 @@ export interface Settings {
    * slot's base exercise. Lives here so it rides along in backups.
    */
   program?: Record<string, string>
+  /** The weekly plan — 7 days, Mon..Sun. Missing = the default full-body M/W/F. */
+  weeklyPlan?: DayPlan[]
   /** Schema version, for future migrations. */
   version: number
 }

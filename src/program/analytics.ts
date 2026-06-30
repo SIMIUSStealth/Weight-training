@@ -1,7 +1,7 @@
 // Derived stats for the tracking screens — pure functions over the session log.
 
 import { getExercise, MUSCLE_ORDER, type Muscle } from './exercises'
-import type { SessionLog } from '../storage/types'
+import type { DayPlan, SessionLog } from '../storage/types'
 
 export interface ExercisePoint {
   /** ISO date-time of the session. */
@@ -141,6 +141,53 @@ export function weeklyVolume(sessions: SessionLog[]): MuscleVolume[] {
     sets: acc.get(muscle)!.sets,
     days: acc.get(muscle)!.days.size,
   }))
+}
+
+// ---------- weekly-plan day status ----------
+
+export type DayStatus = 'rest' | 'todo' | 'inprogress' | 'done'
+
+export interface WeekDayView {
+  weekday: number
+  muscles: Muscle[]
+  status: DayStatus
+}
+
+function completedWeekdaysThisWeek(sessions: SessionLog[]): Set<number> {
+  const weekStart = startOfWeek(new Date())
+  const days = new Set<number>()
+  for (const s of sessions) {
+    if (
+      s.completedAt &&
+      s.weekday != null &&
+      new Date(s.completedAt) >= weekStart
+    ) {
+      days.add(s.weekday)
+    }
+  }
+  return days
+}
+
+/** Per-weekday view for the current week: muscles + status. */
+export function weekStatuses(
+  plan: DayPlan[],
+  sessions: SessionLog[],
+  active: SessionLog | null,
+): WeekDayView[] {
+  const done = completedWeekdaysThisWeek(sessions)
+  return plan.map((day, weekday) => {
+    let status: DayStatus
+    if (!day.muscles.length) status = 'rest'
+    else if (active && active.weekday === weekday) status = 'inprogress'
+    else if (done.has(weekday)) status = 'done'
+    else status = 'todo'
+    return { weekday, muscles: day.muscles, status }
+  })
+}
+
+/** Distinct planned days completed this week (toward the weekly target). */
+export function doneDaysThisWeek(sessions: SessionLog[]): number {
+  return completedWeekdaysThisWeek(sessions).size
 }
 
 /** Format plank seconds as e.g. "1:05" or "45s". */

@@ -21,7 +21,7 @@ describe('store: full workout → progression → persistence', () => {
 
   it('levels up the right exercises, records nudges, and persists state', async () => {
     const s = useStore.getState()
-    s.startSession()
+    s.startDay(0)
     expect(useStore.getState().activeSession).not.toBeNull()
 
     // Floor Press: 3×12 at the starting 8 kg → should level up to 9 kg.
@@ -71,7 +71,7 @@ describe('store: full workout → progression → persistence', () => {
   })
 
   it('does not level up when sets fall short of the top', async () => {
-    useStore.getState().startSession()
+    useStore.getState().startDay(0)
     logSet('biceps-curl', 0, 10)
     logSet('biceps-curl', 1, 9)
     logSet('biceps-curl', 2, 8)
@@ -87,7 +87,7 @@ describe('store: backup', () => {
 
   it('builds a backup from current state and stamps the time', async () => {
     const s = useStore.getState()
-    s.startSession()
+    s.startDay(0)
     logSet('floor-press', 0, 9)
     s.finishSession()
 
@@ -113,7 +113,7 @@ describe('store: swapping exercises', () => {
     expect(useStore.getState().settings.program?.['arm-biceps']).toBe('hammer-curl')
     expect(useStore.getState().progress['hammer-curl']?.currentWeightKg).toBe(8)
 
-    useStore.getState().startSession()
+    useStore.getState().startDay(0)
     const ids = useStore.getState().activeSession!.exercises.map((e) => e.exerciseId)
     expect(ids).toHaveLength(11) // structure preserved
     expect(ids).toContain('hammer-curl')
@@ -137,6 +137,46 @@ describe('store: swapping exercises', () => {
   })
 })
 
+describe('store: weekly plan', () => {
+  beforeEach(async () => {
+    await useStore.getState().resetEverything()
+  })
+
+  it('startDay builds a session for that day’s muscles and tags the weekday', () => {
+    const s = useStore.getState()
+    // Default Monday is full body — pare it to Chest + Arms.
+    s.toggleDayMuscle(0, 'Shoulders')
+    s.toggleDayMuscle(0, 'Forearms')
+    s.toggleDayMuscle(0, 'Abs')
+    useStore.getState().startDay(0)
+    const active = useStore.getState().activeSession!
+    expect(active.weekday).toBe(0)
+    expect(active.exercises.map((e) => e.exerciseId)).toEqual([
+      'floor-press',
+      'chest-flye',
+      'biceps-curl',
+      'triceps-extension',
+    ])
+  })
+
+  it('does not start a different day while one is in progress', () => {
+    const s = useStore.getState()
+    s.startDay(0)
+    const firstId = useStore.getState().activeSession!.id
+    s.startDay(2) // Wednesday — ignored: one workout at a time
+    expect(useStore.getState().activeSession!.id).toBe(firstId)
+    expect(useStore.getState().activeSession!.weekday).toBe(0)
+  })
+
+  it('adds and removes exercises within a day', () => {
+    const s = useStore.getState()
+    s.addExerciseToDay(0, 'squeeze-press')
+    expect(useStore.getState().settings.weeklyPlan![0].add).toContain('squeeze-press')
+    s.removeExerciseFromDay(0, 'chest-flye')
+    expect(useStore.getState().settings.weeklyPlan![0].omit).toContain('chest-stretch')
+  })
+})
+
 describe('store: splitting a workout into parts', () => {
   beforeEach(async () => {
     await useStore.getState().resetEverything()
@@ -144,7 +184,7 @@ describe('store: splitting a workout into parts', () => {
 
   it('commits performed exercises and queues the rest as Part 2', async () => {
     const s = useStore.getState()
-    s.startSession()
+    s.startDay(0)
 
     // Do only the first two exercises, then split.
     logSet('floor-press', 0, 10)

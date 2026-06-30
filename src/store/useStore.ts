@@ -1,10 +1,18 @@
 import { create } from 'zustand'
 import {
   getExercise,
-  getProgram,
+  getSlot,
+  SLOTS_BY_ID,
   type ExerciseDef,
   type ExerciseKind,
+  type Muscle,
 } from '../program/exercises'
+import {
+  dayExercises,
+  defaultWeeklyPlan,
+  getWeeklyPlan,
+  selectedForSlot,
+} from '../program/plan'
 import { formatKg } from '../program/ladder'
 import {
   applyProgression,
@@ -30,6 +38,7 @@ import {
 import type {
   BackupFile,
   BodyStat,
+  DayPlan,
   ExerciseLog,
   ExerciseProgress,
   SessionLog,
@@ -72,6 +81,7 @@ export type Overlay =
   | { name: 'exercise'; exerciseId: string }
   | { name: 'session'; sessionId: string }
   | { name: 'summary'; summary: SessionSummary }
+  | { name: 'day'; weekday: number }
 
 interface StoreState {
   loaded: boolean
@@ -93,7 +103,7 @@ interface StoreState {
   closeOverlay: () => void
 
   // workout flow
-  startSession: () => void
+  startDay: (weekday: number) => void
   resumeSession: () => void
   cancelSession: () => void
   updateSet: (
@@ -109,6 +119,11 @@ interface StoreState {
 
   // program / swaps
   swapExercise: (slotId: string, exerciseId: string) => void
+
+  // weekly plan editing
+  toggleDayMuscle: (weekday: number, muscle: string) => void
+  addExerciseToDay: (weekday: number, exerciseId: string) => void
+  removeExerciseFromDay: (weekday: number, exerciseId: string) => void
 
   // manual progression overrides
   setExerciseWeight: (exerciseId: string, weightKg: number) => void
@@ -130,20 +145,49 @@ interface StoreState {
   resetEverything: () => Promise<void>
 }
 
-function freshActiveSession(
-  program: ExerciseDef[],
+function sessionFromExercises(
+  defs: ExerciseDef[],
   progress: Record<string, ExerciseProgress>,
+  weekday: number,
 ): SessionLog {
   return {
     id: uid(),
     startedAt: new Date().toISOString(),
     part: 1,
-    exercises: program.map((def) => ({
+    weekday,
+    exercises: defs.map((def) => ({
       exerciseId: def.id,
       weightKg: progress[def.id]?.currentWeightKg ?? def.startWeightKg,
       sets: Array.from({ length: def.sets }, () => ({ done: false }) as SetLog),
     })),
   }
+}
+
+/** Deep-ish copy of a weekly plan so edits never mutate stored state. */
+function clonePlan(plan: DayPlan[]): DayPlan[] {
+  return plan.map((d) => ({
+    muscles: [...d.muscles],
+    omit: d.omit ? [...d.omit] : undefined,
+    add: d.add ? [...d.add] : undefined,
+  }))
+}
+
+/** Every distinct exercise the current plan can use (for seeding progress). */
+function planExerciseDefs(
+  plan: DayPlan[],
+  program?: Record<string, string>,
+): ExerciseDef[] {
+  const seen = new Set<string>()
+  const defs: ExerciseDef[] = []
+  for (const day of plan) {
+    for (const def of dayExercises(day, program)) {
+      if (!seen.has(def.id)) {
+        seen.add(def.id)
+        defs.push(def)
+      }
+    }
+  }
+  return defs
 }
 
 /** Ensure every exercise in `defs` has a progression row, seeding any missing. */
@@ -268,18 +312,27 @@ export const useStore = create<StoreState>((set, get) => ({
 
   init: async () => {
     const data = await loadAll()
+    // Seed the default weekly plan on first run.
+    let settings = data.settings
+    if (!settings.weeklyPlan) {
+      settings = { ...settings, weeklyPlan: defaultWeeklyPlan() }
+      void putSettings(settings)
+    }
     const loaded: Record<string, ExerciseProgress> = {}
     for (const p of data.progress) loaded[p.exerciseId] = p
-    // Make sure the currently-selected program all has progression rows.
-    const program = getProgram(data.settings.program)
-    const { progress, seeded } = withSeededProgress(program, loaded)
+    // Make sure every exercise the plan can use has a progression row.
+    const plan = getWeeklyPlan(settings.weeklyPlan)
+    const { progress, seeded } = withSeededProgress(
+      planExerciseDefs(plan, settings.program),
+      loaded,
+    )
     if (seeded.length) void putProgress(seeded)
     set({
       loaded: true,
       sessions: data.sessions,
       progress,
       bodyStats: data.bodyStats,
-      settings: data.settings,
+      settings,
       activeSession: data.activeSession,
     })
     void requestPersistentStorage()
@@ -289,19 +342,23 @@ export const useStore = create<StoreState>((set, get) => ({
   openOverlay: (overlay) => set({ overlay }),
   closeOverlay: () => set({ overlay: null }),
 
-  startSession: () => {
-    const existing = get().activeSession
-    if (existing) {
-      void putActiveSession(existing)
-      set({ activeSession: existing, overlay: { name: 'workout' } })
-      return
-    }
-    const program = getProgram(get().settings.program)
-    const { progress, seeded } = withSeededProgress(program, get().progress)
-    if (seeded.length) void putProgress(seeded)
-    const session = freshActiveSession(program, progress)
+  startDay: (weekday) => {
+    if (get().activeSession) return // finish or discard the current one first
+    const { settings, progress } = get()
+    const plan = getWeeklyPlan(settings.weeklyPlan)
+    const day = plan[weekday]
+    if (!day || !day.muscles.length) return
+    const defs = dayExercises(day, settings.program)
+    if (!defs.length) return
+    const res = withSeededProgress(defs, progress)
+    if (res.seeded.length) void putProgress(res.seeded)
+    const session = sessionFromExercises(defs, res.progress, weekday)
     void putActiveSession(session)
-    set({ progress, activeSession: session, overlay: { name: 'workout' } })
+    set({
+      progress: res.progress,
+      activeSession: session,
+      overlay: { name: 'workout' },
+    })
   },
 
   resumeSession: () => {
@@ -417,6 +474,7 @@ export const useStore = create<StoreState>((set, get) => ({
       startedAt: new Date().toISOString(),
       groupId,
       part: part + 1,
+      weekday: activeSession.weekday,
       exercises: remaining.map((e) => ({
         exerciseId: e.exerciseId,
         weightKg: e.weightKg,
@@ -460,6 +518,71 @@ export const useStore = create<StoreState>((set, get) => ({
       void putProgress([p])
       set({ progress: { ...cur, [exerciseId]: p } })
     }
+  },
+
+  toggleDayMuscle: (weekday, muscle) => {
+    const plan = clonePlan(getWeeklyPlan(get().settings.weeklyPlan))
+    const day = plan[weekday]
+    if (!day) return
+    if (day.muscles.includes(muscle as Muscle)) {
+      day.muscles = day.muscles.filter((m) => m !== muscle)
+      day.omit = day.omit?.filter((id) => SLOTS_BY_ID[id]?.muscle !== muscle)
+      day.add = day.add?.filter((id) => getExercise(id).muscle !== muscle)
+    } else {
+      day.muscles = [...day.muscles, muscle as Muscle]
+    }
+    get().updateSettings({ weeklyPlan: plan })
+    const res = withSeededProgress(
+      dayExercises(day, get().settings.program),
+      get().progress,
+    )
+    if (res.seeded.length) {
+      void putProgress(res.seeded)
+      set({ progress: res.progress })
+    }
+  },
+
+  addExerciseToDay: (weekday, exerciseId) => {
+    const def = getExercise(exerciseId)
+    const slot = getSlot(exerciseId)
+    const plan = clonePlan(getWeeklyPlan(get().settings.weeklyPlan))
+    const day = plan[weekday]
+    if (!day) return
+    if (!day.muscles.includes(def.muscle)) day.muscles = [...day.muscles, def.muscle]
+    const isSlotDefault =
+      slot && selectedForSlot(slot.id, get().settings.program) === exerciseId
+    if (isSlotDefault) {
+      day.omit = day.omit?.filter((id) => id !== slot.id)
+    } else if (!(day.add ?? []).includes(exerciseId)) {
+      day.add = [...(day.add ?? []), exerciseId]
+    }
+    get().updateSettings({ weeklyPlan: plan })
+    const cur = get().progress
+    if (!cur[exerciseId]) {
+      const p = defaultProgress(def)
+      void putProgress([p])
+      set({ progress: { ...cur, [exerciseId]: p } })
+    }
+  },
+
+  removeExerciseFromDay: (weekday, exerciseId) => {
+    const plan = clonePlan(getWeeklyPlan(get().settings.weeklyPlan))
+    const day = plan[weekday]
+    if (!day) return
+    if ((day.add ?? []).includes(exerciseId)) {
+      day.add = (day.add ?? []).filter((id) => id !== exerciseId)
+    } else {
+      const slot = getSlot(exerciseId)
+      if (slot) day.omit = [...(day.omit ?? []), slot.id]
+    }
+    // Drop the muscle entirely if it has no exercises left.
+    const muscle = getExercise(exerciseId).muscle
+    const left = dayExercises(
+      { ...day, muscles: [muscle] },
+      get().settings.program,
+    ).length
+    if (left === 0) day.muscles = day.muscles.filter((m) => m !== muscle)
+    get().updateSettings({ weeklyPlan: plan })
   },
 
   setExerciseWeight: (exerciseId, weightKg) => {

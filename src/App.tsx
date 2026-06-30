@@ -8,6 +8,7 @@ import { Workout } from './overlays/Workout'
 import { ExerciseDetail } from './overlays/ExerciseDetail'
 import { SessionDetail } from './overlays/SessionDetail'
 import { Summary } from './overlays/Summary'
+import { DayPlanView } from './overlays/DayPlanView'
 import { Chart, Gear, History as HistoryIcon, Home } from './ui/icons'
 
 const TABS: { id: Tab; label: string; Icon: typeof Home }[] = [
@@ -62,6 +63,7 @@ export default function App() {
       )}
       {overlay?.name === 'session' && <SessionDetail sessionId={overlay.sessionId} />}
       {overlay?.name === 'summary' && <Summary summary={overlay.summary} />}
+      {overlay?.name === 'day' && <DayPlanView weekday={overlay.weekday} />}
     </div>
   )
 }

@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { weeklyVolume, volumeBand } from './analytics'
+import {
+  weeklyVolume,
+  volumeBand,
+  weekStatuses,
+  doneDaysThisWeek,
+} from './analytics'
+import { defaultWeeklyPlan } from './plan'
 import type { SessionLog, SetLog } from '../storage/types'
 
 const doneSets = (n: number): SetLog[] =>
@@ -53,5 +59,31 @@ describe('weeklyVolume', () => {
     expect(volumeBand(5)).toBe('low')
     expect(volumeBand(12)).toBe('good')
     expect(volumeBand(25)).toBe('high')
+  })
+})
+
+describe('weekStatuses', () => {
+  it('marks rest / todo / inprogress / done for the week', () => {
+    const now = new Date().toISOString()
+    const plan = defaultWeeklyPlan() // train Mon / Wed / Fri
+    const active: SessionLog = {
+      id: 'a',
+      startedAt: now,
+      weekday: 0,
+      exercises: [],
+    }
+    const doneWed: SessionLog = {
+      id: 'w',
+      startedAt: now,
+      completedAt: now,
+      weekday: 2,
+      exercises: [{ exerciseId: 'floor-press', weightKg: 8, sets: doneSets(1) }],
+    }
+    const st = weekStatuses(plan, [doneWed], active)
+    expect(st[0].status).toBe('inprogress') // Mon active
+    expect(st[1].status).toBe('rest') // Tue
+    expect(st[2].status).toBe('done') // Wed completed
+    expect(st[4].status).toBe('todo') // Fri planned, not done
+    expect(doneDaysThisWeek([doneWed])).toBe(1)
   })
 })

@@ -15,6 +15,10 @@ Running list of shipped features and the backlog, so ideas aren't lost.
 - Light, token-driven design (`DESIGN.md`), app-shell layout.
 - **Effort / reps-in-reserve (RIR) logging + effort-aware coaching.**
 - **Per-muscle weekly volume tracker.**
+- **Weekly plan / split routine** — a Mon–Sun calendar of muscle-group days
+  (rest/to-do/in-progress/done), tap any day to train or edit it (toggle groups,
+  swap/add/remove exercises), with a per-muscle frequency hint. Splitting a day
+  shows it as "in progress," not a new entry; one workout open at a time.
 
 ## Backlog (prioritized)
 

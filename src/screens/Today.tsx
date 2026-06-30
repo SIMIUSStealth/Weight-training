@@ -1,59 +1,53 @@
 import { useMemo } from 'react'
-import { getProgram } from '../program/exercises'
-import { computeRecommendation, defaultProgress } from '../program/progression'
-import { formatKg } from '../program/ladder'
-import { formatSeconds, overview, relativeDay } from '../program/analytics'
+import { MUSCLE_ORDER } from '../program/exercises'
+import {
+  getWeeklyPlan,
+  todayIndex,
+  trainingDayCount,
+  WEEKDAYS,
+} from '../program/plan'
+import {
+  doneDaysThisWeek,
+  overview,
+  relativeDay,
+  weekStatuses,
+} from '../program/analytics'
 import { useStore } from '../store/useStore'
 import { performBackup, daysSince } from '../ui/backup'
 import { muscleColor } from '../ui/components'
-import { ArrowUp, Alert, Download, Flame, Play, Timer } from '../ui/icons'
+import { Check, Download, Play } from '../ui/icons'
+
+function dayLabelText(muscles: string[]): string {
+  if (!muscles.length) return 'Rest day'
+  if (muscles.length === MUSCLE_ORDER.length) return 'Full body'
+  return MUSCLE_ORDER.filter((m) => muscles.includes(m)).join(' · ')
+}
 
 export function Today() {
   const sessions = useStore((s) => s.sessions)
-  const progress = useStore((s) => s.progress)
-  const activeSession = useStore((s) => s.activeSession)
-  const startSession = useStore((s) => s.startSession)
-  const openOverlay = useStore((s) => s.openOverlay)
   const settings = useStore((s) => s.settings)
+  const activeSession = useStore((s) => s.activeSession)
+  const openOverlay = useStore((s) => s.openOverlay)
+  const resumeSession = useStore((s) => s.resumeSession)
   const getBackup = useStore((s) => s.getBackup)
   const recordBackup = useStore((s) => s.recordBackup)
 
+  const plan = useMemo(() => getWeeklyPlan(settings.weeklyPlan), [settings.weeklyPlan])
+  const statuses = useMemo(
+    () => weekStatuses(plan, sessions, activeSession),
+    [plan, sessions, activeSession],
+  )
   const stats = useMemo(() => overview(sessions), [sessions])
+  const target = trainingDayCount(plan)
+  const doneThisWeek = doneDaysThisWeek(sessions)
+  const today = todayIndex()
 
   const sinceBackup = daysSince(settings.lastBackupAt)
-  const backupOverdue =
-    sessions.length > 0 && (sinceBackup == null || sinceBackup >= 7)
+  const backupOverdue = sessions.length > 0 && (sinceBackup == null || sinceBackup >= 7)
   const backupNow = async () => {
     const res = await performBackup(getBackup())
     if (res !== 'cancelled') recordBackup()
   }
-
-  const program = useMemo(() => getProgram(settings.program), [settings.program])
-  const recs = useMemo(
-    () =>
-      program.map((def) => ({
-        def,
-        rec: computeRecommendation(
-          def,
-          progress[def.id] ?? defaultProgress(def),
-          sessions,
-        ),
-      })),
-    [program, progress, sessions],
-  )
-
-  const loggedSets = activeSession
-    ? activeSession.exercises.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0)
-    : 0
-  const exercisesLeft = activeSession
-    ? activeSession.exercises.filter((e) => !e.sets.some((s) => s.done)).length
-    : 0
-  const part = activeSession?.part ?? 1
-  const startLabel = !activeSession
-    ? 'Start workout'
-    : part > 1
-      ? `Continue · Part ${part} · ${exercisesLeft} left`
-      : `Resume workout · ${loggedSets} set${loggedSets === 1 ? '' : 's'} in`
 
   const greeting = (() => {
     const h = new Date().getHours()
@@ -61,6 +55,14 @@ export function Today() {
     if (h < 18) return 'Good afternoon'
     return 'Good evening'
   })()
+
+  const activeLeft = activeSession
+    ? activeSession.exercises.filter((e) => !e.sets.some((s) => s.done)).length
+    : 0
+  const activeLabel =
+    activeSession && activeSession.weekday != null
+      ? dayLabelText(plan[activeSession.weekday].muscles)
+      : 'Workout'
 
   return (
     <div className="screen fade-in">
@@ -77,7 +79,9 @@ export function Today() {
 
       <div className="stat-grid" style={{ marginBottom: 16 }}>
         <div className="stat">
-          <div className="num">{stats.thisWeek}/3</div>
+          <div className="num">
+            {doneThisWeek}/{target}
+          </div>
           <div className="label">this week</div>
         </div>
         <div className="stat">
@@ -92,20 +96,12 @@ export function Today() {
         </div>
       </div>
 
-      <button className="btn btn-primary btn-lg btn-block" onClick={startSession}>
-        <Play size={20} />
-        {startLabel}
-      </button>
-
-      <div className="coach coach-info" style={{ marginTop: 12 }}>
-        <span className="ico">
-          <Flame size={17} />
-        </span>
-        <span>
-          Full-body session, 11 movements, 3 sets each. Warm up ~5 min first.
-          Take a rest day between sessions.
-        </span>
-      </div>
+      {activeSession && (
+        <button className="btn btn-primary btn-lg btn-block" onClick={resumeSession}>
+          <Play size={20} />
+          Resume · {activeLabel} · {activeLeft} left
+        </button>
+      )}
 
       {backupOverdue && (
         <div className="coach coach-stall" style={{ marginTop: 12 }}>
@@ -114,10 +110,7 @@ export function Today() {
           </span>
           <span className="grow">
             Back up your training —{' '}
-            {sinceBackup == null
-              ? 'you haven’t yet'
-              : `last backup ${sinceBackup} days ago`}
-            .
+            {sinceBackup == null ? 'you haven’t yet' : `last backup ${sinceBackup} days ago`}.
           </span>
           <button
             className="btn btn-sm"
@@ -129,57 +122,69 @@ export function Today() {
         </div>
       )}
 
-      <div className="eyebrow">Today&rsquo;s targets</div>
+      <div className="eyebrow">Your week</div>
       <div className="card" style={{ padding: '4px 16px' }}>
-        {recs.map(({ def, rec }) => (
-          <button
-            key={def.id}
-            className="list-row"
-            style={{ width: '100%', background: 'none', border: 0, color: 'inherit' }}
-            onClick={() => openOverlay({ name: 'exercise', exerciseId: def.id })}
-          >
-            <span
-              className="set-no"
-              style={{ background: 'transparent', color: muscleColor(def.muscle) }}
+        {statuses.map((d) => {
+          const isToday = d.weekday === today
+          const isFull = d.muscles.length === MUSCLE_ORDER.length
+          return (
+            <button
+              key={d.weekday}
+              className="list-row"
+              style={{ width: '100%', background: 'none', border: 0, color: 'inherit', textAlign: 'left' }}
+              onClick={() => openOverlay({ name: 'day', weekday: d.weekday })}
             >
-              ●
-            </span>
-            <div className="grow" style={{ textAlign: 'left' }}>
-              <div className="row" style={{ gap: 8 }}>
-                <span style={{ fontWeight: 700 }}>{def.name}</span>
-                {rec.justLeveledUp && (
-                  <span style={{ color: 'var(--success)' }}>
-                    <ArrowUp size={15} />
-                  </span>
-                )}
-                {rec.stalled && (
-                  <span style={{ color: 'var(--accent-ink)' }}>
-                    <Alert size={15} />
-                  </span>
+              <div style={{ width: 44, flexShrink: 0 }}>
+                <div
+                  style={{
+                    fontWeight: 800,
+                    fontSize: 13,
+                    color: isToday ? 'var(--accent-ink)' : 'var(--text)',
+                  }}
+                >
+                  {WEEKDAYS[d.weekday]}
+                </div>
+                {isToday && (
+                  <div className="tiny" style={{ color: 'var(--accent-ink)', fontWeight: 700 }}>
+                    today
+                  </div>
                 )}
               </div>
-              <div className="small muted">{rec.headline}</div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
-                {def.kind === 'time' ? (
-                  <span className="row" style={{ gap: 4, justifyContent: 'flex-end' }}>
-                    <Timer size={15} />
-                    {formatSeconds(rec.targetSeconds ?? 0)}
-                  </span>
-                ) : def.bodyweight ? (
-                  'body'
+
+              <div className="grow">
+                {d.status === 'rest' ? (
+                  <span className="muted small">Rest day</span>
+                ) : isFull ? (
+                  <span style={{ fontWeight: 600 }}>Full body</span>
                 ) : (
-                  formatKg(rec.weightKg)
+                  <div className="row wrap" style={{ gap: 6 }}>
+                    {MUSCLE_ORDER.filter((m) => d.muscles.includes(m)).map((m) => (
+                      <span key={m} className="chip">
+                        <span className="dot" style={{ background: muscleColor(m) }} />
+                        {m}
+                      </span>
+                    ))}
+                  </div>
                 )}
               </div>
-              <div className="tiny faint">
-                {def.sets}×{def.kind === 'time' ? 'hold' : `${def.repMin}-${def.repMax}`}
-                {def.perArm ? ' · ea' : ''}
-              </div>
-            </div>
-          </button>
-        ))}
+
+              {d.status === 'done' && (
+                <span className="chip" style={{ color: 'var(--success)' }}>
+                  <Check size={13} /> Done
+                </span>
+              )}
+              {d.status === 'inprogress' && (
+                <span className="chip" style={{ color: 'var(--accent-ink)', fontWeight: 700 }}>
+                  In progress
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="tiny faint" style={{ textAlign: 'center', marginTop: 14 }}>
+        Tap a day to train it or edit its exercises.
       </div>
     </div>
   )
