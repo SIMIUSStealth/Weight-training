@@ -215,4 +215,34 @@ describe('computeRecommendation', () => {
     expect(rec.stalled).toBe(true)
     expect(rec.coach).toMatch(/bridge/i)
   })
+
+  it('flags too-easy effort when last session left 3+ in reserve', () => {
+    const sets: SetLog[] = [
+      { reps: 10, rir: 3, done: true },
+      { reps: 10, rir: 3, done: true },
+      { reps: 9, rir: 3, done: true },
+    ]
+    const sessions = [
+      session('s1', '2026-01-01T10:00:00Z', [
+        { exerciseId: 'floor-press', weightKg: 8, sets },
+      ]),
+    ]
+    const rec = computeRecommendation(floor, progressFor('floor-press'), sessions)
+    expect(rec.effortNote).toMatch(/too easy|reserve/i)
+  })
+
+  it('nudges to leave reps in reserve when every set went to failure', () => {
+    const sets: SetLog[] = [
+      { reps: 11, rir: 0, done: true },
+      { reps: 10, rir: 0, done: true },
+      { reps: 9, rir: 0, done: true },
+    ]
+    const sessions = [
+      session('s1', '2026-01-01T10:00:00Z', [
+        { exerciseId: 'floor-press', weightKg: 8, sets },
+      ]),
+    ]
+    const rec = computeRecommendation(floor, progressFor('floor-press'), sessions)
+    expect(rec.effortNote).toMatch(/failure|reserve/i)
+  })
 })

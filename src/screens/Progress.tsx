@@ -5,7 +5,12 @@ import {
   type ExerciseDef,
   type Muscle,
 } from '../program/exercises'
-import { exerciseSeries, formatSeconds } from '../program/analytics'
+import {
+  exerciseSeries,
+  formatSeconds,
+  volumeBand,
+  weeklyVolume,
+} from '../program/analytics'
 import { formatKg } from '../program/ladder'
 import { useStore } from '../store/useStore'
 import { Sparkline } from '../ui/charts'
@@ -26,6 +31,8 @@ export function Progress() {
     return map
   }, [settings.program])
 
+  const volume = useMemo(() => weeklyVolume(sessions), [sessions])
+
   return (
     <div className="screen fade-in">
       <div className="topbar">
@@ -34,6 +41,57 @@ export function Progress() {
           <div className="sub">Every lift climbs on its own.</div>
         </div>
       </div>
+
+      {sessions.length > 0 && (
+        <>
+          <div className="eyebrow">This week · volume</div>
+          <div className="card">
+            {volume.map((v, idx) => {
+              const band = volumeBand(v.sets)
+              const pct = Math.min(100, (v.sets / 24) * 100)
+              const col = muscleColor(v.muscle)
+              return (
+                <div key={v.muscle} style={{ marginTop: idx === 0 ? 0 : 14 }}>
+                  <div className="row between" style={{ marginBottom: 6 }}>
+                    <span className="row" style={{ gap: 8 }}>
+                      <span
+                        style={{
+                          width: 9,
+                          height: 9,
+                          borderRadius: '50%',
+                          background: col,
+                        }}
+                      />
+                      <span style={{ fontWeight: 600, fontSize: 14 }}>{v.muscle}</span>
+                    </span>
+                    <span
+                      className="tiny"
+                      style={{
+                        fontWeight: 700,
+                        color:
+                          band === 'good'
+                            ? 'var(--success)'
+                            : band === 'high'
+                              ? 'var(--accent-ink)'
+                              : 'var(--faint)',
+                      }}
+                    >
+                      {v.sets} sets{v.days > 0 ? ` · ${v.days}×` : ''}
+                    </span>
+                  </div>
+                  <div className="bar">
+                    <span style={{ width: `${pct}%`, background: col }} />
+                  </div>
+                </div>
+              )
+            })}
+            <div className="tiny faint" style={{ marginTop: 14 }}>
+              Hard sets per muscle this week. ~10–20 is a productive range; train
+              closer to failure and you need less.
+            </div>
+          </div>
+        </>
+      )}
 
       {MUSCLE_ORDER.map((muscle) => (
         <div key={muscle}>

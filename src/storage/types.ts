@@ -8,6 +8,11 @@ export interface SetLog {
   reps?: number
   /** Seconds held (the plank). */
   seconds?: number
+  /**
+   * Reps in reserve — how many reps were left in the tank (effort).
+   * 0 = taken to failure, 1, 2, 3 = "3+ left / easy". Optional.
+   */
+  rir?: number
   /** Whether the set was logged at all (skipped sets stay null/undefined). */
   done: boolean
 }

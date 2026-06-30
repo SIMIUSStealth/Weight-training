@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { getExercise } from '../program/exercises'
 import { computeRecommendation } from '../program/progression'
 import { formatKg, isTopRung, nextRung, prevRung } from '../program/ladder'
@@ -39,6 +39,14 @@ function vibrate(ms: number) {
 }
 
 const READY_SECONDS = 3
+
+// Reps-in-reserve options, shown most-in-reserve → to-failure.
+const RIR_OPTIONS = [
+  { v: 3, label: '3+' },
+  { v: 2, label: '2' },
+  { v: 1, label: '1' },
+  { v: 0, label: 'Fail' },
+]
 
 type Hold = { setIndex: number; phase: 'ready' | 'hold'; remaining: number }
 
@@ -292,6 +300,7 @@ export function Workout() {
           {!rec.justLeveledUp && !rec.stalled && rec.coach && (
             <Coach tone="info">{rec.coach}</Coach>
           )}
+          {rec.effortNote && <Coach tone="info">{rec.effortNote}</Coach>}
         </div>
 
         {/* plank live countdown */}
@@ -356,36 +365,60 @@ export function Workout() {
                 const fallback = rec.lastSets[i] ?? def.repMin
                 const value = s.reps ?? fallback
                 return (
-                  <div className="set-row" key={i}>
-                    <div style={{ width: 52, textAlign: 'center' }}>
-                      <div className="set-no" style={{ margin: '0 auto' }}>
-                        {i + 1}
-                      </div>
-                      {rec.lastSets[i] != null && (
-                        <div className="tiny faint" style={{ marginTop: 5, lineHeight: 1.15 }}>
-                          {rec.lastSets[i]}
-                          <br />
-                          {shortKg(rec.lastWeightKg)}
+                  <Fragment key={i}>
+                    <div className="set-row">
+                      <div style={{ width: 52, textAlign: 'center' }}>
+                        <div className="set-no" style={{ margin: '0 auto' }}>
+                          {i + 1}
                         </div>
-                      )}
+                        {rec.lastSets[i] != null && (
+                          <div className="tiny faint" style={{ marginTop: 5, lineHeight: 1.15 }}>
+                            {rec.lastSets[i]}
+                            <br />
+                            {shortKg(rec.lastWeightKg)}
+                          </div>
+                        )}
+                      </div>
+                      <div className="grow row" style={{ justifyContent: 'center' }}>
+                        <Stepper
+                          value={value}
+                          min={0}
+                          max={60}
+                          onChange={(v) => updateSet(def.id, i, { reps: v })}
+                          unit={def.perArm ? '/arm' : 'reps'}
+                        />
+                      </div>
+                      <button
+                        className={'set-check' + (s.done ? ' done' : '')}
+                        onClick={() => toggleRepDone(i, fallback)}
+                        aria-label="toggle done"
+                      >
+                        <Check size={22} />
+                      </button>
                     </div>
-                    <div className="grow row" style={{ justifyContent: 'center' }}>
-                      <Stepper
-                        value={value}
-                        min={0}
-                        max={60}
-                        onChange={(v) => updateSet(def.id, i, { reps: v })}
-                        unit={def.perArm ? '/arm' : 'reps'}
-                      />
-                    </div>
-                    <button
-                      className={'set-check' + (s.done ? ' done' : '')}
-                      onClick={() => toggleRepDone(i, fallback)}
-                      aria-label="toggle done"
-                    >
-                      <Check size={22} />
-                    </button>
-                  </div>
+                    {s.done && (
+                      <div className="rir-strip">
+                        <span className="rir-label">reps left</span>
+                        {RIR_OPTIONS.map((o) => (
+                          <button
+                            key={o.v}
+                            className={
+                              'rir-chip' +
+                              (o.v === 0 ? ' fail' : '') +
+                              (s.rir === o.v ? ' on' : '')
+                            }
+                            onClick={() =>
+                              updateSet(def.id, i, {
+                                rir: s.rir === o.v ? undefined : o.v,
+                              })
+                            }
+                          >
+                            {o.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </Fragment>
                 )
               })}
         </div>

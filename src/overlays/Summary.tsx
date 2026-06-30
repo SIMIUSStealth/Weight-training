@@ -96,6 +96,14 @@ export function Summary({ summary }: { summary: SessionSummary }) {
           </Coach>
         )}
 
+        {summary.failureSets >= 6 && (
+          <Coach tone="stall">
+            You took {summary.failureSets} sets to failure. Strong — but leaving
+            1–2 reps in reserve on most sets keeps fatigue down, so you can train
+            each muscle more often.
+          </Coach>
+        )}
+
         {summary.startNudges.length > 0 && (
           <>
             <div className="eyebrow">Starting weight check</div>

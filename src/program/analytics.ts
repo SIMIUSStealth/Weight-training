@@ -1,6 +1,6 @@
 // Derived stats for the tracking screens — pure functions over the session log.
 
-import { getExercise } from './exercises'
+import { getExercise, MUSCLE_ORDER, type Muscle } from './exercises'
 import type { SessionLog } from '../storage/types'
 
 export interface ExercisePoint {
@@ -96,6 +96,51 @@ export function overview(sessions: SessionLog[]): OverviewStats {
     lastSessionAt,
     daysSinceLast,
   }
+}
+
+// ---------- weekly training volume per muscle ----------
+
+export interface MuscleVolume {
+  muscle: Muscle
+  /** Hard (completed) sets this week. */
+  sets: number
+  /** Distinct days this muscle was trained this week (frequency). */
+  days: number
+}
+
+export type VolumeBand = 'low' | 'good' | 'high'
+
+/** Rough hypertrophy landmark on weekly hard sets per muscle. */
+export function volumeBand(sets: number): VolumeBand {
+  if (sets === 0) return 'low'
+  if (sets < 6) return 'low'
+  if (sets > 22) return 'high'
+  return 'good'
+}
+
+/** Completed sets and frequency per muscle for the current (Mon-based) week. */
+export function weeklyVolume(sessions: SessionLog[]): MuscleVolume[] {
+  const weekStart = startOfWeek(new Date())
+  const acc = new Map<Muscle, { sets: number; days: Set<string> }>()
+  for (const m of MUSCLE_ORDER) acc.set(m, { sets: 0, days: new Set() })
+
+  for (const s of sessions) {
+    if (!s.completedAt || new Date(s.completedAt) < weekStart) continue
+    const day = s.completedAt.slice(0, 10)
+    for (const ex of s.exercises) {
+      const done = ex.sets.filter((x) => x.done).length
+      if (!done) continue
+      const rec = acc.get(getExercise(ex.exerciseId).muscle)!
+      rec.sets += done
+      rec.days.add(day)
+    }
+  }
+
+  return MUSCLE_ORDER.map((muscle) => ({
+    muscle,
+    sets: acc.get(muscle)!.sets,
+    days: acc.get(muscle)!.days.size,
+  }))
 }
 
 /** Format plank seconds as e.g. "1:05" or "45s". */

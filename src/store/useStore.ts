@@ -60,6 +60,8 @@ export interface SessionSummary {
   setsLogged: number
   levelUps: LevelUp[]
   startNudges: { exerciseId: string; kind: Exclude<StartAssessment, null> }[]
+  /** Number of sets taken to failure (RIR 0) this session, for a fatigue nudge. */
+  failureSets: number
   /** Present when the session was split — the rest is queued as a later part. */
   split?: { remaining: number; part: number }
 }
@@ -168,6 +170,7 @@ interface CommitResult {
   levelUps: LevelUp[]
   startNudges: SessionSummary['startNudges']
   setsLogged: number
+  failureSets: number
 }
 
 /**
@@ -185,11 +188,13 @@ function commitActive(
   const startNudges: SessionSummary['startNudges'] = []
   const committedExercises: ExerciseLog[] = []
   let setsLogged = 0
+  let failureSets = 0
 
   for (const log of active.exercises) {
     const doneCount = log.sets.filter((s) => s.done).length
     if (doneCount === 0) continue
     setsLogged += doneCount
+    failureSets += log.sets.filter((s) => s.done && s.rir === 0).length
 
     const def = getExercise(log.exerciseId)
     const hadPrior = sessions.some(
@@ -234,7 +239,14 @@ function commitActive(
     }
   }
 
-  return { committedExercises, newProgress, levelUps, startNudges, setsLogged }
+  return {
+    committedExercises,
+    newProgress,
+    levelUps,
+    startNudges,
+    setsLogged,
+    failureSets,
+  }
 }
 
 function durationMinutes(startedAt: string, completedAt: string): number {
@@ -359,6 +371,7 @@ export const useStore = create<StoreState>((set, get) => ({
       setsLogged: r.setsLogged,
       levelUps: r.levelUps,
       startNudges: r.startNudges,
+      failureSets: r.failureSets,
     }
 
     void putSession(finished)
@@ -418,6 +431,7 @@ export const useStore = create<StoreState>((set, get) => ({
       setsLogged: r.setsLogged,
       levelUps: r.levelUps,
       startNudges: r.startNudges,
+      failureSets: r.failureSets,
       split: { remaining: remaining.length, part: part + 1 },
     }
 

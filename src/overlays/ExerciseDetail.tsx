@@ -131,6 +131,7 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
             {rec.coach}
           </Coach>
         )}
+        {rec.effortNote && <Coach tone="info">{rec.effortNote}</Coach>}
 
         {/* swap to a variation */}
         {slot && options.length > 1 && (

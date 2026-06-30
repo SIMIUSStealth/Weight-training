@@ -158,6 +158,8 @@ export interface Recommendation {
   headline: string
   /** Optional coaching note (start nudge, stall/bridge, reassess). */
   coach?: string
+  /** Optional effort note from last session's reps-in-reserve. */
+  effortNote?: string
 }
 
 /** Most-recent-first list of this exercise's logs across completed sessions. */
@@ -245,6 +247,26 @@ export function computeRecommendation(
     if (filled !== undefined) lastSets.push(filled)
   }
 
+  // Effort signal from last session's reps-in-reserve (proximity to failure is
+  // the strongest growth lever for a given volume).
+  let effortNote: string | undefined
+  if (def.kind === 'reps') {
+    const rirs = doneSets(last)
+      .map((s) => s.rir)
+      .filter((r): r is number => r != null)
+    if (rirs.length) {
+      const hardest = Math.min(...rirs) // fewest reps left = closest to failure
+      const toFailure = rirs.filter((r) => r === 0).length
+      if (hardest >= 3) {
+        effortNote =
+          'Last time you left 3+ in reserve on every set — too easy to drive much growth. Push to 1–2 reps short of failure, or move up a rung.'
+      } else if (toFailure >= def.sets) {
+        effortNote =
+          'Every set went to failure last time. Leaving 1–2 in reserve lets you recover and train this more often — fatigue is the limiter, not heroics.'
+      }
+    }
+  }
+
   // Just leveled up? Last session was logged a rung lower (reps), or held the
   // previous (lower) plank target on every set.
   let justLeveledUp = false
@@ -311,5 +333,6 @@ export function computeRecommendation(
     stalled,
     headline,
     coach,
+    effortNote,
   }
 }
