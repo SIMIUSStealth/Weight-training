@@ -246,7 +246,7 @@ export function Workout() {
                     ? 'BODYWEIGHT'
                     : 'WORKING WEIGHT'}
               </div>
-              <div style={{ fontSize: 26, fontWeight: 800 }}>
+              <div className="display" style={{ fontSize: 28, fontWeight: 800 }}>
                 {def.kind === 'time'
                   ? formatSeconds(target)
                   : def.bodyweight

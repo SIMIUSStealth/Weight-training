@@ -65,7 +65,7 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
               <div className="tiny faint">
                 {isTime ? 'TARGET HOLD' : def.bodyweight ? 'BODYWEIGHT' : 'CURRENT WEIGHT'}
               </div>
-              <div style={{ fontSize: 30, fontWeight: 800 }}>
+              <div className="display" style={{ fontSize: 32, fontWeight: 800 }}>
                 {isTime
                   ? formatSeconds(p.targetSeconds ?? def.startSeconds ?? 0)
                   : def.bodyweight

@@ -1,35 +1,48 @@
 :root {
-  --bg: #0b0f14;
-  --surface: #151b23;
-  --surface-2: #1c2530;
-  --surface-3: #232e3a;
-  --border: #28323f;
-  --text: #eef2f6;
-  --muted: #93a1b1;
-  --faint: #5d6b7a;
+  /* surfaces */
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --surface-2: #eef1f4;
+  --surface-3: #e3e7ec;
+  --border: #e6eaef;
+  --border-strong: #d3d9e0;
 
-  --accent: #f5c451;
-  --accent-press: #e0ad36;
-  --on-accent: #20180a;
-  --success: #56d39a;
-  --success-dim: #1c3a30;
-  --danger: #ef6b6b;
-  --info: #6db3f2;
+  /* text */
+  --text: #131720;
+  --muted: #5a6573;
+  --faint: #97a1af;
 
-  --chest: #f08a8a;
-  --shoulders: #f5c451;
-  --arms: #7fd1a6;
-  --forearms: #6db3f2;
-  --abs: #c79bf2;
+  /* brand accent — amber. fill vs ink (text/icon on white). */
+  --accent: #f5a623;
+  --accent-press: #e0930f;
+  --accent-ink: #b4530a;
+  --on-accent: #2a1505;
+
+  /* semantic */
+  --success: #15924f;
+  --success-dim: #e6f5ec;
+  --danger: #d92d20;
+  --info: #2563eb;
+
+  /* muscle dots */
+  --chest: #ef4444;
+  --shoulders: #f59e0b;
+  --arms: #10b981;
+  --forearms: #3b82f6;
+  --abs: #8b5cf6;
 
   --radius: 16px;
   --radius-sm: 11px;
-  --shadow: 0 6px 22px rgba(0, 0, 0, 0.35);
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05), 0 1px 3px rgba(16, 24, 40, 0.05);
+  --shadow: 0 10px 30px rgba(16, 24, 40, 0.1);
+
+  --font-display: 'Bricolage Grotesque Variable', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', sans-serif;
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 * {
@@ -65,15 +78,21 @@ select {
   font-size: 16px; /* prevents iOS zoom on focus */
 }
 
+.display,
+.hold-clock,
+.rest-time,
+.stepper .val,
+.stat .num {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
 /* ---------- app shell ---------- */
 
 /*
  * Fixed-height app shell: the shell is exactly the viewport tall, the active
- * screen scrolls INSIDE it, and the bottom nav is a normal element at the
- * end. This avoids iOS standalone's `position: fixed; bottom: 0` bug, where a
- * fixed bottom bar anchors to the bottom of short content (leaving a gap)
- * instead of the screen. 100dvh tracks Safari's dynamic toolbar; 100vh is the
- * fallback (and is correct in a home-screen PWA, which has no toolbar).
+ * screen scrolls INSIDE it, and the bottom nav is a normal element at the end.
+ * This avoids iOS standalone's `position: fixed; bottom: 0` gap on short pages.
  */
 .app {
   max-width: 520px;
@@ -88,12 +107,12 @@ select {
 
 .screen {
   flex: 1;
-  min-height: 0; /* let the flex child actually scroll */
+  min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
-  scrollbar-gutter: stable; /* no sideways shift between tall/short tabs */
-  padding: calc(var(--safe-top) + 14px) 16px 28px;
+  scrollbar-gutter: stable;
+  padding: calc(var(--safe-top) + 16px) 16px 28px;
 }
 
 .topbar {
@@ -101,27 +120,33 @@ select {
   align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 18px;
+  margin-bottom: 20px;
 }
 .topbar h1 {
-  font-size: 26px;
+  font-family: var(--font-display);
+  font-size: 30px;
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   margin: 0;
 }
 .topbar .sub {
   color: var(--muted);
-  font-size: 13px;
-  margin-top: 2px;
+  font-size: 13.5px;
+  margin-top: 3px;
+}
+
+h1 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
 }
 
 .eyebrow {
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.07em;
   font-size: 11px;
   font-weight: 700;
   color: var(--faint);
-  margin: 22px 2px 10px;
+  margin: 24px 2px 10px;
 }
 .eyebrow:first-child {
   margin-top: 4px;
@@ -130,12 +155,12 @@ select {
 /* ---------- bottom nav ---------- */
 
 .bottom-nav {
-  flex-shrink: 0; /* always sits at the bottom of the shell, never squished */
+  flex-shrink: 0;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  background: rgba(15, 20, 27, 0.92);
+  background: var(--surface);
   border-top: 1px solid var(--border);
-  padding: 8px 8px calc(var(--safe-bottom) + 8px);
+  padding: 9px 8px calc(var(--safe-bottom) + 9px);
 }
 .nav-btn {
   background: none;
@@ -151,7 +176,7 @@ select {
   transition: color 0.15s;
 }
 .nav-btn.active {
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 /* ---------- cards ---------- */
@@ -160,6 +185,7 @@ select {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
   padding: 16px;
   margin-bottom: 12px;
 }
@@ -168,9 +194,11 @@ select {
   text-align: left;
   color: inherit;
   display: block;
+  transition: transform 0.06s ease;
 }
 .card.tap:active {
-  background: var(--surface-2);
+  transform: scale(0.992);
+  background: var(--surface);
 }
 .card-head {
   display: flex;
@@ -225,7 +253,7 @@ select {
   font-weight: 700;
   padding: 4px 9px;
   border-radius: 999px;
-  background: var(--surface-3);
+  background: var(--surface-2);
   color: var(--muted);
   white-space: nowrap;
 }
@@ -259,12 +287,13 @@ select {
   transform: scale(0.98);
 }
 .btn:disabled {
-  opacity: 0.4;
+  opacity: 0.45;
 }
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--on-accent);
+  box-shadow: 0 1px 2px rgba(180, 83, 10, 0.18);
 }
 .btn-primary:active {
   background: var(--accent-press);
@@ -272,22 +301,23 @@ select {
 .btn-success {
   background: var(--success);
   border-color: var(--success);
-  color: #06281c;
+  color: #ffffff;
 }
 .btn-ghost {
   background: transparent;
+  border-color: transparent;
 }
 .btn-danger {
   background: transparent;
-  border-color: #5a2b2b;
+  border-color: #f0c4c0;
   color: var(--danger);
 }
 .btn-block {
   width: 100%;
 }
 .btn-lg {
-  padding: 17px 20px;
-  font-size: 17px;
+  padding: 16px 20px;
+  font-size: 16.5px;
   border-radius: var(--radius);
 }
 .btn-sm {
@@ -306,19 +336,20 @@ select {
 .stat {
   background: var(--surface);
   border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
   border-radius: var(--radius-sm);
-  padding: 12px;
+  padding: 13px 12px;
   text-align: center;
 }
 .stat .num {
-  font-size: 22px;
+  font-size: 23px;
   font-weight: 800;
   letter-spacing: -0.02em;
 }
 .stat .label {
   font-size: 11px;
   color: var(--muted);
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 /* ---------- coaching notes ---------- */
@@ -327,7 +358,7 @@ select {
   display: flex;
   gap: 9px;
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 1.45;
   padding: 11px 12px;
   border-radius: var(--radius-sm);
   background: var(--surface-2);
@@ -340,18 +371,18 @@ select {
 }
 .coach-up {
   background: var(--success-dim);
-  border-color: #2c5546;
-  color: #b9ead6;
+  border-color: #c4e7d2;
+  color: #14713c;
 }
 .coach-stall {
-  background: #38301a;
-  border-color: #5c4d28;
-  color: #e7d3a0;
+  background: #fdf1de;
+  border-color: #f4d8a6;
+  color: #8a5a06;
 }
 .coach-info {
-  background: #182838;
-  border-color: #2a4865;
-  color: #bcd9f5;
+  background: #e9f0fe;
+  border-color: #cadbfb;
+  color: #1d4ed8;
 }
 
 /* ---------- steppers ---------- */
@@ -380,6 +411,9 @@ select {
 .stepper button:active {
   background: var(--surface-3);
 }
+.stepper button:disabled {
+  color: var(--faint);
+}
 .stepper .val {
   min-width: 56px;
   text-align: center;
@@ -392,6 +426,7 @@ select {
   color: var(--muted);
   font-weight: 600;
   margin-left: 2px;
+  font-family: -apple-system, sans-serif;
 }
 
 /* ---------- set rows (workout) ---------- */
@@ -410,7 +445,7 @@ select {
   width: 26px;
   height: 26px;
   border-radius: 8px;
-  background: var(--surface-3);
+  background: var(--surface-2);
   color: var(--muted);
   font-size: 12px;
   font-weight: 800;
@@ -423,18 +458,19 @@ select {
   width: 46px;
   height: 46px;
   border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
   color: var(--faint);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
 .set-check.done {
   background: var(--success);
   border-color: var(--success);
-  color: #06281c;
+  color: #ffffff;
 }
 
 /* ---------- inline numeric / text fields ---------- */
@@ -451,8 +487,8 @@ select {
   color: var(--muted);
 }
 .input {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
   color: var(--text);
   border-radius: var(--radius-sm);
   padding: 13px 14px;
@@ -462,6 +498,7 @@ select {
 .input:focus {
   outline: none;
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.18);
 }
 
 /* ---------- segmented control ---------- */
@@ -485,8 +522,9 @@ select {
   font-weight: 700;
 }
 .segmented button.on {
-  background: var(--surface-3);
+  background: var(--surface);
   color: var(--text);
+  box-shadow: var(--shadow-sm);
 }
 
 /* ---------- progress / rest bars ---------- */
@@ -533,7 +571,7 @@ select {
   position: sticky;
   bottom: 0;
   padding: 12px 16px calc(var(--safe-bottom) + 14px);
-  background: linear-gradient(to top, var(--bg) 60%, transparent);
+  background: linear-gradient(to top, var(--bg) 62%, rgba(244, 246, 248, 0));
 }
 
 .icon-btn {

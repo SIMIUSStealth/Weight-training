@@ -71,7 +71,9 @@ export function Progress() {
                 </div>
                 <div className="row between" style={{ marginTop: 8 }}>
                   <div>
-                    <div style={{ fontSize: 22, fontWeight: 800 }}>{current}</div>
+                    <div className="display" style={{ fontSize: 22, fontWeight: 800 }}>
+                      {current}
+                    </div>
                     <div className="tiny faint">
                       {series.length
                         ? `${series.length} session${series.length === 1 ? '' : 's'} · last ${

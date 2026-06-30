@@ -153,7 +153,7 @@ export function Today() {
                   </span>
                 )}
                 {rec.stalled && (
-                  <span style={{ color: 'var(--accent)' }}>
+                  <span style={{ color: 'var(--accent-ink)' }}>
                     <Alert size={15} />
                   </span>
                 )}

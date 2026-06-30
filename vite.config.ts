@@ -19,8 +19,8 @@ export default defineConfig({
         short_name: 'Iron Ladder',
         description:
           'A personal single-dumbbell hypertrophy coach. Guided sessions, double-progression overload, and progress tracking.',
-        theme_color: '#0b0f14',
-        background_color: '#0b0f14',
+        theme_color: '#f4f6f8',
+        background_color: '#f4f6f8',
         display: 'standalone',
         orientation: 'portrait',
         icons: [

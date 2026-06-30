@@ -94,7 +94,7 @@ export function Settings() {
               fontWeight: 700,
               color:
                 lastBackup == null || lastBackup >= 7
-                  ? 'var(--accent)'
+                  ? 'var(--accent-ink)'
                   : 'var(--success)',
             }}
           >

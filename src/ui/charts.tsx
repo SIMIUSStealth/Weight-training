@@ -2,7 +2,7 @@
 
 export function Sparkline({
   values,
-  color = 'var(--accent)',
+  color = 'var(--accent-ink)',
   height = 40,
 }: {
   values: number[]
@@ -63,7 +63,7 @@ export interface ChartPoint {
 
 export function LineChart({
   points,
-  color = 'var(--accent)',
+  color = 'var(--accent-ink)',
   height = 150,
   formatY = (v: number) => String(Math.round(v)),
 }: {
