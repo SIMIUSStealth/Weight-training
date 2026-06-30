@@ -1,11 +1,17 @@
-import { getExercise } from '../program/exercises'
-import { computeRecommendation } from '../program/progression'
+import { useState } from 'react'
+import {
+  getExercise,
+  getSlot,
+  slotOptions,
+  type ExerciseDef,
+} from '../program/exercises'
+import { computeRecommendation, defaultProgress } from '../program/progression'
 import { formatKg, isTopRung, nextRung, prevRung } from '../program/ladder'
 import { exerciseSeries, formatSeconds, relativeDay } from '../program/analytics'
 import { useStore } from '../store/useStore'
 import { LineChart } from '../ui/charts'
-import { Coach, MuscleChip, muscleColor } from '../ui/components'
-import { ChevronLeft, Minus, Plus } from '../ui/icons'
+import { Coach, Modal, MuscleChip, muscleColor } from '../ui/components'
+import { ChevronLeft, ChevronRight, Minus, Plus } from '../ui/icons'
 
 export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
   const def = getExercise(exerciseId)
@@ -13,9 +19,15 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
   const progress = useStore((s) => s.progress)
   const setExerciseWeight = useStore((s) => s.setExerciseWeight)
   const setPlankTarget = useStore((s) => s.setPlankTarget)
+  const swapExercise = useStore((s) => s.swapExercise)
+  const openOverlay = useStore((s) => s.openOverlay)
   const closeOverlay = useStore((s) => s.closeOverlay)
 
-  const p = progress[exerciseId]!
+  const [swapTo, setSwapTo] = useState<ExerciseDef | null>(null)
+
+  const p = progress[exerciseId] ?? defaultProgress(def)
+  const slot = getSlot(exerciseId)
+  const options = slot ? slotOptions(slot.id) : []
   const rec = computeRecommendation(def, p, sessions)
   const series = exerciseSeries(exerciseId, sessions)
   const color = muscleColor(def.muscle)
@@ -120,6 +132,60 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
           </Coach>
         )}
 
+        {/* swap to a variation */}
+        {slot && options.length > 1 && (
+          <>
+            <div className="eyebrow">Swap · {slot.label}</div>
+            {(rec.stalled || rec.atTopRung) && (
+              <Coach tone="info">
+                Tapped out? Swapping for a variation restarts progress — exactly
+                what the plan suggests every 8–12 weeks.
+              </Coach>
+            )}
+            <div className="card" style={{ padding: '4px 16px' }}>
+              {options.map((opt) => {
+                const isCurrent = opt.id === exerciseId
+                const seen = !!progress[opt.id]
+                return (
+                  <button
+                    key={opt.id}
+                    className="list-row"
+                    style={{
+                      width: '100%',
+                      background: 'none',
+                      border: 0,
+                      color: 'inherit',
+                      textAlign: 'left',
+                    }}
+                    disabled={isCurrent}
+                    onClick={() => setSwapTo(opt)}
+                  >
+                    <div className="grow">
+                      <div style={{ fontWeight: 700 }}>
+                        {opt.name}
+                        {isCurrent && (
+                          <span className="chip" style={{ marginLeft: 8 }}>
+                            current
+                          </span>
+                        )}
+                      </div>
+                      <div className="tiny faint">
+                        {opt.kind === 'time'
+                          ? `${opt.sets} × hold`
+                          : `${opt.sets} × ${opt.repMin}–${opt.repMax}${
+                              opt.perArm ? ' · ea' : ''
+                            }`}
+                        {seen && !isCurrent ? ' · has history' : ''}
+                      </div>
+                    </div>
+                    {!isCurrent && <ChevronRight size={18} className="faint" />}
+                  </button>
+                )
+              })}
+            </div>
+          </>
+        )}
+
         {/* charts */}
         {series.length >= 2 ? (
           <>
@@ -194,6 +260,34 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
           <span>{def.formCue}</span>
         </div>
       </div>
+
+      {swapTo && slot && (
+        <Modal title={`Swap to ${swapTo.name}?`} onClose={() => setSwapTo(null)}>
+          <p className="small muted" style={{ marginTop: 0 }}>
+            Replaces <strong>{def.name}</strong> in your{' '}
+            <strong>{slot.label}</strong> slot from your next session.{' '}
+            {progress[swapTo.id]
+              ? 'Your saved progress for it returns where you left off.'
+              : `It starts fresh at ${
+                  swapTo.kind === 'time'
+                    ? formatSeconds(swapTo.startSeconds ?? 30)
+                    : formatKg(swapTo.startWeightKg)
+                }.`}{' '}
+            Your {def.name} history stays untouched.
+          </p>
+          <button
+            className="btn btn-primary btn-block"
+            onClick={() => {
+              const id = swapTo.id
+              swapExercise(slot.id, id)
+              setSwapTo(null)
+              openOverlay({ name: 'exercise', exerciseId: id })
+            }}
+          >
+            Swap to {swapTo.name}
+          </button>
+        </Modal>
+      )}
     </div>
   )
 }

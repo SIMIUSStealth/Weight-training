@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
-import { EXERCISES } from '../program/exercises'
-import { computeRecommendation } from '../program/progression'
+import { getProgram } from '../program/exercises'
+import { computeRecommendation, defaultProgress } from '../program/progression'
 import { formatKg } from '../program/ladder'
 import { formatSeconds, overview, relativeDay } from '../program/analytics'
 import { useStore } from '../store/useStore'
@@ -28,13 +28,18 @@ export function Today() {
     if (res !== 'cancelled') recordBackup()
   }
 
+  const program = useMemo(() => getProgram(settings.program), [settings.program])
   const recs = useMemo(
     () =>
-      EXERCISES.map((def) => ({
+      program.map((def) => ({
         def,
-        rec: computeRecommendation(def, progress[def.id]!, sessions),
+        rec: computeRecommendation(
+          def,
+          progress[def.id] ?? defaultProgress(def),
+          sessions,
+        ),
       })),
-    [progress, sessions],
+    [program, progress, sessions],
   )
 
   const loggedSets = activeSession

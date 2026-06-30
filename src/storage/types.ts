@@ -75,6 +75,11 @@ export interface Settings {
   bodyweightKg?: number
   /** ISO time of the last backup (export/share), for the weekly reminder. */
   lastBackupAt?: string
+  /**
+   * Chosen exercise per slot (slotId -> exerciseId). Missing slots use the
+   * slot's base exercise. Lives here so it rides along in backups.
+   */
+  program?: Record<string, string>
   /** Schema version, for future migrations. */
   version: number
 }

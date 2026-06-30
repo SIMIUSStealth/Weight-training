@@ -48,13 +48,18 @@ function allSetsAtLeast(log: ExerciseLog, def: ExerciseDef, n: number): boolean 
 
 // ---------- initial state ----------
 
-/** Fresh per-exercise progression state from the spec's starting points. */
-export function initialProgress(): ExerciseProgress[] {
-  return EXERCISES.map((def) => ({
+/** A starting progression row for one exercise (its first rung). */
+export function defaultProgress(def: ExerciseDef): ExerciseProgress {
+  return {
     exerciseId: def.id,
     currentWeightKg: def.startWeightKg,
     targetSeconds: def.kind === 'time' ? def.startSeconds : undefined,
-  }))
+  }
+}
+
+/** Fresh per-exercise progression state from the spec's starting points. */
+export function initialProgress(): ExerciseProgress[] {
+  return EXERCISES.map(defaultProgress)
 }
 
 // ---------- applying progression at session commit ----------

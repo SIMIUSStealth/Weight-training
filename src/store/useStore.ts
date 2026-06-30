@@ -1,13 +1,15 @@
 import { create } from 'zustand'
 import {
-  EXERCISES,
   getExercise,
+  getProgram,
+  type ExerciseDef,
   type ExerciseKind,
 } from '../program/exercises'
 import { formatKg } from '../program/ladder'
 import {
   applyProgression,
   assessStartWeight,
+  defaultProgress,
   type StartAssessment,
 } from '../program/progression'
 import { formatSeconds } from '../program/analytics'
@@ -103,6 +105,9 @@ interface StoreState {
   /** Finish the performed exercises now and queue the untouched ones as a later part. */
   splitSession: () => SessionSummary | null
 
+  // program / swaps
+  swapExercise: (slotId: string, exerciseId: string) => void
+
   // manual progression overrides
   setExerciseWeight: (exerciseId: string, weightKg: number) => void
   setPlankTarget: (exerciseId: string, seconds: number) => void
@@ -123,17 +128,37 @@ interface StoreState {
   resetEverything: () => Promise<void>
 }
 
-function freshActiveSession(progress: Record<string, ExerciseProgress>): SessionLog {
+function freshActiveSession(
+  program: ExerciseDef[],
+  progress: Record<string, ExerciseProgress>,
+): SessionLog {
   return {
     id: uid(),
     startedAt: new Date().toISOString(),
     part: 1,
-    exercises: EXERCISES.map((def) => ({
+    exercises: program.map((def) => ({
       exerciseId: def.id,
       weightKg: progress[def.id]?.currentWeightKg ?? def.startWeightKg,
       sets: Array.from({ length: def.sets }, () => ({ done: false }) as SetLog),
     })),
   }
+}
+
+/** Ensure every exercise in `defs` has a progression row, seeding any missing. */
+function withSeededProgress(
+  defs: ExerciseDef[],
+  progress: Record<string, ExerciseProgress>,
+): { progress: Record<string, ExerciseProgress>; seeded: ExerciseProgress[] } {
+  const next = { ...progress }
+  const seeded: ExerciseProgress[] = []
+  for (const def of defs) {
+    if (!next[def.id]) {
+      const p = defaultProgress(def)
+      next[def.id] = p
+      seeded.push(p)
+    }
+  }
+  return { progress: next, seeded }
 }
 
 interface CommitResult {
@@ -231,8 +256,12 @@ export const useStore = create<StoreState>((set, get) => ({
 
   init: async () => {
     const data = await loadAll()
-    const progress: Record<string, ExerciseProgress> = {}
-    for (const p of data.progress) progress[p.exerciseId] = p
+    const loaded: Record<string, ExerciseProgress> = {}
+    for (const p of data.progress) loaded[p.exerciseId] = p
+    // Make sure the currently-selected program all has progression rows.
+    const program = getProgram(data.settings.program)
+    const { progress, seeded } = withSeededProgress(program, loaded)
+    if (seeded.length) void putProgress(seeded)
     set({
       loaded: true,
       sessions: data.sessions,
@@ -250,9 +279,17 @@ export const useStore = create<StoreState>((set, get) => ({
 
   startSession: () => {
     const existing = get().activeSession
-    const session = existing ?? freshActiveSession(get().progress)
+    if (existing) {
+      void putActiveSession(existing)
+      set({ activeSession: existing, overlay: { name: 'workout' } })
+      return
+    }
+    const program = getProgram(get().settings.program)
+    const { progress, seeded } = withSeededProgress(program, get().progress)
+    if (seeded.length) void putProgress(seeded)
+    const session = freshActiveSession(program, progress)
     void putActiveSession(session)
-    set({ activeSession: session, overlay: { name: 'workout' } })
+    set({ progress, activeSession: session, overlay: { name: 'workout' } })
   },
 
   resumeSession: () => {
@@ -395,6 +432,20 @@ export const useStore = create<StoreState>((set, get) => ({
       overlay: { name: 'summary', summary },
     })
     return summary
+  },
+
+  swapExercise: (slotId, exerciseId) => {
+    const def = getExercise(exerciseId)
+    if (def.slot !== slotId) return // only swap within the same slot
+    const program = { ...(get().settings.program ?? {}), [slotId]: exerciseId }
+    get().updateSettings({ program })
+    // Seed a progression row for the newly chosen exercise if it's never been used.
+    const cur = get().progress
+    if (!cur[exerciseId]) {
+      const p = defaultProgress(def)
+      void putProgress([p])
+      set({ progress: { ...cur, [exerciseId]: p } })
+    }
   },
 
   setExerciseWeight: (exerciseId, weightKg) => {

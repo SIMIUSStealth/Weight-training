@@ -1,5 +1,10 @@
 import { useMemo } from 'react'
-import { EXERCISES, MUSCLE_ORDER, type Muscle } from '../program/exercises'
+import {
+  getProgram,
+  MUSCLE_ORDER,
+  type ExerciseDef,
+  type Muscle,
+} from '../program/exercises'
 import { exerciseSeries, formatSeconds } from '../program/analytics'
 import { formatKg } from '../program/ladder'
 import { useStore } from '../store/useStore'
@@ -10,14 +15,16 @@ import { ChevronRight } from '../ui/icons'
 export function Progress() {
   const sessions = useStore((s) => s.sessions)
   const progress = useStore((s) => s.progress)
+  const settings = useStore((s) => s.settings)
   const openOverlay = useStore((s) => s.openOverlay)
 
   const byMuscle = useMemo(() => {
-    const map = new Map<Muscle, typeof EXERCISES[number][]>()
+    const program = getProgram(settings.program)
+    const map = new Map<Muscle, ExerciseDef[]>()
     for (const m of MUSCLE_ORDER) map.set(m, [])
-    for (const def of EXERCISES) map.get(def.muscle)!.push(def)
+    for (const def of program) map.get(def.muscle)!.push(def)
     return map
-  }, [])
+  }, [settings.program])
 
   return (
     <div className="screen fade-in">

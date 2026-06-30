@@ -103,6 +103,40 @@ describe('store: backup', () => {
   })
 })
 
+describe('store: swapping exercises', () => {
+  beforeEach(async () => {
+    await useStore.getState().resetEverything()
+  })
+
+  it('swaps a slot, seeds progress, and builds the next session with the new exercise', () => {
+    useStore.getState().swapExercise('arm-biceps', 'hammer-curl')
+    expect(useStore.getState().settings.program?.['arm-biceps']).toBe('hammer-curl')
+    expect(useStore.getState().progress['hammer-curl']?.currentWeightKg).toBe(8)
+
+    useStore.getState().startSession()
+    const ids = useStore.getState().activeSession!.exercises.map((e) => e.exerciseId)
+    expect(ids).toHaveLength(11) // structure preserved
+    expect(ids).toContain('hammer-curl')
+    expect(ids).not.toContain('biceps-curl')
+    expect(ids[0]).toBe('floor-press') // other slots untouched
+  })
+
+  it('rejects a swap to an exercise from a different slot', () => {
+    useStore.getState().swapExercise('arm-biceps', 'plank') // plank is ab-core
+    expect(useStore.getState().settings.program?.['arm-biceps']).toBeUndefined()
+  })
+
+  it('keeps each variation’s own progress when swapping back and forth', () => {
+    const s = useStore.getState()
+    s.swapExercise('arm-biceps', 'hammer-curl')
+    s.setExerciseWeight('hammer-curl', 11.5)
+    s.swapExercise('arm-biceps', 'biceps-curl') // back to base
+    expect(useStore.getState().settings.program?.['arm-biceps']).toBe('biceps-curl')
+    expect(useStore.getState().progress['hammer-curl'].currentWeightKg).toBe(11.5)
+    expect(useStore.getState().progress['biceps-curl'].currentWeightKg).toBe(8)
+  })
+})
+
 describe('store: splitting a workout into parts', () => {
   beforeEach(async () => {
     await useStore.getState().resetEverything()
