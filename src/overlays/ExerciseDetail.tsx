@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   getExercise,
   getSlot,
+  setScheme,
   slotOptions,
   type ExerciseDef,
 } from '../program/exercises'
@@ -28,18 +29,22 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
   const p = progress[exerciseId] ?? defaultProgress(def)
   const slot = getSlot(exerciseId)
   const options = slot ? slotOptions(slot.id) : []
-  const rec = computeRecommendation(def, p, sessions)
-  const series = exerciseSeries(exerciseId, sessions)
   const color = muscleColor(def.muscle)
 
-  const loadPoints = series.map((s) => ({
-    label: relativeDay(s.date),
-    y: s.load,
-  }))
-  const topPoints = series.map((s) => ({
-    label: relativeDay(s.date),
-    y: s.best,
-  }))
+  // Both walk the full session history — recompute only when the data does,
+  // not on every stepper tap.
+  const rec = useMemo(
+    () => computeRecommendation(def, p, sessions),
+    [def, p, sessions],
+  )
+  const { series, loadPoints, topPoints } = useMemo(() => {
+    const series = exerciseSeries(exerciseId, sessions)
+    return {
+      series,
+      loadPoints: series.map((s) => ({ label: relativeDay(s.date), y: s.load })),
+      topPoints: series.map((s) => ({ label: relativeDay(s.date), y: s.best })),
+    }
+  }, [exerciseId, sessions])
 
   const isTime = def.kind === 'time'
 
@@ -171,11 +176,7 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
                         )}
                       </div>
                       <div className="tiny faint">
-                        {opt.kind === 'time'
-                          ? `${opt.sets} × hold`
-                          : `${opt.sets} × ${opt.repMin}–${opt.repMax}${
-                              opt.perArm ? ' · ea' : ''
-                            }`}
+                        {setScheme(opt)}
                         {seen && !isCurrent ? ' · has history' : ''}
                       </div>
                     </div>

@@ -561,17 +561,6 @@ export const SLOTS_BY_ID: Record<string, Slot> = Object.fromEntries(
   SLOTS.map((s) => [s.id, s]),
 )
 
-/** The active program — the chosen exercise for each slot, in session order. */
-export function getProgram(selection?: Record<string, string>): ExerciseDef[] {
-  return SLOTS.map((slot) => {
-    const chosenId = selection?.[slot.id]
-    const chosen = chosenId ? EXERCISES_BY_ID[chosenId] : undefined
-    // Only honour a choice that actually belongs to this slot; else fall back.
-    if (chosen && chosen.slot === slot.id) return chosen
-    return EXERCISES_BY_ID[slot.baseId]
-  })
-}
-
 /** Which slot an exercise belongs to. */
 export function getSlot(exerciseId: string): Slot | undefined {
   const def = EXERCISES_BY_ID[exerciseId]
@@ -582,4 +571,10 @@ export function getSlot(exerciseId: string): Slot | undefined {
 export function slotOptions(slotId: string): ExerciseDef[] {
   const slot = SLOTS_BY_ID[slotId]
   return slot ? slot.optionIds.map((id) => EXERCISES_BY_ID[id]) : []
+}
+
+/** Compact set-scheme label, e.g. "3 × 8–12 · ea" or "3 × hold". */
+export function setScheme(def: ExerciseDef): string {
+  if (def.kind === 'time') return `${def.sets} × hold`
+  return `${def.sets} × ${def.repMin}–${def.repMax}${def.perArm ? ' · ea' : ''}`
 }

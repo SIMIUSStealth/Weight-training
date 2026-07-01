@@ -142,7 +142,7 @@ export function Modal({
         position: 'fixed',
         inset: 0,
         zIndex: 60,
-        background: 'rgba(16,24,40,0.4)',
+        background: 'var(--scrim)',
         display: 'flex',
         alignItems: 'flex-end',
         justifyContent: 'center',

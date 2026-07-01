@@ -138,42 +138,50 @@ export async function putActiveSession(session: SessionLog | null): Promise<void
 
 // ---------- backup / restore ----------
 
-export async function exportBackup(): Promise<BackupFile> {
-  const { sessions, progress, bodyStats, settings } = await loadAll()
-  return {
-    app: 'iron-ladder',
-    version: DB_VERSION,
-    exportedAt: new Date().toISOString(),
-    sessions,
-    progress,
-    bodyStats,
-    settings,
-  }
-}
-
 export async function importBackup(file: BackupFile): Promise<void> {
-  if (file.app !== 'iron-ladder') {
+  // Validate the whole payload BEFORE touching the database — a malformed
+  // file must never be able to wipe existing data.
+  if (!file || file.app !== 'iron-ladder') {
     throw new Error('Not an Iron Ladder backup file.')
   }
+  if (
+    !Array.isArray(file.sessions) ||
+    !Array.isArray(file.progress) ||
+    !Array.isArray(file.bodyStats) ||
+    typeof file.settings !== 'object' ||
+    file.settings === null
+  ) {
+    throw new Error('Backup file is incomplete or corrupted — nothing was changed.')
+  }
   const db = await getDB()
-  // Replace everything wholesale.
+  // Replace everything wholesale, atomically: any failure aborts the
+  // transaction and rolls the clears back.
   const tx = db.transaction(
     ['sessions', 'progress', 'bodyStats', 'meta'],
     'readwrite',
   )
-  await Promise.all([
-    tx.objectStore('sessions').clear(),
-    tx.objectStore('progress').clear(),
-    tx.objectStore('bodyStats').clear(),
-  ])
-  await Promise.all([
-    ...file.sessions.map((s) => tx.objectStore('sessions').put(s)),
-    ...file.progress.map((p) => tx.objectStore('progress').put(p)),
-    ...file.bodyStats.map((b) => tx.objectStore('bodyStats').put(b)),
-    tx.objectStore('meta').put(file.settings, 'settings'),
-  ])
-  await tx.objectStore('meta').delete('activeSession')
-  await tx.done
+  try {
+    await Promise.all([
+      tx.objectStore('sessions').clear(),
+      tx.objectStore('progress').clear(),
+      tx.objectStore('bodyStats').clear(),
+    ])
+    await Promise.all([
+      ...file.sessions.map((s) => tx.objectStore('sessions').put(s)),
+      ...file.progress.map((p) => tx.objectStore('progress').put(p)),
+      ...file.bodyStats.map((b) => tx.objectStore('bodyStats').put(b)),
+      tx.objectStore('meta').put(file.settings, 'settings'),
+    ])
+    await tx.objectStore('meta').delete('activeSession')
+    await tx.done
+  } catch (err) {
+    try {
+      tx.abort()
+    } catch {
+      /* already aborted or committed */
+    }
+    throw err
+  }
 }
 
 /** Wipe all data and reseed a clean program. */

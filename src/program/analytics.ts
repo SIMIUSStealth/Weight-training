@@ -1,6 +1,7 @@
 // Derived stats for the tracking screens — pure functions over the session log.
 
 import { getExercise, MUSCLE_ORDER, type Muscle } from './exercises'
+import { mondayIndex } from './plan'
 import type { DayPlan, SessionLog } from '../storage/types'
 
 export interface ExercisePoint {
@@ -54,9 +55,17 @@ export function exerciseSeries(
 function startOfWeek(d: Date): Date {
   const x = new Date(d)
   x.setHours(0, 0, 0, 0)
-  const day = (x.getDay() + 6) % 7 // Monday = 0
-  x.setDate(x.getDate() - day)
+  x.setDate(x.getDate() - mondayIndex(x))
   return x
+}
+
+/** Whole local-calendar days between an ISO timestamp and now (0 = today). */
+function calendarDaysAgo(iso: string): number {
+  const then = new Date(iso)
+  then.setHours(0, 0, 0, 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return Math.round((today.getTime() - then.getTime()) / 86_400_000)
 }
 
 export interface OverviewStats {
@@ -85,11 +94,7 @@ export function overview(sessions: SessionLog[]): OverviewStats {
       .map(groupKey),
   )
   const lastSessionAt = completed[0]?.completedAt ?? null
-  let daysSinceLast: number | null = null
-  if (lastSessionAt) {
-    const ms = Date.now() - new Date(lastSessionAt).getTime()
-    daysSinceLast = Math.floor(ms / 86_400_000)
-  }
+  const daysSinceLast = lastSessionAt ? calendarDaysAgo(lastSessionAt) : null
   return {
     totalWorkouts: allGroups.size,
     thisWeek: weekGroups.size,
@@ -104,7 +109,7 @@ export interface MuscleVolume {
   muscle: Muscle
   /** Hard (completed) sets this week. */
   sets: number
-  /** Distinct days this muscle was trained this week (frequency). */
+  /** Distinct logical workouts that trained this muscle this week (split parts count once). */
   days: number
 }
 
@@ -126,13 +131,16 @@ export function weeklyVolume(sessions: SessionLog[]): MuscleVolume[] {
 
   for (const s of sessions) {
     if (!s.completedAt || new Date(s.completedAt) < weekStart) continue
-    const day = s.completedAt.slice(0, 10)
+    // Frequency counts logical workouts (groupKey), so split parts count once
+    // and the tally is timezone-safe — consistent with overview() and the
+    // "a split still counts as one workout" promise.
+    const workout = groupKey(s)
     for (const ex of s.exercises) {
       const done = ex.sets.filter((x) => x.done).length
       if (!done) continue
       const rec = acc.get(getExercise(ex.exerciseId).muscle)!
       rec.sets += done
-      rec.days.add(day)
+      rec.days.add(workout)
     }
   }
 
@@ -157,13 +165,12 @@ function completedWeekdaysThisWeek(sessions: SessionLog[]): Set<number> {
   const weekStart = startOfWeek(new Date())
   const days = new Set<number>()
   for (const s of sessions) {
-    if (
-      s.completedAt &&
-      s.weekday != null &&
-      new Date(s.completedAt) >= weekStart
-    ) {
-      days.add(s.weekday)
-    }
+    if (!s.completedAt || new Date(s.completedAt) < weekStart) continue
+    // Sessions logged before the weekly-plan feature carry no weekday tag —
+    // fall back to the local calendar day they were completed on, so a user's
+    // pre-existing history still marks days done.
+    const weekday = s.weekday ?? mondayIndex(new Date(s.completedAt))
+    days.add(weekday)
   }
   return days
 }
@@ -177,8 +184,10 @@ export function weekStatuses(
   const done = completedWeekdaysThisWeek(sessions)
   return plan.map((day, weekday) => {
     let status: DayStatus
-    if (!day.muscles.length) status = 'rest'
-    else if (active && active.weekday === weekday) status = 'inprogress'
+    // An active session outranks everything — even a day whose muscles were
+    // toggled off mid-workout must keep showing (and resuming) its session.
+    if (active && active.weekday === weekday) status = 'inprogress'
+    else if (!day.muscles.length) status = 'rest'
     else if (done.has(weekday)) status = 'done'
     else status = 'todo'
     return { weekday, muscles: day.muscles, status }
@@ -200,10 +209,12 @@ export function formatSeconds(total: number): string {
 
 /** A short relative-date label, e.g. "today", "2d ago", "3 Jun". */
 export function relativeDay(iso: string): string {
-  const then = new Date(iso)
-  const days = Math.floor((Date.now() - then.getTime()) / 86_400_000)
+  const days = calendarDaysAgo(iso)
   if (days <= 0) return 'today'
   if (days === 1) return 'yesterday'
   if (days < 7) return `${days}d ago`
-  return then.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+  return new Date(iso).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+  })
 }

@@ -4,7 +4,6 @@ import {
   nextRung,
   prevRung,
   isTopRung,
-  nearestRung,
   formatKg,
 } from './ladder'
 import { getExercise } from './exercises'
@@ -48,11 +47,6 @@ describe('dumbbell ladder', () => {
     expect(top).toBe(24)
     expect(isTopRung(24)).toBe(true)
     expect(nextRung(24)).toBe(24)
-  })
-
-  it('snaps arbitrary weights to the nearest rung', () => {
-    expect(nearestRung(7)).toBe(6.5)
-    expect(nearestRung(12)).toBe(11.5)
   })
 
   it('formats decimals with a comma, like the spec', () => {
@@ -214,6 +208,30 @@ describe('computeRecommendation', () => {
     const rec = computeRecommendation(floor, progress, sessions)
     expect(rec.stalled).toBe(true)
     expect(rec.coach).toMatch(/bridge/i)
+  })
+
+  it('plank justLeveledUp fires only for the session that triggered the level-up', () => {
+    const plank = getExercise('plank')
+    const progress: ExerciseProgress = { exerciseId: 'plank', targetSeconds: 40, currentWeightKg: 0 }
+    // The session that raised 30s→40s carries the level-up stamp.
+    const trigger = session('s1', '2026-01-01T10:00:00Z', [
+      {
+        exerciseId: 'plank',
+        weightKg: 0,
+        sets: secs(30, 31, 30),
+        leveledUp: true,
+        newSeconds: 40,
+      },
+    ])
+    expect(computeRecommendation(plank, progress, [trigger]).justLeveledUp).toBe(true)
+
+    // A later session that held 35s (≥ old target, < new) must NOT re-fire it.
+    const later = session('s2', '2026-01-03T10:00:00Z', [
+      { exerciseId: 'plank', weightKg: 0, sets: secs(35, 33, 36) },
+    ])
+    expect(
+      computeRecommendation(plank, progress, [trigger, later]).justLeveledUp,
+    ).toBe(false)
   })
 
   it('flags too-easy effort when last session left 3+ in reserve', () => {

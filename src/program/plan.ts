@@ -24,9 +24,14 @@ export const WEEKDAYS_LONG = [
   'Sunday',
 ] as const
 
+/** Monday-first weekday index of a date (Mon = 0 … Sun = 6). */
+export function mondayIndex(d: Date): number {
+  return (d.getDay() + 6) % 7
+}
+
 /** Index of today, Monday = 0 … Sunday = 6. */
 export function todayIndex(): number {
-  return (new Date().getDay() + 6) % 7
+  return mondayIndex(new Date())
 }
 
 /** Default plan: full body on Mon / Wed / Fri, rest otherwise. */
@@ -92,6 +97,24 @@ export function addableForMuscle(
   return ALL_EXERCISES.filter((e) => e.muscle === muscle && !present.has(e.id))
 }
 
+/** Every distinct exercise the plan can use across the week, in muscle order. */
+export function planExercises(
+  plan: DayPlan[],
+  program?: Record<string, string>,
+): ExerciseDef[] {
+  const seen = new Set<string>()
+  const out: ExerciseDef[] = []
+  for (const day of plan) {
+    for (const def of dayExercises(day, program)) {
+      if (!seen.has(def.id)) {
+        seen.add(def.id)
+        out.push(def)
+      }
+    }
+  }
+  return out
+}
+
 /** Number of training (non-rest) days in the plan. */
 export function trainingDayCount(plan: DayPlan[]): number {
   return plan.filter((d) => d.muscles.length > 0).length
@@ -105,8 +128,9 @@ export function muscleFrequency(plan: DayPlan[]): Record<Muscle, number> {
   return freq
 }
 
-/** Short label for a day's muscle groups, e.g. "Chest · Arms" or "Rest". */
+/** Short label for a day's muscle groups, e.g. "Chest · Arms". */
 export function dayLabel(day: DayPlan): string {
-  if (!day.muscles.length) return 'Rest'
+  if (!day.muscles.length) return 'Rest day'
+  if (day.muscles.length === MUSCLE_ORDER.length) return 'Full body'
   return MUSCLE_ORDER.filter((m) => day.muscles.includes(m)).join(' · ')
 }

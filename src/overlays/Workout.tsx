@@ -1,11 +1,15 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { getExercise } from '../program/exercises'
-import { computeRecommendation } from '../program/progression'
+import { computeRecommendation, defaultProgress } from '../program/progression'
 import { formatKg, isTopRung, nextRung, prevRung } from '../program/ladder'
 import { formatSeconds } from '../program/analytics'
 import { useStore } from '../store/useStore'
 import { Coach, Modal, MuscleChip, Stepper } from '../ui/components'
 import { Check, ChevronLeft, Minus, Plus, Timer, X } from '../ui/icons'
+
+// One shared AudioContext for the app's lifetime — iOS Safari caps live
+// contexts (~4), so creating one per beep permanently kills audio mid-workout.
+let sharedAudioCtx: AudioContext | null = null
 
 function beep(freq = 880, dur = 0.45) {
   try {
@@ -13,7 +17,9 @@ function beep(freq = 880, dur = 0.45) {
       window.AudioContext ||
       (window as unknown as { webkitAudioContext: typeof AudioContext })
         .webkitAudioContext
-    const ctx = new Ctx()
+    sharedAudioCtx ??= new Ctx()
+    const ctx = sharedAudioCtx
+    void ctx.resume() // iOS auto-suspends idle contexts
     const o = ctx.createOscillator()
     const g = ctx.createGain()
     o.connect(g)
@@ -48,7 +54,7 @@ const RIR_OPTIONS = [
   { v: 0, label: 'Fail' },
 ]
 
-type Hold = { setIndex: number; phase: 'ready' | 'hold'; remaining: number }
+type Hold = { setIndex: number; phase: 'ready' | 'hold'; display: number }
 
 export function Workout() {
   const activeSession = useStore((s) => s.activeSession)
@@ -64,25 +70,45 @@ export function Workout() {
 
   const [index, setIndex] = useState(0)
   const [showForm, setShowForm] = useState(false)
+  // Both timers are driven by wall-clock deadlines (refs), not tick counting —
+  // chained per-second timeouts drift and get throttled on iOS, which would
+  // stretch rests and mis-measure logged plank holds. State holds only the
+  // displayed seconds; the interval bails out of re-renders between changes.
   const [rest, setRest] = useState<number | null>(null)
+  const restEndRef = useRef<number | null>(null)
   const [hold, setHold] = useState<Hold | null>(null)
+  const holdPhaseStartRef = useRef(0)
   const [finishPrompt, setFinishPrompt] = useState(false)
   const alerted = useRef(false)
-  const prevPhase = useRef<Hold['phase'] | null>(null)
 
   const exercises = activeSession?.exercises ?? []
   const exLog = exercises[index]
   const def = exLog ? getExercise(exLog.exerciseId) : null
   const rec = useMemo(
-    () => (def ? computeRecommendation(def, progress[def.id]!, sessions) : null),
+    () =>
+      def
+        ? computeRecommendation(
+            def,
+            progress[def.id] ?? defaultProgress(def),
+            sessions,
+          )
+        : null,
     [def, progress, sessions],
   )
   const target = rec?.targetSeconds ?? def?.startSeconds ?? 30
 
-  // Rest countdown.
+  // Rest countdown — derived from the deadline every 250ms.
+  const restActive = rest !== null
   useEffect(() => {
-    if (rest === null) return
-    if (rest <= 0) {
+    if (!restActive) return
+    const iv = setInterval(() => {
+      const end = restEndRef.current
+      if (end == null) return
+      const left = Math.ceil((end - Date.now()) / 1000)
+      if (left > 0) {
+        setRest((r) => (r === left ? r : left))
+        return
+      }
       if (!alerted.current) {
         alerted.current = true
         if (settings.restAlert) {
@@ -90,43 +116,50 @@ export function Workout() {
           beep()
         }
       }
-      const clear = setTimeout(() => setRest(null), 900)
-      return () => clearTimeout(clear)
-    }
-    const t = setTimeout(() => setRest((r) => (r === null ? null : r - 1)), 1000)
-    return () => clearTimeout(t)
-  }, [rest, settings.restAlert])
+      // show "Go!" briefly, then hide
+      if (Date.now() - end > 900) {
+        restEndRef.current = null
+        setRest(null)
+      } else {
+        setRest((r) => (r === 0 ? r : 0))
+      }
+    }, 250)
+    return () => clearInterval(iv)
+  }, [restActive, settings.restAlert])
 
-  // Plank countdown: 3-2-1 get-ready, then count DOWN from the target.
+  // Plank: 3-2-1 get-ready, then count DOWN from the target; both phases
+  // measured from the wall clock so the logged seconds are real seconds.
   useEffect(() => {
     if (!hold) return
-    if (hold.phase === 'hold' && hold.remaining <= 0) return // finished — handled below
-    const t = setTimeout(() => {
-      setHold((h) => {
-        if (!h) return null
-        if (h.phase === 'ready') {
-          if (h.remaining > 1) return { ...h, remaining: h.remaining - 1 }
-          return { setIndex: h.setIndex, phase: 'hold', remaining: target } // go!
+    const { setIndex, phase } = hold
+    const iv = setInterval(() => {
+      const elapsed = (Date.now() - holdPhaseStartRef.current) / 1000
+      if (phase === 'ready') {
+        const left = READY_SECONDS - Math.floor(elapsed)
+        if (left <= 0) {
+          holdPhaseStartRef.current = Date.now()
+          if (settings.restAlert) {
+            vibrate(90)
+            beep(660, 0.18)
+          }
+          setHold({ setIndex, phase: 'hold', display: target })
+        } else {
+          setHold((h) => (h && h.display !== left ? { ...h, display: left } : h))
         }
-        return { ...h, remaining: h.remaining - 1 }
-      })
-    }, 1000)
-    return () => clearTimeout(t)
-  }, [hold, target])
-
-  // Cue the start of the hold, and complete it when the countdown hits zero.
-  useEffect(() => {
-    const phase = hold?.phase ?? null
-    if (phase === 'hold' && prevPhase.current === 'ready' && settings.restAlert) {
-      vibrate(90)
-      beep(660, 0.18)
-    }
-    prevPhase.current = phase
-    if (hold && def && hold.phase === 'hold' && hold.remaining <= 0) {
-      logHold(hold.setIndex, target, true)
-    }
+      } else {
+        const remaining = target - Math.floor(elapsed)
+        if (remaining <= 0) {
+          logHold(setIndex, target, true)
+        } else {
+          setHold((h) =>
+            h && h.display !== remaining ? { ...h, display: remaining } : h,
+          )
+        }
+      }
+    }, 200)
+    return () => clearInterval(iv)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hold])
+  }, [hold?.phase, hold?.setIndex, target, settings.restAlert])
 
   if (!activeSession || !exLog || !def || !rec) return null
 
@@ -141,7 +174,20 @@ export function Workout() {
 
   const startRest = () => {
     alerted.current = false
+    restEndRef.current = Date.now() + settings.restSeconds * 1000
     setRest(settings.restSeconds)
+  }
+
+  const bumpRest = (seconds: number) => {
+    if (restEndRef.current == null) return
+    alerted.current = false
+    restEndRef.current = Math.max(restEndRef.current, Date.now()) + seconds * 1000
+    setRest(Math.max(0, Math.ceil((restEndRef.current - Date.now()) / 1000)))
+  }
+
+  const stopRest = () => {
+    restEndRef.current = null
+    setRest(null)
   }
 
   const toggleRepDone = (setIndex: number, fallback: number) => {
@@ -165,8 +211,10 @@ export function Workout() {
     startRest()
   }
 
-  const startHold = (setIndex: number) =>
-    setHold({ setIndex, phase: 'ready', remaining: READY_SECONDS })
+  const startHold = (setIndex: number) => {
+    holdPhaseStartRef.current = Date.now()
+    setHold({ setIndex, phase: 'ready', display: READY_SECONDS })
+  }
 
   const stopHold = () => {
     if (!hold) return
@@ -174,7 +222,8 @@ export function Workout() {
       setHold(null)
       return
     }
-    const held = Math.max(1, target - hold.remaining)
+    const elapsed = Math.round((Date.now() - holdPhaseStartRef.current) / 1000)
+    const held = Math.max(1, Math.min(target, elapsed))
     logHold(hold.setIndex, held, false)
   }
 
@@ -191,7 +240,7 @@ export function Workout() {
   const go = (next: number) => {
     setIndex(Math.min(exercises.length - 1, Math.max(0, next)))
     setShowForm(false)
-    setRest(null)
+    stopRest()
     setHold(null)
   }
 
@@ -309,12 +358,12 @@ export function Workout() {
             {hold.phase === 'ready' ? (
               <>
                 <div className="tiny faint">GET READY</div>
-                <div className="hold-clock">{hold.remaining}</div>
+                <div className="hold-clock">{hold.display}</div>
               </>
             ) : (
               <>
                 <div className="tiny faint">HOLD</div>
-                <div className="hold-clock">{formatSeconds(Math.max(0, hold.remaining))}</div>
+                <div className="hold-clock">{formatSeconds(Math.max(0, hold.display))}</div>
               </>
             )}
             <button className="btn btn-danger btn-block" onClick={stopHold} style={{ marginTop: 8 }}>
@@ -453,16 +502,10 @@ export function Workout() {
             <Timer size={22} />
             <div className="rest-time">{rest <= 0 ? 'Go!' : formatSeconds(rest)}</div>
             <div className="grow" />
-            <button
-              className="btn btn-sm"
-              onClick={() => {
-                alerted.current = false
-                setRest((r) => (r === null ? null : r + 15))
-              }}
-            >
+            <button className="btn btn-sm" onClick={() => bumpRest(15)}>
               +15s
             </button>
-            <button className="btn btn-sm btn-ghost" onClick={() => setRest(null)}>
+            <button className="btn btn-sm btn-ghost" onClick={stopRest}>
               Skip
             </button>
           </div>

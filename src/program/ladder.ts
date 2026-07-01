@@ -10,13 +10,6 @@ export function rungIndex(weightKg: number): number {
   return DUMBBELL_LADDER_KG.findIndex((w) => Math.abs(w - weightKg) < 1e-9)
 }
 
-/** Nearest rung to an arbitrary weight (used to snap manual edits). */
-export function nearestRung(weightKg: number): number {
-  return DUMBBELL_LADDER_KG.reduce((best, w) =>
-    Math.abs(w - weightKg) < Math.abs(best - weightKg) ? w : best,
-  )
-}
-
 /** The next rung up, or the same weight if already at the top. */
 export function nextRung(weightKg: number): number {
   const i = rungIndex(weightKg)

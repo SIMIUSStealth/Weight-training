@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   getSlot,
   MUSCLE_ORDER,
+  setScheme,
   slotOptions,
   type ExerciseDef,
   type Muscle,
@@ -48,7 +49,7 @@ export function DayPlanView({ weekday }: { weekday: number }) {
 
   const doneSession =
     status === 'done'
-      ? [...sessions]
+      ? sessions
           .filter((s) => s.completedAt && s.weekday === weekday)
           .sort((a, b) => (a.completedAt! < b.completedAt! ? 1 : -1))[0]
       : undefined
@@ -132,11 +133,7 @@ export function DayPlanView({ weekday }: { weekday: number }) {
                   <div className="list-row" key={e.id}>
                     <div className="grow">
                       <div style={{ fontWeight: 700 }}>{e.name}</div>
-                      <div className="tiny faint">
-                        {e.kind === 'time'
-                          ? `${e.sets} × hold`
-                          : `${e.sets} × ${e.repMin}–${e.repMax}${e.perArm ? ' · ea' : ''}`}
-                      </div>
+                      <div className="tiny faint">{setScheme(e)}</div>
                     </div>
                     <button className="btn btn-sm" onClick={() => setSwapFor(e)}>
                       Swap
@@ -285,11 +282,7 @@ function SwapModal({
                     </span>
                   )}
                 </div>
-                <div className="tiny faint">
-                  {opt.kind === 'time'
-                    ? `${opt.sets} × hold`
-                    : `${opt.sets} × ${opt.repMin}–${opt.repMax}${opt.perArm ? ' · ea' : ''}`}
-                </div>
+                <div className="tiny faint">{setScheme(opt)}</div>
               </div>
             </button>
           )
@@ -325,11 +318,7 @@ function AddList({
         >
           <div className="grow">
             <div style={{ fontWeight: 700 }}>{opt.name}</div>
-            <div className="tiny faint">
-              {opt.kind === 'time'
-                ? `${opt.sets} × hold`
-                : `${opt.sets} × ${opt.repMin}–${opt.repMax}${opt.perArm ? ' · ea' : ''}`}
-            </div>
+            <div className="tiny faint">{setScheme(opt)}</div>
           </div>
           <Plus size={16} className="faint" />
         </button>

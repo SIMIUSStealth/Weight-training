@@ -1,15 +1,12 @@
 import { useMemo } from 'react'
-import {
-  getProgram,
-  MUSCLE_ORDER,
-  type ExerciseDef,
-  type Muscle,
-} from '../program/exercises'
+import { MUSCLE_ORDER, type ExerciseDef, type Muscle } from '../program/exercises'
+import { getWeeklyPlan, planExercises } from '../program/plan'
 import {
   exerciseSeries,
   formatSeconds,
   volumeBand,
   weeklyVolume,
+  type ExercisePoint,
 } from '../program/analytics'
 import { formatKg } from '../program/ladder'
 import { useStore } from '../store/useStore'
@@ -23,15 +20,26 @@ export function Progress() {
   const settings = useStore((s) => s.settings)
   const openOverlay = useStore((s) => s.openOverlay)
 
+  // Everything the weekly plan can train — including per-day added extras —
+  // so no exercise with history is unreachable from this screen.
   const byMuscle = useMemo(() => {
-    const program = getProgram(settings.program)
+    const defs = planExercises(getWeeklyPlan(settings.weeklyPlan), settings.program)
     const map = new Map<Muscle, ExerciseDef[]>()
     for (const m of MUSCLE_ORDER) map.set(m, [])
-    for (const def of program) map.get(def.muscle)!.push(def)
+    for (const def of defs) map.get(def.muscle)!.push(def)
     return map
-  }, [settings.program])
+  }, [settings.weeklyPlan, settings.program])
 
   const volume = useMemo(() => weeklyVolume(sessions), [sessions])
+
+  // One pass over history per data change, not one sort per card per render.
+  const seriesById = useMemo(() => {
+    const map = new Map<string, ExercisePoint[]>()
+    for (const defs of byMuscle.values()) {
+      for (const def of defs) map.set(def.id, exerciseSeries(def.id, sessions))
+    }
+    return map
+  }, [byMuscle, sessions])
 
   return (
     <div className="screen fade-in">
@@ -97,7 +105,7 @@ export function Progress() {
         <div key={muscle}>
           <div className="eyebrow">{muscle}</div>
           {byMuscle.get(muscle)!.map((def) => {
-            const series = exerciseSeries(def.id, sessions)
+            const series = seriesById.get(def.id) ?? []
             const last = series[series.length - 1]
             const p = progress[def.id]
             const current =

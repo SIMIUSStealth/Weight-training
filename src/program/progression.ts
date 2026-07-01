@@ -267,16 +267,15 @@ export function computeRecommendation(
     }
   }
 
-  // Just leveled up? Last session was logged a rung lower (reps), or held the
-  // previous (lower) plank target on every set.
+  // Just leveled up? Last session was logged a rung lower (reps), or was the
+  // session whose commit raised the hold target to its current value (time) —
+  // the level-up stamp is exact, unlike re-deriving it from hold durations,
+  // which stays true for every later session too.
   let justLeveledUp = false
   if (def.kind === 'reps') {
     justLeveledUp = last.weightKg < weightKg - 1e-9
   } else {
-    const inc = def.timeIncrementSeconds ?? 10
-    const prevTarget = (targetSeconds ?? 0) - inc
-    justLeveledUp =
-      doneSets(last).length >= def.sets && worstSet(last, def.kind) >= prevTarget
+    justLeveledUp = last.leveledUp === true && last.newSeconds === targetSeconds
   }
 
   // Stall: three+ consecutive sessions at the current rung with no new best,

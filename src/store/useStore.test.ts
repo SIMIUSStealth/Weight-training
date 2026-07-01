@@ -101,6 +101,21 @@ describe('store: backup', () => {
     useStore.getState().recordBackup()
     expect(useStore.getState().settings.lastBackupAt).toBeTruthy()
   })
+
+  it('rejects a malformed backup without destroying existing data', async () => {
+    const s = useStore.getState()
+    s.startDay(0)
+    logSet('floor-press', 0, 9)
+    s.finishSession()
+    await flush()
+
+    // app tag right, but sessions array missing → must throw BEFORE clearing
+    const bad = { app: 'iron-ladder', version: 1 } as never
+    await expect(useStore.getState().importData(bad)).rejects.toThrow()
+
+    await useStore.getState().init()
+    expect(useStore.getState().sessions).toHaveLength(1) // history intact
+  })
 })
 
 describe('store: swapping exercises', () => {

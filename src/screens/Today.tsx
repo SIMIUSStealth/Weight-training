@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { MUSCLE_ORDER } from '../program/exercises'
 import {
+  dayLabel,
   getWeeklyPlan,
   todayIndex,
   trainingDayCount,
@@ -14,14 +15,8 @@ import {
 } from '../program/analytics'
 import { useStore } from '../store/useStore'
 import { performBackup, daysSince } from '../ui/backup'
-import { muscleColor } from '../ui/components'
+import { MuscleChip } from '../ui/components'
 import { Check, Download, Play } from '../ui/icons'
-
-function dayLabelText(muscles: string[]): string {
-  if (!muscles.length) return 'Rest day'
-  if (muscles.length === MUSCLE_ORDER.length) return 'Full body'
-  return MUSCLE_ORDER.filter((m) => muscles.includes(m)).join(' · ')
-}
 
 export function Today() {
   const sessions = useStore((s) => s.sessions)
@@ -61,7 +56,7 @@ export function Today() {
     : 0
   const activeLabel =
     activeSession && activeSession.weekday != null
-      ? dayLabelText(plan[activeSession.weekday].muscles)
+      ? dayLabel(plan[activeSession.weekday])
       : 'Workout'
 
   return (
@@ -159,10 +154,7 @@ export function Today() {
                 ) : (
                   <div className="row wrap" style={{ gap: 6 }}>
                     {MUSCLE_ORDER.filter((m) => d.muscles.includes(m)).map((m) => (
-                      <span key={m} className="chip">
-                        <span className="dot" style={{ background: muscleColor(m) }} />
-                        {m}
-                      </span>
+                      <MuscleChip key={m} muscle={m} />
                     ))}
                   </div>
                 )}

@@ -41,7 +41,8 @@ describe('weeklyVolume', () => {
     const vol = weeklyVolume(sessions)
     expect(vol.find((v) => v.muscle === 'Chest')!.sets).toBe(9) // 3+3 + 3
     expect(vol.find((v) => v.muscle === 'Arms')!.sets).toBe(3)
-    expect(vol.find((v) => v.muscle === 'Chest')!.days).toBe(1) // same day
+    // Frequency counts logical workouts: two separate sessions = trained twice.
+    expect(vol.find((v) => v.muscle === 'Chest')!.days).toBe(2)
   })
 
   it('ignores sessions before this week', () => {
@@ -85,5 +86,46 @@ describe('weekStatuses', () => {
     expect(st[2].status).toBe('done') // Wed completed
     expect(st[4].status).toBe('todo') // Fri planned, not done
     expect(doneDaysThisWeek([doneWed])).toBe(1)
+  })
+
+  it('an active session outranks rest — muscles toggled off mid-workout stay visible', () => {
+    const now = new Date().toISOString()
+    const plan = defaultWeeklyPlan()
+    plan[0] = { muscles: [] } // Monday edited to rest while its session runs
+    const active: SessionLog = { id: 'a', startedAt: now, weekday: 0, exercises: [] }
+    expect(weekStatuses(plan, [], active)[0].status).toBe('inprogress')
+  })
+
+  it('falls back to the completion date for pre-update sessions without a weekday tag', () => {
+    const now = new Date()
+    const legacy: SessionLog = {
+      id: 'old',
+      startedAt: now.toISOString(),
+      completedAt: now.toISOString(),
+      exercises: [{ exerciseId: 'floor-press', weightKg: 8, sets: doneSets(1) }],
+    }
+    const todayIdx = (now.getDay() + 6) % 7
+    const plan = defaultWeeklyPlan()
+    plan[todayIdx] = { muscles: ['Chest'] } // ensure today is a training day
+    expect(doneDaysThisWeek([legacy])).toBe(1)
+    expect(weekStatuses(plan, [legacy], null)[todayIdx].status).toBe('done')
+  })
+})
+
+describe('weeklyVolume frequency', () => {
+  it('counts split parts as one workout', () => {
+    const now = new Date().toISOString()
+    const mk = (id: string): SessionLog => ({
+      id,
+      startedAt: now,
+      completedAt: now,
+      groupId: 'g1',
+      weekday: 0,
+      exercises: [{ exerciseId: 'floor-press', weightKg: 8, sets: doneSets(3) }],
+    })
+    const vol = weeklyVolume([mk('a'), mk('b')])
+    const chest = vol.find((v) => v.muscle === 'Chest')!
+    expect(chest.sets).toBe(6) // volume adds up
+    expect(chest.days).toBe(1) // but it's one logical workout
   })
 })

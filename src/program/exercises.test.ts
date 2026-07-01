@@ -1,25 +1,24 @@
 import { describe, it, expect } from 'vitest'
-import {
-  EXERCISES,
-  SLOTS,
-  getExercise,
-  getProgram,
-  getSlot,
-  slotOptions,
-} from './exercises'
+import { SLOTS, getExercise, getSlot, setScheme, slotOptions } from './exercises'
+import { selectedForSlot } from './plan'
 
 describe('slots & program selection', () => {
-  it('default program is the 11 base exercises, in slot order', () => {
-    const prog = getProgram()
-    expect(prog).toHaveLength(11)
-    expect(prog.map((e) => e.id)).toEqual(EXERCISES.map((e) => e.id))
+  it('honours a valid selection but ignores an id from another slot', () => {
+    expect(selectedForSlot('arm-biceps', { 'arm-biceps': 'hammer-curl' })).toBe(
+      'hammer-curl',
+    )
+    // plank belongs to ab-core, so it is rejected → base remains
+    expect(selectedForSlot('arm-biceps', { 'arm-biceps': 'plank' })).toBe(
+      'biceps-curl',
+    )
+    // no selection → the base exercise
+    expect(selectedForSlot('chest-press')).toBe('floor-press')
   })
 
-  it('honours a valid selection but ignores an id from another slot', () => {
-    // arm-biceps is the 5th slot (index 4)
-    expect(getProgram({ 'arm-biceps': 'hammer-curl' })[4].id).toBe('hammer-curl')
-    // plank belongs to ab-core, so it is rejected → base remains
-    expect(getProgram({ 'arm-biceps': 'plank' })[4].id).toBe('biceps-curl')
+  it('formats the set scheme consistently', () => {
+    expect(setScheme(getExercise('floor-press'))).toBe('3 × 8–12 · ea')
+    expect(setScheme(getExercise('triceps-extension'))).toBe('3 × 8–12')
+    expect(setScheme(getExercise('plank'))).toBe('3 × hold')
   })
 
   it('getSlot and slotOptions are consistent (base first)', () => {

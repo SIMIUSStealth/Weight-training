@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import {
+  EXERCISES_BY_ID,
   getExercise,
   getSlot,
   SLOTS_BY_ID,
@@ -11,6 +12,7 @@ import {
   dayExercises,
   defaultWeeklyPlan,
   getWeeklyPlan,
+  planExercises,
   selectedForSlot,
 } from '../program/plan'
 import { formatKg } from '../program/ladder'
@@ -24,7 +26,6 @@ import { formatSeconds } from '../program/analytics'
 import {
   deleteBodyStat as dbDeleteBodyStat,
   deleteSession as dbDeleteSession,
-  exportBackup,
   importBackup,
   loadAll,
   putActiveSession,
@@ -112,7 +113,6 @@ interface StoreState {
     patch: Partial<SetLog>,
   ) => void
   setWorkingWeight: (exerciseId: string, weightKg: number) => void
-  setSessionBodyweight: (kg: number | undefined) => void
   finishSession: () => SessionSummary | null
   /** Finish the performed exercises now and queue the untouched ones as a later part. */
   splitSession: () => SessionSummary | null
@@ -140,7 +140,6 @@ interface StoreState {
   getBackup: () => BackupFile
   /** Stamp "last backed up" as now. */
   recordBackup: () => void
-  exportData: () => Promise<BackupFile>
   importData: (file: BackupFile) => Promise<void>
   resetEverything: () => Promise<void>
 }
@@ -170,24 +169,6 @@ function clonePlan(plan: DayPlan[]): DayPlan[] {
     omit: d.omit ? [...d.omit] : undefined,
     add: d.add ? [...d.add] : undefined,
   }))
-}
-
-/** Every distinct exercise the current plan can use (for seeding progress). */
-function planExerciseDefs(
-  plan: DayPlan[],
-  program?: Record<string, string>,
-): ExerciseDef[] {
-  const seen = new Set<string>()
-  const defs: ExerciseDef[] = []
-  for (const day of plan) {
-    for (const def of dayExercises(day, program)) {
-      if (!seen.has(def.id)) {
-        seen.add(def.id)
-        defs.push(def)
-      }
-    }
-  }
-  return defs
 }
 
 /** Ensure every exercise in `defs` has a progression row, seeding any missing. */
@@ -323,7 +304,7 @@ export const useStore = create<StoreState>((set, get) => ({
     // Make sure every exercise the plan can use has a progression row.
     const plan = getWeeklyPlan(settings.weeklyPlan)
     const { progress, seeded } = withSeededProgress(
-      planExerciseDefs(plan, settings.program),
+      planExercises(plan, settings.program),
       loaded,
     )
     if (seeded.length) void putProgress(seeded)
@@ -379,6 +360,16 @@ export const useStore = create<StoreState>((set, get) => ({
       return { ...ex, sets }
     })
     const next = { ...active, exercises }
+    // A split continuation is created at the moment of the split but may be
+    // picked up hours or days later — re-stamp its start at the first logged
+    // set so the session duration reflects the actual sitting.
+    if (
+      patch.done === true &&
+      (active.part ?? 1) > 1 &&
+      !active.exercises.some((ex) => ex.sets.some((s) => s.done))
+    ) {
+      next.startedAt = new Date().toISOString()
+    }
     void putActiveSession(next)
     set({ activeSession: next })
   },
@@ -390,14 +381,6 @@ export const useStore = create<StoreState>((set, get) => ({
       ex.exerciseId === exerciseId ? { ...ex, weightKg } : ex,
     )
     const next = { ...active, exercises }
-    void putActiveSession(next)
-    set({ activeSession: next })
-  },
-
-  setSessionBodyweight: (kg) => {
-    const active = get().activeSession
-    if (!active) return
-    const next = { ...active, bodyweightKg: kg }
     void putActiveSession(next)
     set({ activeSession: next })
   },
@@ -511,12 +494,10 @@ export const useStore = create<StoreState>((set, get) => ({
     if (def.slot !== slotId) return // only swap within the same slot
     const program = { ...(get().settings.program ?? {}), [slotId]: exerciseId }
     get().updateSettings({ program })
-    // Seed a progression row for the newly chosen exercise if it's never been used.
-    const cur = get().progress
-    if (!cur[exerciseId]) {
-      const p = defaultProgress(def)
-      void putProgress([p])
-      set({ progress: { ...cur, [exerciseId]: p } })
+    const res = withSeededProgress([def], get().progress)
+    if (res.seeded.length) {
+      void putProgress(res.seeded)
+      set({ progress: res.progress })
     }
   },
 
@@ -527,7 +508,9 @@ export const useStore = create<StoreState>((set, get) => ({
     if (day.muscles.includes(muscle as Muscle)) {
       day.muscles = day.muscles.filter((m) => m !== muscle)
       day.omit = day.omit?.filter((id) => SLOTS_BY_ID[id]?.muscle !== muscle)
-      day.add = day.add?.filter((id) => getExercise(id).muscle !== muscle)
+      // Lookup defensively — a plan imported from another device/version may
+      // reference exercise ids this build doesn't know.
+      day.add = day.add?.filter((id) => EXERCISES_BY_ID[id]?.muscle !== muscle)
     } else {
       day.muscles = [...day.muscles, muscle as Muscle]
     }
@@ -557,11 +540,10 @@ export const useStore = create<StoreState>((set, get) => ({
       day.add = [...(day.add ?? []), exerciseId]
     }
     get().updateSettings({ weeklyPlan: plan })
-    const cur = get().progress
-    if (!cur[exerciseId]) {
-      const p = defaultProgress(def)
-      void putProgress([p])
-      set({ progress: { ...cur, [exerciseId]: p } })
+    const res = withSeededProgress([def], get().progress)
+    if (res.seeded.length) {
+      void putProgress(res.seeded)
+      set({ progress: res.progress })
     }
   },
 
@@ -571,9 +553,17 @@ export const useStore = create<StoreState>((set, get) => ({
     if (!day) return
     if ((day.add ?? []).includes(exerciseId)) {
       day.add = (day.add ?? []).filter((id) => id !== exerciseId)
-    } else {
-      const slot = getSlot(exerciseId)
-      if (slot) day.omit = [...(day.omit ?? []), slot.id]
+    }
+    // If the exercise is (also) the slot's current selection, omit the slot —
+    // an exercise can be both added and slot-selected (added first, swapped in
+    // later), and removing it must clear both in one tap.
+    const slot = getSlot(exerciseId)
+    if (
+      slot &&
+      selectedForSlot(slot.id, get().settings.program) === exerciseId &&
+      !(day.omit ?? []).includes(slot.id)
+    ) {
+      day.omit = [...(day.omit ?? []), slot.id]
     }
     // Drop the muscle entirely if it has no exercises left.
     const muscle = getExercise(exerciseId).muscle
@@ -645,8 +635,6 @@ export const useStore = create<StoreState>((set, get) => ({
 
   recordBackup: () =>
     get().updateSettings({ lastBackupAt: new Date().toISOString() }),
-
-  exportData: () => exportBackup(),
 
   importData: async (file) => {
     await importBackup(file)

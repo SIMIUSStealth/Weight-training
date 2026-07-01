@@ -4,6 +4,7 @@ import {
   dayLabel,
   defaultWeeklyPlan,
   muscleFrequency,
+  planExercises,
   trainingDayCount,
 } from './plan'
 import type { DayPlan } from '../storage/types'
@@ -49,7 +50,20 @@ describe('weekly plan', () => {
 
   it('rest day has no exercises', () => {
     expect(dayExercises({ muscles: [] })).toEqual([])
-    expect(dayLabel({ muscles: [] })).toBe('Rest')
+    expect(dayLabel({ muscles: [] })).toBe('Rest day')
+  })
+
+  it('labels days by their muscle groups', () => {
+    expect(dayLabel({ muscles: ['Chest', 'Arms'] })).toBe('Chest · Arms')
+    expect(dayLabel(defaultWeeklyPlan()[0])).toBe('Full body')
+  })
+
+  it('unions every exercise the plan can use, deduped', () => {
+    const plan = defaultWeeklyPlan()
+    plan[0].add = ['squeeze-press']
+    const ids = planExercises(plan).map((e) => e.id)
+    expect(ids).toContain('squeeze-press')
+    expect(ids.filter((id) => id === 'floor-press')).toHaveLength(1) // 3 days, once
   })
 
   it('counts training days per muscle', () => {
