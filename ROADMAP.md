@@ -59,3 +59,39 @@ Running list of shipped features and the backlog, so ideas aren't lost.
 - Apple Health sync (needs a native app).
 - True scheduled push reminders (needs a server).
 - A/B program split (fights the plan's single full-body session 3×/week).
+
+## Hevy gap analysis (2026-07, analysis only)
+
+Compared Iron Ladder against Hevy's advertised feature set and independent
+reviews. Two structural takeaways:
+
+1. **Iron Ladder's edge is coaching.** Reviewers consistently note Hevy "logs
+   what you do but doesn't tell you what to do next" (no periodization or
+   auto-regulation). Our double-progression engine, stall/bridge coaching,
+   RIR-aware effort notes, and start-weight self-correction are the
+   differentiator — deepen these rather than dilute them.
+2. **Hevy's edge is logging polish + motivation loops.** The gaps worth
+   closing are almost all cheap analytics/UX wins on data we already store.
+
+Adoptable (prioritized):
+- **Tier 1 — cheap, high impact**
+  - Live PR detection + celebration (new best reps@weight, est. 1RM, longest
+    hold) during/after workouts; feeds the existing summary screen.
+  - Estimated 1RM trend chart per exercise (Epley), alongside volume/top-set.
+  - Warm-up set calculator: % of working weight snapped DOWN to ladder rungs
+    (e.g. 50% × 8 before the first exercise) — the spec's warm-up, made concrete.
+  - Per-exercise session notes ("felt strong", "elbow niggle") shown as
+    last-time context next time.
+  - Supersets: pair adjacent small-muscle slots (forearms, abs) to shorten
+    sessions; a session-flow grouping, no engine change.
+- **Tier 2 — medium**
+  - Monthly report / year-in-review recap (extends the planned weekly recap).
+  - Body measurements beyond weight (arms/chest/waist) on the History screen.
+  - Custom exercises (user-defined name/muscle/rep-range → joins a slot).
+  - Muscle-distribution trend (4-week volume history, not just current week).
+- **Not adoptable in a PWA / by design**
+  - Apple Watch app, home-screen widgets, Live Activities (native-only APIs).
+  - Social feed, leaderboards, routine sharing, coach marketplace (single-user
+    app by design).
+  - Plate/barbell calculator (adjustable dumbbell — the ladder already is one).
+  - Exercise video library (hosting out of scope; form cues + could link out).
