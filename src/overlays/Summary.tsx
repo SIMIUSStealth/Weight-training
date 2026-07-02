@@ -1,8 +1,17 @@
 import { getExercise } from '../program/exercises'
 import { formatKg, prevRung } from '../program/ladder'
+import { formatSeconds } from '../program/analytics'
 import { useStore, type SessionSummary } from '../store/useStore'
 import { Coach } from '../ui/components'
-import { ArrowUp, Check, Trophy } from '../ui/icons'
+import { ArrowUp, Check, Info, Trophy } from '../ui/icons'
+import type { PRRecord } from '../storage/types'
+
+function prLabel(pr: PRRecord): string {
+  if (pr.kind === 'hold') return `${formatSeconds(pr.value)} — longest hold yet`
+  if (pr.kind === 'reps')
+    return `${pr.value} reps @ ${formatKg(pr.weightKg ?? 0)} — most ever at this weight`
+  return `est. 1RM ${formatKg(pr.value)} — all-time strength best`
+}
 
 export function Summary({ summary }: { summary: SessionSummary }) {
   const progress = useStore((s) => s.progress)
@@ -45,7 +54,7 @@ export function Summary({ summary }: { summary: SessionSummary }) {
         {summary.split && (
           <div className="coach coach-info" style={{ marginBottom: 4 }}>
             <span className="ico">
-              <Trophy size={17} />
+              <Info size={17} />
             </span>
             <span>
               {summary.split.remaining} exercise
@@ -56,11 +65,40 @@ export function Summary({ summary }: { summary: SessionSummary }) {
           </div>
         )}
 
+        {summary.prs.length > 0 && (
+          <>
+            <div className="eyebrow">
+              <span className="row" style={{ gap: 6 }}>
+                <Trophy size={14} /> Personal records ({summary.prs.length})
+              </span>
+            </div>
+            <div className="card">
+              {[...new Set(summary.prs.map((p) => p.exerciseId))].map((exId) => (
+                <div className="set-row" key={exId} style={{ alignItems: 'flex-start' }}>
+                  <span style={{ color: 'var(--accent-ink)', marginTop: 2 }}>
+                    <Trophy size={20} />
+                  </span>
+                  <div className="grow">
+                    <div style={{ fontWeight: 700 }}>{getExercise(exId).name}</div>
+                    {summary.prs
+                      .filter((p) => p.exerciseId === exId)
+                      .map((p) => (
+                        <div className="tiny muted" key={p.kind} style={{ marginTop: 2 }}>
+                          {prLabel(p)}
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
         {summary.levelUps.length > 0 ? (
           <>
             <div className="eyebrow">
               <span className="row" style={{ gap: 6 }}>
-                <Trophy size={14} /> Leveled up ({summary.levelUps.length})
+                <ArrowUp size={14} /> Leveled up ({summary.levelUps.length})
               </span>
             </div>
             <div className="card">
@@ -89,7 +127,7 @@ export function Summary({ summary }: { summary: SessionSummary }) {
               to the top of the range, then climb again.
             </Coach>
           </>
-        ) : (
+        ) : summary.prs.length > 0 ? null : (
           <Coach tone="info">
             No level-ups this time — that&rsquo;s normal. Beat at least one set next
             session and you&rsquo;re trending the right way.

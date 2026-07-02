@@ -22,6 +22,7 @@ import {
   defaultProgress,
   type StartAssessment,
 } from '../program/progression'
+import { detectPRs } from '../program/records'
 import { formatSeconds } from '../program/analytics'
 import {
   deleteBodyStat as dbDeleteBodyStat,
@@ -42,6 +43,7 @@ import type {
   DayPlan,
   ExerciseLog,
   ExerciseProgress,
+  PRRecord,
   SessionLog,
   Settings,
   SetLog,
@@ -72,6 +74,8 @@ export interface SessionSummary {
   startNudges: { exerciseId: string; kind: Exclude<StartAssessment, null> }[]
   /** Number of sets taken to failure (RIR 0) this session, for a fatigue nudge. */
   failureSets: number
+  /** Personal records set this session. */
+  prs: PRRecord[]
   /** Present when the session was split — the rest is queued as a later part. */
   split?: { remaining: number; part: number }
 }
@@ -404,6 +408,8 @@ export const useStore = create<StoreState>((set, get) => ({
       completedAt,
       part: activeSession.part ?? 1,
     }
+    const prs = detectPRs(finished, sessions)
+    if (prs.length) finished.prs = prs
     const summary: SessionSummary = {
       sessionId: finished.id,
       completedAt,
@@ -412,6 +418,7 @@ export const useStore = create<StoreState>((set, get) => ({
       levelUps: r.levelUps,
       startNudges: r.startNudges,
       failureSets: r.failureSets,
+      prs,
     }
 
     void putSession(finished)
@@ -465,6 +472,8 @@ export const useStore = create<StoreState>((set, get) => ({
       })),
     }
 
+    const prs = detectPRs(finished, sessions)
+    if (prs.length) finished.prs = prs
     const summary: SessionSummary = {
       sessionId: finished.id,
       completedAt,
@@ -473,6 +482,7 @@ export const useStore = create<StoreState>((set, get) => ({
       levelUps: r.levelUps,
       startNudges: r.startNudges,
       failureSets: r.failureSets,
+      prs,
       split: { remaining: remaining.length, part: part + 1 },
     }
 

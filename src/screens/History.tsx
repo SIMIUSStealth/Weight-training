@@ -3,7 +3,7 @@ import { relativeDay } from '../program/analytics'
 import { useStore } from '../store/useStore'
 import { Sparkline } from '../ui/charts'
 import { EmptyState, Modal } from '../ui/components'
-import { ArrowUp, Body, ChevronRight, History as HistoryIcon } from '../ui/icons'
+import { ArrowUp, Body, ChevronRight, History as HistoryIcon, Trophy } from '../ui/icons'
 import type { BodyStat } from '../storage/types'
 
 function today(): string {
@@ -111,6 +111,11 @@ export function History() {
                   </div>
                 </div>
                 <div className="row" style={{ gap: 8 }}>
+                  {(s.prs?.length ?? 0) > 0 && (
+                    <span className="chip" style={{ color: 'var(--accent-ink)' }}>
+                      <Trophy size={13} /> {s.prs!.length}
+                    </span>
+                  )}
                   {levelUps > 0 && (
                     <span className="chip" style={{ color: 'var(--success)' }}>
                       <ArrowUp size={13} /> {levelUps}

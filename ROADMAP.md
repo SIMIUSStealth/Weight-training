@@ -15,6 +15,11 @@ Running list of shipped features and the backlog, so ideas aren't lost.
 - Light, token-driven design (`DESIGN.md`), app-shell layout.
 - **Effort / reps-in-reserve (RIR) logging + effort-aware coaching.**
 - **Per-muscle weekly volume tracker.**
+- **Personal records** — rep PRs (most ever at a weight), estimated-1RM PRs
+  (Epley), and longest-hold PRs, detected at session commit against prior
+  history only (first session sets a quiet baseline). Celebrated in the
+  summary, stamped on the session (trophy count in History), and an
+  "all-time best" row on the exercise page.
 - **Weekly plan / split routine** — a Mon–Sun calendar of muscle-group days
   (rest/to-do/in-progress/done), tap any day to train or edit it (toggle groups,
   swap/add/remove exercises), with a per-muscle frequency hint. Splitting a day
@@ -75,9 +80,9 @@ reviews. Two structural takeaways:
 
 Adoptable (prioritized):
 - **Tier 1 — cheap, high impact**
-  - Live PR detection + celebration (new best reps@weight, est. 1RM, longest
-    hold) during/after workouts; feeds the existing summary screen.
-  - Estimated 1RM trend chart per exercise (Epley), alongside volume/top-set.
+  - ~~Live PR detection + celebration~~ → shipped (see above).
+  - Estimated 1RM trend chart per exercise (Epley), alongside volume/top-set
+    (the per-set 1RM math now exists in records.ts).
   - Warm-up set calculator: % of working weight snapped DOWN to ladder rungs
     (e.g. 50% × 8 before the first exercise) — the spec's warm-up, made concrete.
   - Per-exercise session notes ("felt strong", "elbow niggle") shown as

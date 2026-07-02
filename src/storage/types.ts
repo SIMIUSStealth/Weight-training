@@ -45,6 +45,18 @@ export interface ExerciseLog {
   newSeconds?: number
 }
 
+/** A personal record set within a session. */
+export interface PRRecord {
+  exerciseId: string
+  kind: 'reps' | 'onerm' | 'hold'
+  /** Weight the PR was set at (reps/onerm kinds). */
+  weightKg?: number
+  /** Reps behind a 1RM-estimate PR. */
+  reps?: number
+  /** reps for 'reps', estimated 1RM kg for 'onerm', seconds for 'hold'. */
+  value: number
+}
+
 /** A complete (or in-progress) training session. */
 export interface SessionLog {
   id: string
@@ -65,6 +77,8 @@ export interface SessionLog {
   part?: number
   /** Which weekly-plan day this session belongs to (0 = Mon … 6 = Sun). */
   weekday?: number
+  /** Personal records set by this session (stamped at commit). */
+  prs?: PRRecord[]
 }
 
 /** Per-exercise progression state — the current rung each exercise sits on. */

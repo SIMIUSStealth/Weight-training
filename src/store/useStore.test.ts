@@ -152,6 +152,29 @@ describe('store: swapping exercises', () => {
   })
 })
 
+describe('store: personal records', () => {
+  beforeEach(async () => {
+    await useStore.getState().resetEverything()
+  })
+
+  it('first session sets the baseline; beating it earns a PR that is stamped and summarized', () => {
+    const s = useStore.getState()
+    s.startDay(0)
+    logSet('floor-press', 0, 10)
+    const first = useStore.getState().finishSession()
+    expect(first!.prs).toEqual([]) // baseline, no trophies on day one
+
+    useStore.getState().startDay(2)
+    logSet('floor-press', 0, 11)
+    const second = useStore.getState().finishSession()
+    expect(second!.prs.length).toBeGreaterThan(0)
+    expect(second!.prs.some((p) => p.kind === 'reps' && p.value === 11)).toBe(true)
+
+    const stored = useStore.getState().sessions.find((x) => x.id === second!.sessionId)
+    expect(stored?.prs?.length).toBe(second!.prs.length) // persisted on the session
+  })
+})
+
 describe('store: weekly plan', () => {
   beforeEach(async () => {
     await useStore.getState().resetEverything()

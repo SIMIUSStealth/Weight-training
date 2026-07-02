@@ -7,12 +7,13 @@ import {
   type ExerciseDef,
 } from '../program/exercises'
 import { computeRecommendation, defaultProgress } from '../program/progression'
+import { collectBests } from '../program/records'
 import { formatKg, isTopRung, nextRung, prevRung } from '../program/ladder'
 import { exerciseSeries, formatSeconds, relativeDay } from '../program/analytics'
 import { useStore } from '../store/useStore'
 import { LineChart } from '../ui/charts'
 import { Coach, Modal, MuscleChip, muscleColor } from '../ui/components'
-import { ChevronLeft, ChevronRight, Minus, Plus } from '../ui/icons'
+import { ChevronLeft, ChevronRight, Minus, Plus, Trophy } from '../ui/icons'
 
 export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
   const def = getExercise(exerciseId)
@@ -45,6 +46,9 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
       topPoints: series.map((s) => ({ label: relativeDay(s.date), y: s.best })),
     }
   }, [exerciseId, sessions])
+
+  const bests = useMemo(() => collectBests(exerciseId, sessions), [exerciseId, sessions])
+  const hasBests = def.kind === 'time' ? bests.longestHold > 0 : bests.best1RM > 0
 
   const isTime = def.kind === 'time'
 
@@ -130,6 +134,21 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
             )}
           </div>
         </div>
+
+        {hasBests && (
+          <div className="card" style={{ padding: '12px 16px' }}>
+            <div className="row between">
+              <span className="row tiny faint" style={{ gap: 6, fontWeight: 700 }}>
+                <Trophy size={14} /> ALL-TIME BEST
+              </span>
+              <span className="small" style={{ fontWeight: 700 }}>
+                {def.kind === 'time'
+                  ? `${formatSeconds(bests.longestHold)} hold`
+                  : `${bests.best1RMReps} × ${formatKg(bests.best1RMWeightKg ?? 0)} · est. 1RM ${formatKg(bests.best1RM)}`}
+              </span>
+            </div>
+          </div>
+        )}
 
         {rec.coach && (
           <Coach tone={rec.justLeveledUp ? 'up' : rec.stalled ? 'stall' : 'info'}>
