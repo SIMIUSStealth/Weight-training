@@ -4,9 +4,10 @@ import {
   volumeBand,
   weekStatuses,
   doneDaysThisWeek,
+  weekStreak,
 } from './analytics'
 import { defaultWeeklyPlan } from './plan'
-import type { SessionLog, SetLog } from '../storage/types'
+import type { DayPlan, SessionLog, SetLog } from '../storage/types'
 
 const doneSets = (n: number): SetLog[] =>
   Array.from({ length: n }, () => ({ reps: 10, done: true }) as SetLog)
@@ -109,6 +110,53 @@ describe('weekStatuses', () => {
     plan[todayIdx] = { muscles: ['Chest'] } // ensure today is a training day
     expect(doneDaysThisWeek([legacy])).toBe(1)
     expect(weekStatuses(plan, [legacy], null)[todayIdx].status).toBe('done')
+  })
+})
+
+describe('weekStreak', () => {
+  // A one-training-day plan (Monday) keeps the fixtures simple.
+  const plan: DayPlan[] = [
+    { muscles: ['Chest'] },
+    { muscles: [] },
+    { muscles: [] },
+    { muscles: [] },
+    { muscles: [] },
+    { muscles: [] },
+    { muscles: [] },
+  ]
+
+  /** A completed Monday-tagged session `weeksAgo` weeks back. */
+  function mondaySession(weeksAgo: number): SessionLog {
+    const d = new Date()
+    d.setHours(12, 0, 0, 0)
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7) - 7 * weeksAgo) // that week's Monday
+    const iso = d.toISOString()
+    return {
+      id: `w${weeksAgo}`,
+      startedAt: iso,
+      completedAt: iso,
+      weekday: 0,
+      exercises: [{ exerciseId: 'floor-press', weightKg: 8, sets: doneSets(1) }],
+    }
+  }
+
+  it('counts consecutive completed weeks, including this one once it hits target', () => {
+    expect(weekStreak(plan, [mondaySession(0)])).toBe(1)
+    expect(weekStreak(plan, [mondaySession(0), mondaySession(1)])).toBe(2)
+  })
+
+  it('an unfinished current week does not break the streak', () => {
+    expect(weekStreak(plan, [mondaySession(1), mondaySession(2)])).toBe(2)
+  })
+
+  it('a missed week resets the streak', () => {
+    // weeks 1 and 3 trained, week 2 missed → only last week counts
+    expect(weekStreak(plan, [mondaySession(1), mondaySession(3)])).toBe(1)
+  })
+
+  it('no training days planned → no streak', () => {
+    const rest: DayPlan[] = Array.from({ length: 7 }, () => ({ muscles: [] }))
+    expect(weekStreak(rest, [mondaySession(0)])).toBe(0)
   })
 })
 

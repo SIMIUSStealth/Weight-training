@@ -161,18 +161,49 @@ export interface WeekDayView {
   status: DayStatus
 }
 
-function completedWeekdaysThisWeek(sessions: SessionLog[]): Set<number> {
-  const weekStart = startOfWeek(new Date())
+function completedWeekdaysInWeek(
+  sessions: SessionLog[],
+  weekStart: Date,
+): Set<number> {
+  const weekEnd = new Date(weekStart)
+  weekEnd.setDate(weekEnd.getDate() + 7)
   const days = new Set<number>()
   for (const s of sessions) {
-    if (!s.completedAt || new Date(s.completedAt) < weekStart) continue
+    if (!s.completedAt) continue
+    const when = new Date(s.completedAt)
+    if (when < weekStart || when >= weekEnd) continue
     // Sessions logged before the weekly-plan feature carry no weekday tag —
     // fall back to the local calendar day they were completed on, so a user's
     // pre-existing history still marks days done.
-    const weekday = s.weekday ?? mondayIndex(new Date(s.completedAt))
+    const weekday = s.weekday ?? mondayIndex(when)
     days.add(weekday)
   }
   return days
+}
+
+function completedWeekdaysThisWeek(sessions: SessionLog[]): Set<number> {
+  return completedWeekdaysInWeek(sessions, startOfWeek(new Date()))
+}
+
+/**
+ * Consecutive weeks the plan's training-day target was met. The current week
+ * counts as soon as it hits the target; an unfinished current week doesn't
+ * break the streak (it's still in play). Historical weeks are measured against
+ * the CURRENT plan's target — a deliberate simplification.
+ */
+export function weekStreak(plan: DayPlan[], sessions: SessionLog[]): number {
+  const target = plan.filter((d) => d.muscles.length > 0).length
+  if (!target) return 0
+  const thisStart = startOfWeek(new Date())
+  let streak =
+    completedWeekdaysInWeek(sessions, thisStart).size >= target ? 1 : 0
+  for (let i = 1; i <= 520; i++) {
+    const ws = new Date(thisStart)
+    ws.setDate(ws.getDate() - 7 * i)
+    if (completedWeekdaysInWeek(sessions, ws).size >= target) streak++
+    else break
+  }
+  return streak
 }
 
 /** Per-weekday view for the current week: muscles + status. */

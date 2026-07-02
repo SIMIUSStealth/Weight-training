@@ -15,6 +15,9 @@ Running list of shipped features and the backlog, so ideas aren't lost.
 - Light, token-driven design (`DESIGN.md`), app-shell layout.
 - **Effort / reps-in-reserve (RIR) logging + effort-aware coaching.**
 - **Per-muscle weekly volume tracker.**
+- **Home-screen hero** — week streak (consecutive weeks hitting the plan's
+  training-day target) + segmented week-progress bar + a one-tap "Start <next
+  planned day>" button (offers catch-up days when you're behind).
 - **Personal records** — rep PRs (most ever at a weight), estimated-1RM PRs
   (Epley), and longest-hold PRs, detected at session commit against prior
   history only (first session sets a quiet baseline). Celebrated in the

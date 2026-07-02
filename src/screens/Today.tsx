@@ -6,17 +6,19 @@ import {
   todayIndex,
   trainingDayCount,
   WEEKDAYS,
+  WEEKDAYS_LONG,
 } from '../program/plan'
 import {
   doneDaysThisWeek,
   overview,
   relativeDay,
   weekStatuses,
+  weekStreak,
 } from '../program/analytics'
 import { useStore } from '../store/useStore'
 import { performBackup, daysSince } from '../ui/backup'
-import { MuscleChip } from '../ui/components'
-import { Check, Download, Play } from '../ui/icons'
+import { Coach, MuscleChip } from '../ui/components'
+import { Check, Download, Flame, Play } from '../ui/icons'
 
 export function Today() {
   const sessions = useStore((s) => s.sessions)
@@ -24,6 +26,7 @@ export function Today() {
   const activeSession = useStore((s) => s.activeSession)
   const openOverlay = useStore((s) => s.openOverlay)
   const resumeSession = useStore((s) => s.resumeSession)
+  const startDay = useStore((s) => s.startDay)
   const getBackup = useStore((s) => s.getBackup)
   const recordBackup = useStore((s) => s.recordBackup)
 
@@ -33,9 +36,21 @@ export function Today() {
     [plan, sessions, activeSession],
   )
   const stats = useMemo(() => overview(sessions), [sessions])
+  const streak = useMemo(() => weekStreak(plan, sessions), [plan, sessions])
   const target = trainingDayCount(plan)
   const doneThisWeek = doneDaysThisWeek(sessions)
   const today = todayIndex()
+
+  // The next planned day to train: today if it's still to-do, else the first
+  // to-do day scanning forward. Null when the week is finished (or all rest).
+  const upNext = useMemo(() => {
+    if (activeSession) return null
+    for (let i = 0; i < 7; i++) {
+      const d = (today + i) % 7
+      if (statuses[d].status === 'todo') return d
+    }
+    return null
+  }, [statuses, today, activeSession])
 
   const sinceBackup = daysSince(settings.lastBackupAt)
   const backupOverdue = sessions.length > 0 && (sinceBackup == null || sinceBackup >= 7)
@@ -72,31 +87,52 @@ export function Today() {
         </div>
       </div>
 
-      <div className="stat-grid" style={{ marginBottom: 16 }}>
-        <div className="stat">
-          <div className="num">
-            {doneThisWeek}/{target}
+      {target > 0 && (
+        <div className="card" style={{ marginBottom: 14 }}>
+          <div className="row between" style={{ marginBottom: 10 }}>
+            <span className="row" style={{ gap: 7 }}>
+              <Flame
+                size={18}
+                style={{ color: streak > 0 ? 'var(--accent-ink)' : 'var(--faint)' }}
+              />
+              <span style={{ fontWeight: 800 }}>
+                {streak > 0
+                  ? `${streak}-week streak`
+                  : 'Finish the week to start a streak'}
+              </span>
+            </span>
+            <span className="small muted" style={{ fontWeight: 700 }}>
+              {doneThisWeek}/{target} this week
+            </span>
           </div>
-          <div className="label">this week</div>
-        </div>
-        <div className="stat">
-          <div className="num">{stats.totalWorkouts}</div>
-          <div className="label">workouts</div>
-        </div>
-        <div className="stat">
-          <div className="num">
-            {stats.daysSinceLast == null ? '–' : `${stats.daysSinceLast}d`}
+          <div className="week-seg">
+            {Array.from({ length: target }, (_, i) => (
+              <span key={i} className={i < doneThisWeek ? 'on' : ''} />
+            ))}
           </div>
-          <div className="label">since last</div>
         </div>
-      </div>
+      )}
 
-      {activeSession && (
+      {activeSession ? (
         <button className="btn btn-primary btn-lg btn-block" onClick={resumeSession}>
           <Play size={20} />
           Resume · {activeLabel} · {activeLeft} left
         </button>
-      )}
+      ) : upNext != null ? (
+        <button
+          className="btn btn-primary btn-lg btn-block"
+          onClick={() => startDay(upNext)}
+        >
+          <Play size={20} />
+          Start {upNext === today ? 'today' : WEEKDAYS_LONG[upNext]} ·{' '}
+          {dayLabel(plan[upNext])}
+        </button>
+      ) : target > 0 ? (
+        <Coach tone="up">
+          Week complete — all {target} days done. Rest and grow; the streak is
+          yours. 💪
+        </Coach>
+      ) : null}
 
       {backupOverdue && (
         <div className="coach coach-stall" style={{ marginTop: 12 }}>
