@@ -132,6 +132,82 @@ export function fourWeekCompare(
   return out
 }
 
+// ---------- weekly volume trend (for the momentum chart) ----------
+
+export interface WeekVolume {
+  /** ISO of the week's Monday (local). */
+  weekStart: string
+  volumeKg: number
+  workouts: number
+}
+
+/**
+ * Total weight moved per week for the last `weeks` weeks, oldest-first and
+ * including the (partial) current week — one bar per week for the trend chart.
+ */
+export function weeklyVolumeSeries(
+  sessions: SessionLog[],
+  weeks = 10,
+  now = new Date(),
+): WeekVolume[] {
+  const thisMon = startOfWeek(now)
+  const buckets: WeekVolume[] = []
+  const index = new Map<number, WeekVolume>()
+  for (let i = weeks - 1; i >= 0; i--) {
+    const ws = new Date(thisMon)
+    ws.setDate(ws.getDate() - 7 * i)
+    const b: WeekVolume = { weekStart: ws.toISOString(), volumeKg: 0, workouts: 0 }
+    buckets.push(b)
+    index.set(ws.getTime(), b)
+  }
+  const groupsByWeek = new Map<number, Set<string>>()
+  for (const s of sessions) {
+    if (!s.completedAt) continue
+    const key = startOfWeek(new Date(s.completedAt)).getTime()
+    const b = index.get(key)
+    if (!b) continue
+    let vol = 0
+    for (const ex of s.exercises) {
+      for (const set of ex.sets) {
+        if (set.done && ex.weightKg > 0 && (set.reps ?? 0) > 0) {
+          vol += ex.weightKg * set.reps!
+        }
+      }
+    }
+    b.volumeKg += vol
+    if (!groupsByWeek.has(key)) groupsByWeek.set(key, new Set())
+    groupsByWeek.get(key)!.add(groupKey(s))
+  }
+  for (const b of buckets) {
+    b.volumeKg = Math.round(b.volumeKg)
+    b.workouts = groupsByWeek.get(new Date(b.weekStart).getTime())?.size ?? 0
+  }
+  return buckets
+}
+
+// ---------- all-time set distribution across muscles ----------
+
+export interface MuscleTotal {
+  muscle: Muscle
+  sets: number
+}
+
+/** Completed sets per muscle across all history, in the fixed muscle order. */
+export function muscleSetTotals(sessions: SessionLog[]): MuscleTotal[] {
+  const acc = new Map<Muscle, number>()
+  for (const m of MUSCLE_ORDER) acc.set(m, 0)
+  for (const s of sessions) {
+    if (!s.completedAt) continue
+    for (const ex of s.exercises) {
+      const done = ex.sets.filter((x) => x.done).length
+      if (!done) continue
+      const m = getExercise(ex.exerciseId).muscle
+      acc.set(m, (acc.get(m) ?? 0) + done)
+    }
+  }
+  return MUSCLE_ORDER.map((muscle) => ({ muscle, sets: acc.get(muscle)! }))
+}
+
 // ---------- strength gains (est. 1RM, first session vs recent) ----------
 
 export interface StrengthGain {

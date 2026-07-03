@@ -3,8 +3,10 @@ import {
   fourWeekCompare,
   lifetimeStats,
   longestWeekStreak,
+  muscleSetTotals,
   strengthGains,
   urgencies,
+  weeklyVolumeSeries,
 } from './insights'
 import { defaultWeeklyPlan } from './plan'
 import type { DayPlan, SessionLog, SetLog } from '../storage/types'
@@ -61,6 +63,40 @@ describe('fourWeekCompare', () => {
     expect(c.prevVolumeKg).toBe(200)
     expect(c.workouts).toBe(1)
     expect(c.prevWorkouts).toBe(1)
+  })
+})
+
+describe('weeklyVolumeSeries', () => {
+  it('buckets volume into the trailing weeks, current week last', () => {
+    const thisWeek = sess('t', daysAgo(1, NOW), 'floor-press', 10, reps(10)) // 100
+    const twoWeeksAgo = sess('o', daysAgo(15, NOW), 'floor-press', 10, reps(8)) // 80
+    const series = weeklyVolumeSeries([thisWeek, twoWeeksAgo], 4, NOW)
+    expect(series).toHaveLength(4)
+    expect(series[series.length - 1].volumeKg).toBe(100) // current week
+    expect(series[series.length - 1].workouts).toBe(1)
+    const filled = series.filter((w) => w.volumeKg > 0)
+    expect(filled.map((w) => w.volumeKg).sort((a, b) => a - b)).toEqual([80, 100])
+  })
+
+  it('drops sessions older than the window', () => {
+    const ancient = sess('a', daysAgo(90, NOW), 'floor-press', 10, reps(10))
+    const series = weeklyVolumeSeries([ancient], 4, NOW)
+    expect(series.every((w) => w.volumeKg === 0)).toBe(true)
+  })
+})
+
+describe('muscleSetTotals', () => {
+  it('counts done sets per muscle in the fixed order', () => {
+    const a = sess('a', daysAgo(2, NOW), 'floor-press', 8, reps(10, 10)) // Chest ×2
+    const b = sess('b', daysAgo(1, NOW), 'biceps-curl', 8, [
+      { reps: 10, done: true },
+      { reps: 8, done: false }, // not counted
+    ])
+    const totals = muscleSetTotals([a, b])
+    expect(totals.find((t) => t.muscle === 'Chest')!.sets).toBe(2)
+    expect(totals.find((t) => t.muscle === 'Arms')!.sets).toBe(1)
+    expect(totals.find((t) => t.muscle === 'Abs')!.sets).toBe(0)
+    expect(totals[0].muscle).toBe('Chest') // fixed order preserved
   })
 })
 

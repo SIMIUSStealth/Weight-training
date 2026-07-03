@@ -56,6 +56,114 @@ export function Sparkline({
   )
 }
 
+export interface Column {
+  label: string
+  value: number
+  /** Draw this column in the accent hue; the rest recede in gray. */
+  highlight?: boolean
+}
+
+/**
+ * A small column chart for a single trend series (e.g. weekly volume).
+ * Emphasis coloring: the highlighted column carries the accent, the rest a
+ * de-emphasis gray — the trend shape lives in the heights, so gray still reads.
+ * Only the annotated column shows its value (labels stay sparing); first/last
+ * columns get an x-label. Marks: ≤24px wide, 4px rounded cap square at the
+ * baseline, grown from one hairline baseline.
+ */
+export function BarChart({
+  columns,
+  height = 132,
+  color = 'var(--accent)',
+  mutedColor = 'var(--border-strong)',
+  formatValue = (v: number) => String(Math.round(v)),
+}: {
+  columns: Column[]
+  height?: number
+  color?: string
+  mutedColor?: string
+  formatValue?: (v: number) => string
+}) {
+  const W = 320
+  const H = height
+  const padX = 4
+  const padT = 20 // room for the value label above a column
+  const padB = 18 // room for the x-axis labels
+  if (columns.length === 0) return <div className="center-empty small">No data yet.</div>
+
+  const max = Math.max(1, ...columns.map((c) => c.value))
+  const plotW = W - padX * 2
+  const plotH = H - padT - padB
+  const baseY = padT + plotH
+  const band = plotW / columns.length
+  const barW = Math.max(4, Math.min(24, band - 6)) // ≤24px, ≥6px of air between bars
+  const capR = Math.min(4, barW / 2)
+
+  // Rounded top, square baseline — a single path so the fill is one shape.
+  const barPath = (x: number, y: number, w: number, h: number) => {
+    const r = Math.min(capR, h)
+    return (
+      `M${x.toFixed(1)},${(y + h).toFixed(1)}` +
+      `L${x.toFixed(1)},${(y + r).toFixed(1)}` +
+      `Q${x.toFixed(1)},${y.toFixed(1)} ${(x + r).toFixed(1)},${y.toFixed(1)}` +
+      `L${(x + w - r).toFixed(1)},${y.toFixed(1)}` +
+      `Q${(x + w).toFixed(1)},${y.toFixed(1)} ${(x + w).toFixed(1)},${(y + r).toFixed(1)}` +
+      `L${(x + w).toFixed(1)},${(y + h).toFixed(1)}Z`
+    )
+  }
+
+  const hi = columns.findIndex((c) => c.highlight)
+  const annotate = hi >= 0 ? hi : columns.length - 1
+
+  return (
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} role="img">
+      <line
+        x1={padX}
+        x2={W - padX}
+        y1={baseY}
+        y2={baseY}
+        stroke="var(--border)"
+        strokeWidth={1}
+      />
+      {columns.map((c, i) => {
+        const h = (c.value / max) * plotH
+        const cx = padX + band * i + band / 2
+        const x = cx - barW / 2
+        const y = baseY - h
+        const first = i === 0
+        const last = i === columns.length - 1
+        return (
+          <g key={i}>
+            {h > 0.5 && (
+              <path d={barPath(x, y, barW, h)} fill={c.highlight ? color : mutedColor} />
+            )}
+            {i === annotate && (
+              <text
+                x={first ? x : last ? x + barW : cx}
+                y={y - 6}
+                fontSize={11}
+                fontWeight={700}
+                fill="var(--muted)"
+                textAnchor={first ? 'start' : last ? 'end' : 'middle'}
+              >
+                {formatValue(c.value)}
+              </text>
+            )}
+          </g>
+        )
+      })}
+      <text x={padX} y={H - 5} fontSize={9.5} fill="var(--faint)">
+        {columns[0].label}
+      </text>
+      {columns.length > 1 && (
+        <text x={W - padX} y={H - 5} fontSize={9.5} fill="var(--faint)" textAnchor="end">
+          {columns[columns.length - 1].label}
+        </text>
+      )}
+    </svg>
+  )
+}
+
 export interface ChartPoint {
   label: string
   y: number

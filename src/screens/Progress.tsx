@@ -13,21 +13,35 @@ import {
   fourWeekCompare,
   lifetimeStats,
   longestWeekStreak,
+  muscleSetTotals,
   strengthGains,
   urgencies,
+  weeklyVolumeSeries,
 } from '../program/insights'
 import { formatKg } from '../program/ladder'
+import { epley1RM } from '../program/records'
 import { useStore } from '../store/useStore'
-import { Sparkline } from '../ui/charts'
+import { BarChart, Sparkline } from '../ui/charts'
 import { Coach, Segmented, muscleColor } from '../ui/components'
 import { ChevronRight, Flame, Trophy } from '../ui/icons'
 import type { DayPlan } from '../storage/types'
 
-/** Compact kg figure for big totals, e.g. "12.4k". */
+/** Compact kg for big totals: 1,284 · 12.4k · 1.2M. */
 function compactKg(v: number): string {
-  if (v >= 100_000) return `${Math.round(v / 1000)}k`
-  if (v >= 10_000) return `${(v / 1000).toFixed(1)}k`
-  return String(Math.round(v))
+  const n = Math.round(v)
+  if (n >= 1_000_000) return `${+(n / 1_000_000).toFixed(1)}M`
+  if (n >= 10_000) return `${+(n / 1000).toFixed(1)}k`
+  return n.toLocaleString('en-US')
+}
+
+/** Plain count with a thousands separator once it grows. */
+function formatCount(n: number): string {
+  return n.toLocaleString('en-US')
+}
+
+/** Short "5 Jun" week label for the volume trend axis. */
+function weekLabel(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
 }
 
 export function Progress() {
@@ -233,10 +247,31 @@ function InsightsPane({
     [plan, sessions, streakNow],
   )
   const momentum = useMemo(() => fourWeekCompare(sessions), [sessions])
+  const volSeries = useMemo(() => weeklyVolumeSeries(sessions, 10), [sessions])
+  const muscleTotals = useMemo(() => muscleSetTotals(sessions), [sessions])
   const gains = useMemo(
     () => strengthGains(sessions, planIds).filter((g) => g.pct > 0).slice(0, 3),
     [sessions, planIds],
   )
+  // Est-1RM trajectory per top gain, for the row sparklines.
+  const rmSeries = useMemo(() => {
+    const map = new Map<string, number[]>()
+    for (const g of gains) {
+      map.set(
+        g.exerciseId,
+        exerciseSeries(g.exerciseId, sessions).map((p) => epley1RM(p.weightKg, p.best)),
+      )
+    }
+    return map
+  }, [gains, sessions])
+
+  const hasVolume = volSeries.some((w) => w.volumeKg > 0)
+  const volColumns = volSeries.map((w, i) => ({
+    label: i === volSeries.length - 1 ? 'this wk' : weekLabel(w.weekStart),
+    value: w.volumeKg,
+    highlight: i === volSeries.length - 1,
+  }))
+  const maxMuscle = Math.max(1, ...muscleTotals.map((m) => m.sets))
 
   const volPct =
     momentum.prevVolumeKg > 0
@@ -307,6 +342,15 @@ function InsightsPane({
 
       <div className="eyebrow">Momentum · last 4 weeks vs previous</div>
       <div className="card">
+        {hasVolume && (
+          <>
+            <div className="tiny faint" style={{ marginBottom: 2 }}>
+              Weekly volume · kg moved
+            </div>
+            <BarChart columns={volColumns} formatValue={compactKg} />
+            <div className="divider" />
+          </>
+        )}
         <div className="row between">
           <div>
             <div className="display" style={{ fontSize: 22, fontWeight: 800 }}>
@@ -355,6 +399,39 @@ function InsightsPane({
         </div>
       </div>
 
+      <div className="eyebrow">Training balance · all-time sets</div>
+      <div className="card">
+        {muscleTotals.map((m, idx) => {
+          const pct = Math.round((m.sets / maxMuscle) * 100)
+          const col = muscleColor(m.muscle)
+          return (
+            <div key={m.muscle} style={{ marginTop: idx === 0 ? 0 : 12 }}>
+              <div className="row between" style={{ marginBottom: 6 }}>
+                <span className="row" style={{ gap: 8 }}>
+                  <span
+                    style={{ width: 9, height: 9, borderRadius: '50%', background: col }}
+                  />
+                  <span style={{ fontWeight: 600, fontSize: 14 }}>{m.muscle}</span>
+                </span>
+                <span
+                  className="tiny"
+                  style={{ fontWeight: 700, color: m.sets ? 'var(--muted)' : 'var(--faint)' }}
+                >
+                  {formatCount(m.sets)} sets
+                </span>
+              </div>
+              <div className="bar">
+                <span style={{ width: `${pct}%`, background: col }} />
+              </div>
+            </div>
+          )
+        })}
+        <div className="tiny faint" style={{ marginTop: 14 }}>
+          Every hard set you've logged, by muscle — the short bar is the group
+          that could use more attention.
+        </div>
+      </div>
+
       <div className="eyebrow">Strength gains · est. 1RM</div>
       {gains.length === 0 ? (
         <div className="tiny faint" style={{ margin: '0 2px' }}>
@@ -369,13 +446,31 @@ function InsightsPane({
               style={{ width: '100%', background: 'none', border: 0, color: 'inherit', textAlign: 'left' }}
               onClick={() => openOverlay({ name: 'exercise', exerciseId: g.exerciseId })}
             >
-              <div className="grow">
-                <div style={{ fontWeight: 700 }}>{getExercise(g.exerciseId).name}</div>
+              <div style={{ flex: '1 1 auto', minWidth: 0 }}>
+                <div
+                  style={{
+                    fontWeight: 700,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {getExercise(g.exerciseId).name}
+                </div>
                 <div className="tiny faint">
                   {formatKg(g.firstRM)} → {formatKg(g.recentRM)}
                 </div>
               </div>
-              <span className="delta-up">▲ {g.pct}%</span>
+              <div style={{ width: 60, flexShrink: 0 }}>
+                <Sparkline
+                  values={rmSeries.get(g.exerciseId) ?? []}
+                  color={muscleColor(getExercise(g.exerciseId).muscle)}
+                  height={30}
+                />
+              </div>
+              <span className="delta-up" style={{ flexShrink: 0 }}>
+                ▲ {g.pct}%
+              </span>
             </button>
           ))}
         </div>
