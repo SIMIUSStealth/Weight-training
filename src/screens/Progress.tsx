@@ -1,34 +1,89 @@
-import { useMemo } from 'react'
-import { MUSCLE_ORDER, type ExerciseDef, type Muscle } from '../program/exercises'
+import { useMemo, useState } from 'react'
+import { MUSCLE_ORDER, getExercise, type ExerciseDef, type Muscle } from '../program/exercises'
 import { getWeeklyPlan, planExercises } from '../program/plan'
 import {
   exerciseSeries,
   formatSeconds,
   volumeBand,
   weeklyVolume,
+  weekStreak,
   type ExercisePoint,
 } from '../program/analytics'
+import {
+  fourWeekCompare,
+  lifetimeStats,
+  longestWeekStreak,
+  strengthGains,
+  urgencies,
+} from '../program/insights'
 import { formatKg } from '../program/ladder'
 import { useStore } from '../store/useStore'
 import { Sparkline } from '../ui/charts'
-import { muscleColor } from '../ui/components'
-import { ChevronRight } from '../ui/icons'
+import { Coach, Segmented, muscleColor } from '../ui/components'
+import { ChevronRight, Flame, Trophy } from '../ui/icons'
+import type { DayPlan } from '../storage/types'
+
+/** Compact kg figure for big totals, e.g. "12.4k". */
+function compactKg(v: number): string {
+  if (v >= 100_000) return `${Math.round(v / 1000)}k`
+  if (v >= 10_000) return `${(v / 1000).toFixed(1)}k`
+  return String(Math.round(v))
+}
 
 export function Progress() {
-  const sessions = useStore((s) => s.sessions)
-  const progress = useStore((s) => s.progress)
   const settings = useStore((s) => s.settings)
-  const openOverlay = useStore((s) => s.openOverlay)
+
+  const [pane, setPane] = useState<'exercises' | 'insights'>('exercises')
+
+  const plan = useMemo(() => getWeeklyPlan(settings.weeklyPlan), [settings.weeklyPlan])
 
   // Everything the weekly plan can train — including per-day added extras —
   // so no exercise with history is unreachable from this screen.
   const byMuscle = useMemo(() => {
-    const defs = planExercises(getWeeklyPlan(settings.weeklyPlan), settings.program)
+    const defs = planExercises(plan, settings.program)
     const map = new Map<Muscle, ExerciseDef[]>()
     for (const m of MUSCLE_ORDER) map.set(m, [])
     for (const def of defs) map.get(def.muscle)!.push(def)
     return map
-  }, [settings.weeklyPlan, settings.program])
+  }, [plan, settings.program])
+
+  return (
+    <div className="screen fade-in">
+      <div className="topbar">
+        <div>
+          <h1>Progress</h1>
+          <div className="sub">
+            {pane === 'exercises'
+              ? 'Every lift climbs on its own.'
+              : 'Numbers that keep you honest.'}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <Segmented
+          value={pane}
+          onChange={setPane}
+          options={[
+            { value: 'exercises', label: 'Exercises' },
+            { value: 'insights', label: 'Insights' },
+          ]}
+        />
+      </div>
+
+      {pane === 'exercises' ? (
+        <ExercisesPane byMuscle={byMuscle} />
+      ) : (
+        <InsightsPane plan={plan} byMuscle={byMuscle} />
+      )}
+    </div>
+  )
+}
+
+function ExercisesPane({ byMuscle }: { byMuscle: Map<Muscle, ExerciseDef[]> }) {
+  const sessions = useStore((s) => s.sessions)
+  const progress = useStore((s) => s.progress)
+  const openOverlay = useStore((s) => s.openOverlay)
 
   const volume = useMemo(() => weeklyVolume(sessions), [sessions])
 
@@ -42,14 +97,7 @@ export function Progress() {
   }, [byMuscle, sessions])
 
   return (
-    <div className="screen fade-in">
-      <div className="topbar">
-        <div>
-          <h1>Progress</h1>
-          <div className="sub">Every lift climbs on its own.</div>
-        </div>
-      </div>
-
+    <>
       {sessions.length > 0 && (
         <>
           <div className="eyebrow">This week · volume</div>
@@ -63,12 +111,7 @@ export function Progress() {
                   <div className="row between" style={{ marginBottom: 6 }}>
                     <span className="row" style={{ gap: 8 }}>
                       <span
-                        style={{
-                          width: 9,
-                          height: 9,
-                          borderRadius: '50%',
-                          background: col,
-                        }}
+                        style={{ width: 9, height: 9, borderRadius: '50%', background: col }}
                       />
                       <span style={{ fontWeight: 600, fontSize: 14 }}>{v.muscle}</span>
                     </span>
@@ -143,9 +186,7 @@ export function Progress() {
                     <div className="tiny faint">
                       {series.length
                         ? `${series.length} session${series.length === 1 ? '' : 's'} · last ${
-                            last.isTime
-                              ? formatSeconds(last.best)
-                              : `${last.total} reps`
+                            last.isTime ? formatSeconds(last.best) : `${last.total} reps`
                           }`
                         : 'not started'}
                     </div>
@@ -162,6 +203,183 @@ export function Progress() {
           })}
         </div>
       ))}
-    </div>
+    </>
+  )
+}
+
+function InsightsPane({
+  plan,
+  byMuscle,
+}: {
+  plan: DayPlan[]
+  byMuscle: Map<Muscle, ExerciseDef[]>
+}) {
+  const sessions = useStore((s) => s.sessions)
+  const progress = useStore((s) => s.progress)
+  const openOverlay = useStore((s) => s.openOverlay)
+
+  const planIds = useMemo(
+    () => [...byMuscle.values()].flat().map((d) => d.id),
+    [byMuscle],
+  )
+  const alerts = useMemo(
+    () => urgencies(plan, sessions, progress, planIds),
+    [plan, sessions, progress, planIds],
+  )
+  const life = useMemo(() => lifetimeStats(sessions), [sessions])
+  const streakNow = useMemo(() => weekStreak(plan, sessions), [plan, sessions])
+  const bestStreak = useMemo(
+    () => Math.max(longestWeekStreak(plan, sessions), streakNow),
+    [plan, sessions, streakNow],
+  )
+  const momentum = useMemo(() => fourWeekCompare(sessions), [sessions])
+  const gains = useMemo(
+    () => strengthGains(sessions, planIds).filter((g) => g.pct > 0).slice(0, 3),
+    [sessions, planIds],
+  )
+
+  const volPct =
+    momentum.prevVolumeKg > 0
+      ? Math.round(
+          ((momentum.volumeKg - momentum.prevVolumeKg) / momentum.prevVolumeKg) * 100,
+        )
+      : null
+
+  if (sessions.length === 0) {
+    return (
+      <Coach tone="info">
+        Finish your first workout and this tab starts filling up — totals, momentum,
+        strength gains, and warnings when something slips.
+      </Coach>
+    )
+  }
+
+  return (
+    <>
+      <div className="eyebrow">Needs attention</div>
+      {alerts.length === 0 ? (
+        <Coach tone="up">
+          Nothing falling behind — the plan is on track. Keep stacking weeks. 💪
+        </Coach>
+      ) : (
+        alerts.map((a, i) =>
+          a.exerciseId ? (
+            <button
+              key={i}
+              className="coach coach-stall"
+              style={{ width: '100%', textAlign: 'left', marginBottom: 8, cursor: 'pointer' }}
+              onClick={() => openOverlay({ name: 'exercise', exerciseId: a.exerciseId! })}
+            >
+              <span className="grow">{a.message}</span>
+              <ChevronRight size={16} style={{ flexShrink: 0, alignSelf: 'center' }} />
+            </button>
+          ) : (
+            <div key={i} className="coach coach-stall" style={{ marginBottom: 8 }}>
+              <span>{a.message}</span>
+            </div>
+          ),
+        )
+      )}
+
+      <div className="eyebrow">All time</div>
+      <div className="tile-grid">
+        <div className="tile">
+          <div className="num">{life.workouts}</div>
+          <div className="label">workouts</div>
+        </div>
+        <div className="tile">
+          <div className="num">{compactKg(life.volumeKg)}</div>
+          <div className="label">kg lifted</div>
+        </div>
+        <div className="tile">
+          <div className="num row" style={{ gap: 6 }}>
+            <Trophy size={19} style={{ color: 'var(--accent-ink)' }} /> {life.prs}
+          </div>
+          <div className="label">personal records</div>
+        </div>
+        <div className="tile">
+          <div className="num row" style={{ gap: 6 }}>
+            <Flame size={19} style={{ color: 'var(--accent-ink)' }} /> {bestStreak}
+          </div>
+          <div className="label">best week streak</div>
+        </div>
+      </div>
+
+      <div className="eyebrow">Momentum · last 4 weeks vs previous</div>
+      <div className="card">
+        <div className="row between">
+          <div>
+            <div className="display" style={{ fontSize: 22, fontWeight: 800 }}>
+              {compactKg(momentum.volumeKg)} kg
+            </div>
+            <div className="tiny faint">moved in 4 weeks</div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            {volPct != null ? (
+              <span className={volPct >= 0 ? 'delta-up' : 'delta-down'}>
+                {volPct >= 0 ? '▲' : '▼'} {Math.abs(volPct)}%
+              </span>
+            ) : momentum.volumeKg > 0 ? (
+              <span className="delta-up">new!</span>
+            ) : (
+              <span className="faint">—</span>
+            )}
+            <div className="tiny faint">
+              vs {compactKg(momentum.prevVolumeKg)} kg before
+            </div>
+          </div>
+        </div>
+        <div className="divider" />
+        <div className="row between">
+          <div>
+            <div className="display" style={{ fontSize: 22, fontWeight: 800 }}>
+              {momentum.workouts}
+            </div>
+            <div className="tiny faint">workouts in 4 weeks</div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            {momentum.workouts - momentum.prevWorkouts !== 0 ? (
+              <span
+                className={
+                  momentum.workouts >= momentum.prevWorkouts ? 'delta-up' : 'delta-down'
+                }
+              >
+                {momentum.workouts >= momentum.prevWorkouts ? '▲' : '▼'}{' '}
+                {Math.abs(momentum.workouts - momentum.prevWorkouts)}
+              </span>
+            ) : (
+              <span className="faint">=</span>
+            )}
+            <div className="tiny faint">vs {momentum.prevWorkouts} before</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="eyebrow">Strength gains · est. 1RM</div>
+      {gains.length === 0 ? (
+        <div className="tiny faint" style={{ margin: '0 2px' }}>
+          Log a few more sessions per exercise and your biggest climbers show up here.
+        </div>
+      ) : (
+        <div className="card" style={{ padding: '4px 16px' }}>
+          {gains.map((g) => (
+            <button
+              key={g.exerciseId}
+              className="list-row"
+              style={{ width: '100%', background: 'none', border: 0, color: 'inherit', textAlign: 'left' }}
+              onClick={() => openOverlay({ name: 'exercise', exerciseId: g.exerciseId })}
+            >
+              <div className="grow">
+                <div style={{ fontWeight: 700 }}>{getExercise(g.exerciseId).name}</div>
+                <div className="tiny faint">
+                  {formatKg(g.firstRM)} → {formatKg(g.recentRM)}
+                </div>
+              </div>
+              <span className="delta-up">▲ {g.pct}%</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </>
   )
 }

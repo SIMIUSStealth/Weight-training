@@ -52,7 +52,8 @@ export function exerciseSeries(
 
 // ---------- session-level summaries ----------
 
-function startOfWeek(d: Date): Date {
+/** Local midnight of the Monday of `d`'s week. */
+export function startOfWeek(d: Date): Date {
   const x = new Date(d)
   x.setHours(0, 0, 0, 0)
   x.setDate(x.getDate() - mondayIndex(x))
@@ -161,7 +162,7 @@ export interface WeekDayView {
   status: DayStatus
 }
 
-function completedWeekdaysInWeek(
+export function completedWeekdaysInWeek(
   sessions: SessionLog[],
   weekStart: Date,
 ): Set<number> {

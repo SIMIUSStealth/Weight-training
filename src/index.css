@@ -326,6 +326,42 @@ h1 {
   border-radius: 9px;
 }
 
+/* ---------- insight tiles ---------- */
+
+.tile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-sm);
+  padding: 14px 14px 12px;
+}
+.tile .num {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.tile .label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+  margin-top: 3px;
+}
+.delta-up {
+  color: var(--success);
+  font-weight: 800;
+}
+.delta-down {
+  color: var(--danger);
+  font-weight: 800;
+}
+
 /* ---------- week progress segments ---------- */
 
 .week-seg {

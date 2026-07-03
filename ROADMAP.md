@@ -15,6 +15,10 @@ Running list of shipped features and the backlog, so ideas aren't lost.
 - Light, token-driven design (`DESIGN.md`), app-shell layout.
 - **Effort / reps-in-reserve (RIR) logging + effort-aware coaching.**
 - **Per-muscle weekly volume tracker.**
+- **Insights tab in Progress** — "Needs attention" urgency feed (week-target
+  slipping/tight, 4+ day training gap, stalled lifts, muscles 10+ days
+  untrained) + motivation: all-time tiles (workouts, kg lifted, PRs, best week
+  streak), 4-week momentum deltas, top est.-1RM strength gains.
 - **Home-screen hero** — week streak (consecutive weeks hitting the plan's
   training-day target) + segmented week-progress bar + a one-tap "Start <next
   planned day>" button (offers catch-up days when you're behind).
