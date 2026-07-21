@@ -8,6 +8,7 @@ const MUSCLE_COLOR: Record<Muscle, string> = {
   Arms: 'var(--arms)',
   Forearms: 'var(--forearms)',
   Abs: 'var(--abs)',
+  Legs: 'var(--legs)',
 }
 
 export function MuscleChip({ muscle }: { muscle: Muscle }) {

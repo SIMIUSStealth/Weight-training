@@ -34,9 +34,12 @@ export function todayIndex(): number {
   return mondayIndex(new Date())
 }
 
+/** The core program's muscles (legs are an opt-in module, added separately). */
+export const UPPER_BODY: Muscle[] = MUSCLE_ORDER.filter((m) => m !== 'Legs')
+
 /** Default plan: full body on Mon / Wed / Fri, rest otherwise. */
 export function defaultWeeklyPlan(): DayPlan[] {
-  const full = (): DayPlan => ({ muscles: [...MUSCLE_ORDER] })
+  const full = (): DayPlan => ({ muscles: [...UPPER_BODY] })
   const rest = (): DayPlan => ({ muscles: [] })
   return [full(), rest(), full(), rest(), full(), rest(), rest()]
 }
@@ -131,6 +134,9 @@ export function muscleFrequency(plan: DayPlan[]): Record<Muscle, number> {
 /** Short label for a day's muscle groups, e.g. "Chest · Arms". */
 export function dayLabel(day: DayPlan): string {
   if (!day.muscles.length) return 'Rest day'
-  if (day.muscles.length === MUSCLE_ORDER.length) return 'Full body'
+  // "Full body" = the whole upper-body program; note legs if they're added on.
+  if (UPPER_BODY.every((m) => day.muscles.includes(m))) {
+    return day.muscles.includes('Legs') ? 'Full body · Legs' : 'Full body'
+  }
   return MUSCLE_ORDER.filter((m) => day.muscles.includes(m)).join(' · ')
 }

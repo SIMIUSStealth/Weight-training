@@ -30,6 +30,12 @@ Running list of shipped features and the backlog, so ideas aren't lost.
   history only (first session sets a quiet baseline). Celebrated in the
   summary, stamped on the session (trophy count in History), and an
   "all-time best" row on the exercise page.
+- **Legs (opt-in module)** — simple single-dumbbell leg work you can schedule as
+  its own day: goblet squat, Romanian deadlift, reverse lunge, standing calf raise
+  (each with a single-dumbbell alternative — Bulgarian split squat, single-leg RDL,
+  step-up, single-leg calf raise). A first-class muscle group (own colour, tracked
+  in volume / balance / insights) but kept out of the default upper-body session,
+  so it's an addition, not a change. Handy for runners adding strength work.
 - **Weekly plan / split routine** — a Mon–Sun calendar of muscle-group days
   (rest/to-do/in-progress/done), tap any day to train or edit it (toggle groups,
   swap/add/remove exercises), with a per-muscle frequency hint. Splitting a day

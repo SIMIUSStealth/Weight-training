@@ -2,8 +2,12 @@
 // a base exercise or a single-dumbbell alternative that hits the same muscle in
 // the same rep/time model. Order is deliberate — largest muscles first, smallest
 // and most fatigue-sensitive last: chest -> shoulders -> arms -> forearms -> abs.
+//
+// Legs are an opt-in module (not part of the default upper-body session): a
+// handful of simple single-dumbbell leg movements you can schedule as their own
+// day — handy for runners adding some strength work.
 
-export type Muscle = 'Chest' | 'Shoulders' | 'Arms' | 'Forearms' | 'Abs'
+export type Muscle = 'Chest' | 'Shoulders' | 'Arms' | 'Forearms' | 'Abs' | 'Legs'
 
 export type ExerciseKind = 'reps' | 'time'
 
@@ -504,11 +508,155 @@ export const ALTERNATIVE_EXERCISES: readonly ExerciseDef[] = [
   },
 ] as const
 
+// ---------- legs (opt-in single-dumbbell module) ----------
+// Four simple slots — squat, hinge, lunge, calves — each with one alternative.
+// Single dumbbell throughout; unilateral options build the single-leg strength
+// and balance that carry over to running. Schedule these as their own leg day.
+
+export const LEG_EXERCISES: readonly ExerciseDef[] = [
+  // Squat
+  {
+    id: 'goblet-squat',
+    name: 'Goblet Squat',
+    muscle: 'Legs',
+    slot: 'leg-squat',
+    order: 12,
+    sets: 3,
+    kind: 'reps',
+    repMin: 10,
+    repMax: 15,
+    startWeightKg: 10,
+    perArm: false,
+    bodyweight: false,
+    holdNote: 'One dumbbell held vertically against the chest.',
+    formCue:
+      'Hold one dumbbell vertically against your chest, elbows down. Sit back and down between your knees until your thighs are about parallel, chest tall, then drive up through mid-foot. Depth and control over weight.',
+  },
+  {
+    id: 'bulgarian-split-squat',
+    name: 'Bulgarian Split Squat',
+    muscle: 'Legs',
+    slot: 'leg-squat',
+    order: 12,
+    sets: 3,
+    kind: 'reps',
+    repMin: 8,
+    repMax: 12,
+    startWeightKg: 6.5,
+    perArm: true,
+    bodyweight: false,
+    formCue:
+      'Rear foot resting on a chair or step behind you, dumbbell in the opposite hand. Drop straight down over the front leg until the back knee nearly touches, then push up through the front heel. Full count one leg, then switch.',
+  },
+  // Hinge
+  {
+    id: 'romanian-deadlift',
+    name: 'Romanian Deadlift',
+    muscle: 'Legs',
+    slot: 'leg-hinge',
+    order: 13,
+    sets: 3,
+    kind: 'reps',
+    repMin: 10,
+    repMax: 15,
+    startWeightKg: 10,
+    perArm: false,
+    bodyweight: false,
+    holdNote: 'One dumbbell held in both hands in front of the thighs.',
+    formCue:
+      'Hold one dumbbell in both hands in front of your thighs. Soft knees, push your hips back and lower the weight down your legs until you feel the hamstrings stretch, back flat. Drive the hips forward to stand tall. Hinge, don’t squat.',
+  },
+  {
+    id: 'single-leg-rdl',
+    name: 'Single-Leg RDL',
+    muscle: 'Legs',
+    slot: 'leg-hinge',
+    order: 13,
+    sets: 3,
+    kind: 'reps',
+    repMin: 8,
+    repMax: 12,
+    startWeightKg: 6.5,
+    perArm: true,
+    bodyweight: false,
+    formCue:
+      'Dumbbell in one hand, stand on the opposite leg. Hinge at the hip and let the free leg float back as the weight lowers, back flat, until you feel the standing hamstring. Return to tall. Full count one side, then switch — great for a runner’s balance.',
+  },
+  // Lunge
+  {
+    id: 'reverse-lunge',
+    name: 'Reverse Lunge',
+    muscle: 'Legs',
+    slot: 'leg-lunge',
+    order: 14,
+    sets: 3,
+    kind: 'reps',
+    repMin: 8,
+    repMax: 12,
+    startWeightKg: 8,
+    perArm: true,
+    bodyweight: false,
+    formCue:
+      'Dumbbell in one hand or held at your chest. Step one foot back and lower until both knees are about 90°, front shin vertical, then push through the front heel to stand. Full count one leg, then switch — easier on the knees than a forward lunge.',
+  },
+  {
+    id: 'step-up',
+    name: 'Step-up',
+    muscle: 'Legs',
+    slot: 'leg-lunge',
+    order: 14,
+    sets: 3,
+    kind: 'reps',
+    repMin: 8,
+    repMax: 12,
+    startWeightKg: 8,
+    perArm: true,
+    bodyweight: false,
+    formCue:
+      'Dumbbell in one hand, one foot planted on a sturdy knee-height step. Drive through that heel to stand all the way up, then lower under control without pushing off the floor. Full count one leg, then switch.',
+  },
+  // Calves
+  {
+    id: 'calf-raise',
+    name: 'Standing Calf Raise',
+    muscle: 'Legs',
+    slot: 'leg-calf',
+    order: 15,
+    sets: 3,
+    kind: 'reps',
+    repMin: 12,
+    repMax: 20,
+    startWeightKg: 10,
+    perArm: false,
+    bodyweight: false,
+    holdNote: 'One dumbbell held at your side; balls of the feet on the floor or a step.',
+    formCue:
+      'Hold one dumbbell at your side, balls of the feet on the floor or the edge of a step for more range. Rise up onto your toes as high as you can, pause at the top, lower slowly. Full range and a hard squeeze — key for durable running calves.',
+  },
+  {
+    id: 'single-leg-calf-raise',
+    name: 'Single-Leg Calf Raise',
+    muscle: 'Legs',
+    slot: 'leg-calf',
+    order: 15,
+    sets: 3,
+    kind: 'reps',
+    repMin: 12,
+    repMax: 20,
+    startWeightKg: 6.5,
+    perArm: true,
+    bodyweight: false,
+    formCue:
+      'Balance on one foot, dumbbell in the same-side hand, other hand on a wall for balance. Rise onto the toes, pause, lower slowly. Full count one leg, then switch.',
+  },
+] as const
+
 // ---------- registry + lookups ----------
 
 export const ALL_EXERCISES: readonly ExerciseDef[] = [
   ...EXERCISES,
   ...ALTERNATIVE_EXERCISES,
+  ...LEG_EXERCISES,
 ]
 
 export const EXERCISES_BY_ID: Record<string, ExerciseDef> = Object.fromEntries(
@@ -527,6 +675,7 @@ export const MUSCLE_ORDER: Muscle[] = [
   'Arms',
   'Forearms',
   'Abs',
+  'Legs',
 ]
 
 // ---------- slots (swap groups) ----------
@@ -555,6 +704,11 @@ export const SLOTS: readonly Slot[] = [
   { id: 'ab-crunch', order: 9, muscle: 'Abs', label: 'Abs · flexion', baseId: 'weighted-crunch', optionIds: ['weighted-crunch', 'weighted-situp'] },
   { id: 'ab-rotation', order: 10, muscle: 'Abs', label: 'Abs · rotation', baseId: 'russian-twist', optionIds: ['russian-twist', 'weighted-side-bend', 'wood-chop'] },
   { id: 'ab-core', order: 11, muscle: 'Abs', label: 'Abs · core hold', baseId: 'plank', optionIds: ['plank', 'side-plank', 'hollow-hold'] },
+  // Legs (opt-in module)
+  { id: 'leg-squat', order: 12, muscle: 'Legs', label: 'Legs · squat', baseId: 'goblet-squat', optionIds: ['goblet-squat', 'bulgarian-split-squat'] },
+  { id: 'leg-hinge', order: 13, muscle: 'Legs', label: 'Legs · hinge', baseId: 'romanian-deadlift', optionIds: ['romanian-deadlift', 'single-leg-rdl'] },
+  { id: 'leg-lunge', order: 14, muscle: 'Legs', label: 'Legs · lunge', baseId: 'reverse-lunge', optionIds: ['reverse-lunge', 'step-up'] },
+  { id: 'leg-calf', order: 15, muscle: 'Legs', label: 'Legs · calves', baseId: 'calf-raise', optionIds: ['calf-raise', 'single-leg-calf-raise'] },
 ] as const
 
 export const SLOTS_BY_ID: Record<string, Slot> = Object.fromEntries(

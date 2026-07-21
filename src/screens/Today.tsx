@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { MUSCLE_ORDER } from '../program/exercises'
 import {
+  UPPER_BODY,
   dayLabel,
   getWeeklyPlan,
   todayIndex,
@@ -157,7 +158,11 @@ export function Today() {
       <div className="card" style={{ padding: '4px 16px' }}>
         {statuses.map((d) => {
           const isToday = d.weekday === today
-          const isFull = d.muscles.length === MUSCLE_ORDER.length
+          // "Full body" = exactly the upper-body program; a legs day (or
+          // full body + legs) falls through to the muscle chips instead.
+          const isFull =
+            d.muscles.length === UPPER_BODY.length &&
+            UPPER_BODY.every((m) => d.muscles.includes(m))
           return (
             <button
               key={d.weekday}

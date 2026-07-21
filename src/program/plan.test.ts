@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  UPPER_BODY,
   dayExercises,
   dayLabel,
   defaultWeeklyPlan,
@@ -68,5 +69,21 @@ describe('weekly plan', () => {
 
   it('counts training days per muscle', () => {
     expect(muscleFrequency(defaultWeeklyPlan()).Chest).toBe(3)
+  })
+
+  it('keeps legs opt-in: absent from the default, schedulable as their own day', () => {
+    expect(defaultWeeklyPlan()[0].muscles).not.toContain('Legs')
+    // A legs-only day derives the four leg bases in slot order.
+    expect(dayExercises({ muscles: ['Legs'] }).map((e) => e.id)).toEqual([
+      'goblet-squat',
+      'romanian-deadlift',
+      'reverse-lunge',
+      'calf-raise',
+    ])
+  })
+
+  it('labels a legs day and a full-body-plus-legs day', () => {
+    expect(dayLabel({ muscles: ['Legs'] })).toBe('Legs')
+    expect(dayLabel({ muscles: [...UPPER_BODY, 'Legs'] })).toBe('Full body · Legs')
   })
 })
