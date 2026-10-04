@@ -391,3 +391,68 @@ describe('store: splitting a workout into parts', () => {
     expect(overview(all).totalWorkouts).toBe(1)
   })
 })
+
+describe('store: editing a workout in progress', () => {
+  beforeEach(async () => {
+    await useStore.getState().resetEverything()
+  })
+
+  const ids = () => useStore.getState().activeSession!.exercises.map((e) => e.exerciseId)
+
+  it('swaps an exercise for this workout only, at its own load', () => {
+    const s = useStore.getState()
+    s.startDay(0)
+    s.swapInSession('bench-press', 'incline-db-press')
+    expect(ids()[2]).toBe('incline-db-press')
+    const log = useStore.getState().activeSession!.exercises[2]
+    expect(log.weightKg).toBe(10)
+    expect(useStore.getState().settings.program?.bench).toBeUndefined() // plan untouched
+  })
+
+  it('never swaps away an exercise with logged sets, or into a duplicate', () => {
+    const s = useStore.getState()
+    s.startDay(0)
+    logSet('bench-press', 0, 6)
+    s.swapInSession('bench-press', 'db-bench-press')
+    expect(ids()).toContain('bench-press')
+    s.swapInSession('back-squat', 'bench-press') // already in the workout
+    expect(ids()).toContain('back-squat')
+  })
+
+  it('adds an exercise in routine order and removes one', () => {
+    const s = useStore.getState()
+    s.startDay(0)
+    s.addToSession('lat-pulldown') // isolation → after Pair 3, before core
+    const after = ids()
+    expect(after.indexOf('lat-pulldown')).toBe(after.indexOf('machine-chest-press') + 1)
+    expect(useStore.getState().progress['lat-pulldown'].currentWeightKg).toBe(40)
+    s.addToSession('lat-pulldown') // no duplicates
+    expect(ids().filter((id) => id === 'lat-pulldown')).toHaveLength(1)
+    s.removeFromSession('deadlift')
+    expect(ids()).not.toContain('deadlift')
+    expect(useStore.getState().settings.weeklyPlan![0].omit ?? []).toEqual([]) // plan untouched
+  })
+
+  it('adds and removes sets without ever dropping a logged one', () => {
+    const s = useStore.getState()
+    s.startDay(0)
+    s.addSetToSession('bench-press')
+    const sets = () => useStore.getState().activeSession!.exercises[2].sets
+    expect(sets()).toHaveLength(4)
+    logSet('bench-press', 0, 6)
+    s.removeSetFromSession('bench-press')
+    s.removeSetFromSession('bench-press')
+    s.removeSetFromSession('bench-press')
+    expect(sets()).toHaveLength(1)
+    expect(sets()[0].done).toBe(true)
+  })
+
+  it('an extra, lighter set does not block a level-up', () => {
+    const s = useStore.getState()
+    s.startDay(0)
+    s.addSetToSession('bench-press')
+    logAll('bench-press', 8, 8, 8, 5)
+    useStore.getState().finishSession()
+    expect(useStore.getState().progress['bench-press'].currentWeightKg).toBe(32.5)
+  })
+})

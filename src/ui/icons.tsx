@@ -190,3 +190,9 @@ export const Body = (p: P) => (
     <path d="M12 8v7M8 11l4-1 4 1M9.5 21l2.5-6 2.5 6" />
   </Svg>
 )
+
+export const List = (p: P) => (
+  <Svg {...p}>
+    <path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01" />
+  </Svg>
+)

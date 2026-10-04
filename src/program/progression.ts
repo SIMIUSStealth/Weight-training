@@ -50,10 +50,12 @@ export function worstSet(log: ExerciseLog, kind: ExerciseKind): number {
   return vals.length ? Math.min(...vals) : 0
 }
 
-/** All `sets` working sets completed AND every one at or above `n`. */
+/**
+ * At least the program's `sets` working sets completed at or above `n`. Extra
+ * sets added mid-workout count toward it but never block a level-up.
+ */
 function allSetsAtLeast(log: ExerciseLog, def: ExerciseDef, n: number): boolean {
-  const done = doneSets(log)
-  return done.length >= def.sets && done.every((s) => setValue(s, def.kind) >= n)
+  return doneSets(log).filter((s) => setValue(s, def.kind) >= n).length >= def.sets
 }
 
 // ---------- initial state ----------

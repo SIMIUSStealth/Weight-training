@@ -122,6 +122,12 @@ interface StoreState {
     patch: Partial<SetLog>,
   ) => void
   setWorkingWeight: (exerciseId: string, weightKg: number) => void
+  /** Mid-workout edits (this session only — the weekly plan is untouched). */
+  swapInSession: (exerciseId: string, toId: string) => void
+  addToSession: (exerciseId: string) => void
+  removeFromSession: (exerciseId: string) => void
+  addSetToSession: (exerciseId: string) => void
+  removeSetFromSession: (exerciseId: string) => void
   finishSession: () => SessionSummary | null
   /** Finish the performed exercises now and queue the untouched ones as a later part. */
   splitSession: () => SessionSummary | null
@@ -415,6 +421,96 @@ export const useStore = create<StoreState>((set, get) => ({
     const exercises = active.exercises.map((ex) =>
       ex.exerciseId === exerciseId ? { ...ex, weightKg } : ex,
     )
+    const next = { ...active, exercises }
+    void putActiveSession(next)
+    set({ activeSession: next })
+  },
+
+  swapInSession: (exerciseId, toId) => {
+    const active = get().activeSession
+    if (!active || exerciseId === toId) return
+    const to = EXERCISES_BY_ID[toId]
+    if (!to || to.retired) return
+    if (active.exercises.some((e) => e.exerciseId === toId)) return
+    const from = active.exercises.find((e) => e.exerciseId === exerciseId)
+    // Never throw away logged sets — swap only an exercise not yet started.
+    if (!from || from.sets.some((s) => s.done)) return
+    const res = withSeededProgress([to], get().progress)
+    if (res.seeded.length) void putProgress(res.seeded)
+    const exercises = active.exercises.map((ex) =>
+      ex.exerciseId === exerciseId
+        ? {
+            exerciseId: toId,
+            weightKg: res.progress[toId]?.currentWeightKg ?? to.startWeightKg,
+            sets: Array.from({ length: Math.max(ex.sets.length, 1) }, () => ({ done: false }) as SetLog),
+          }
+        : ex,
+    )
+    const next = { ...active, exercises }
+    void putActiveSession(next)
+    set({ activeSession: next, progress: res.progress })
+  },
+
+  addToSession: (exerciseId) => {
+    const active = get().activeSession
+    const def = EXERCISES_BY_ID[exerciseId]
+    if (!active || !def || def.retired) return
+    if (active.exercises.some((e) => e.exerciseId === exerciseId)) return
+    const res = withSeededProgress([def], get().progress)
+    if (res.seeded.length) void putProgress(res.seeded)
+    const log: ExerciseLog = {
+      exerciseId,
+      weightKg: res.progress[exerciseId]?.currentWeightKg ?? def.startWeightKg,
+      sets: Array.from({ length: def.sets }, () => ({ done: false }) as SetLog),
+    }
+    // Slot it in at its place in the routine order.
+    const order = (id: string) => {
+      const i = SLOTS.findIndex((s) => s.id === EXERCISES_BY_ID[id]?.slot)
+      return i === -1 ? SLOTS.length : i
+    }
+    const exercises = [...active.exercises]
+    let at = exercises.findIndex((e) => order(e.exerciseId) > order(exerciseId))
+    if (at === -1) at = exercises.length
+    exercises.splice(at, 0, log)
+    const next = { ...active, exercises }
+    void putActiveSession(next)
+    set({ activeSession: next, progress: res.progress })
+  },
+
+  removeFromSession: (exerciseId) => {
+    const active = get().activeSession
+    if (!active || active.exercises.length <= 1) return
+    const next = {
+      ...active,
+      exercises: active.exercises.filter((e) => e.exerciseId !== exerciseId),
+    }
+    void putActiveSession(next)
+    set({ activeSession: next })
+  },
+
+  addSetToSession: (exerciseId) => {
+    const active = get().activeSession
+    if (!active) return
+    const exercises = active.exercises.map((ex) =>
+      ex.exerciseId === exerciseId && ex.sets.length < 10
+        ? { ...ex, sets: [...ex.sets, { done: false } as SetLog] }
+        : ex,
+    )
+    const next = { ...active, exercises }
+    void putActiveSession(next)
+    set({ activeSession: next })
+  },
+
+  removeSetFromSession: (exerciseId) => {
+    const active = get().activeSession
+    if (!active) return
+    const exercises = active.exercises.map((ex) => {
+      if (ex.exerciseId !== exerciseId || ex.sets.length <= 1) return ex
+      // Drop the last set that isn't logged yet; logged sets are never lost.
+      const i = ex.sets.map((s) => s.done).lastIndexOf(false)
+      if (i === -1) return ex
+      return { ...ex, sets: ex.sets.filter((_, j) => j !== i) }
+    })
     const next = { ...active, exercises }
     void putActiveSession(next)
     set({ activeSession: next })

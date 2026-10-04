@@ -4,6 +4,11 @@ Running list of shipped features and the backlog, so ideas aren't lost.
 
 ## Shipped
 
+- **Flexible workouts (2026-10)** — tap the workout header for an overview of
+  every exercise and its sets (jump to any one), add an exercise from any block,
+  remove one you haven't started, swap the current exercise for another option
+  in its slot, and add/remove sets — all for that workout only, the weekly plan
+  stays put. Extra sets never block a level-up (it takes 3 at the top).
 - **Gym routine (2026-10)** — the app moved from one adjustable dumbbell at home
   to a full gym. The program is now the pairs routine in
   `docs/training-program.md`: Pair 1 (pull-up · squat · bench), optional Pair 2
@@ -89,7 +94,7 @@ Running list of shipped features and the backlog, so ideas aren't lost.
 - **First-run calibration** wizard (bodyweight + dial in starting weights).
 - **Session notes** ("felt strong / shoulder twinge").
 - **In-app "new version — refresh" prompt** when a deploy lands.
-- **Mid-workout swap** (currently swaps apply to the next session).
+
 - Show RIR/effort in exercise history (per-set chips).
 
 ### Not feasible / out of scope

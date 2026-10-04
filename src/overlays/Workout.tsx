@@ -1,5 +1,13 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { getBlock, getExercise, getSlot } from '../program/exercises'
+import {
+  BLOCKS,
+  GYM_EXERCISES,
+  getBlock,
+  getExercise,
+  getSlot,
+  setScheme,
+  slotOptions,
+} from '../program/exercises'
 import { computeRecommendation, defaultProgress, isLoaded } from '../program/progression'
 import {
   formatLoad,
@@ -14,7 +22,7 @@ import { formatSeconds } from '../program/analytics'
 import { alternatingGroup, groupRound, nextExerciseIndex } from '../program/flow'
 import { useStore } from '../store/useStore'
 import { Coach, Modal, MuscleChip, Stepper } from '../ui/components'
-import { Check, ChevronLeft, Minus, Plus, Timer, X } from '../ui/icons'
+import { Check, ChevronLeft, List, Minus, Plus, Timer, X } from '../ui/icons'
 
 // One shared AudioContext for the app's lifetime — iOS Safari caps live
 // contexts (~4), so creating one per beep permanently kills audio mid-workout.
@@ -75,6 +83,11 @@ export function Workout() {
   const finishSession = useStore((s) => s.finishSession)
   const splitSession = useStore((s) => s.splitSession)
   const cancelSession = useStore((s) => s.cancelSession)
+  const swapInSession = useStore((s) => s.swapInSession)
+  const addToSession = useStore((s) => s.addToSession)
+  const removeFromSession = useStore((s) => s.removeFromSession)
+  const addSetToSession = useStore((s) => s.addSetToSession)
+  const removeSetFromSession = useStore((s) => s.removeSetFromSession)
   const closeOverlay = useStore((s) => s.closeOverlay)
 
   const [index, setIndex] = useState(0)
@@ -88,6 +101,8 @@ export function Workout() {
   const [hold, setHold] = useState<Hold | null>(null)
   const holdPhaseStartRef = useRef(0)
   const [finishPrompt, setFinishPrompt] = useState(false)
+  // Mid-workout editing sheets: the session overview, adding, swapping.
+  const [sheet, setSheet] = useState<null | 'overview' | 'add' | 'swap'>(null)
   const alerted = useRef(false)
 
   const exercises = activeSession?.exercises ?? []
@@ -291,14 +306,19 @@ export function Workout() {
           <button className="icon-btn" onClick={closeOverlay} aria-label="minimize">
             <X size={18} />
           </button>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontWeight: 800 }}>
+          <button
+            onClick={() => setSheet('overview')}
+            aria-label="workout overview"
+            style={{ textAlign: 'center', background: 'none', border: 0, color: 'inherit', padding: 0 }}
+          >
+            <div className="row" style={{ fontWeight: 800, gap: 6, justifyContent: 'center' }}>
+              <List size={16} />
               Workout{part > 1 ? ` · Part ${part}` : ''}
             </div>
             <div className="tiny faint">
               {index + 1} / {exercises.length} · {doneSets}/{totalSets} sets
             </div>
-          </div>
+          </button>
           <button className="btn btn-success btn-sm" onClick={attemptFinish}>
             Finish
           </button>
@@ -318,7 +338,14 @@ export function Workout() {
             </span>
           )}
         </div>
-        <h1 style={{ fontSize: 24, margin: '2px 0 4px' }}>{def.name}</h1>
+        <div className="row between" style={{ gap: 10 }}>
+          <h1 style={{ fontSize: 24, margin: '2px 0 4px' }}>{def.name}</h1>
+          {slot && slot.optionIds.length > 1 && !exLog.sets.some((s) => s.done) && (
+            <button className="btn btn-sm" style={{ flexShrink: 0 }} onClick={() => setSheet('swap')}>
+              Swap
+            </button>
+          )}
+        </div>
         {slot && (
           <div className="tiny faint" style={{ marginBottom: 10 }}>
             {slot.label}
@@ -518,6 +545,24 @@ export function Workout() {
               })}
         </div>
 
+        {/* set count for today */}
+        <div className="row" style={{ gap: 8, margin: '-4px 0 12px' }}>
+          <button
+            className="btn btn-sm btn-ghost grow"
+            disabled={exLog.sets.length <= 1 || exLog.sets.every((s) => s.done)}
+            onClick={() => removeSetFromSession(def.id)}
+          >
+            <Minus size={16} /> Remove set
+          </button>
+          <button
+            className="btn btn-sm btn-ghost grow"
+            disabled={exLog.sets.length >= 10}
+            onClick={() => addSetToSession(def.id)}
+          >
+            <Plus size={16} /> Add set
+          </button>
+        </div>
+
         {/* form cue */}
         <button
           className="btn btn-ghost btn-block btn-sm"
@@ -577,6 +622,151 @@ export function Workout() {
           )}
         </div>
       </div>
+
+      {sheet === 'overview' && (
+        <Modal title="This workout" onClose={() => setSheet(null)}>
+          <div style={{ maxHeight: '58vh', overflowY: 'auto', margin: '0 -4px', padding: '0 4px' }}>
+            {exercises.map((e, i) => {
+              const d = getExercise(e.exerciseId)
+              const b = getBlock(e.exerciseId)
+              const done = e.sets.filter((s) => s.done).length
+              const prevBlock = i > 0 ? getBlock(exercises[i - 1].exerciseId) : undefined
+              return (
+                <Fragment key={e.exerciseId}>
+                  {b && b.id !== prevBlock?.id && (
+                    <div className="eyebrow" style={{ margin: i === 0 ? '0 2px 6px' : '14px 2px 6px' }}>
+                      {b.name}
+                    </div>
+                  )}
+                  <div
+                    className="list-row"
+                    style={{
+                      borderRadius: 12,
+                      padding: '8px 10px',
+                      background: i === index ? 'var(--surface-2)' : undefined,
+                    }}
+                  >
+                    <button
+                      className="grow"
+                      style={{ background: 'none', border: 0, color: 'inherit', textAlign: 'left', padding: 0 }}
+                      onClick={() => {
+                        go(i)
+                        setSheet(null)
+                      }}
+                    >
+                      <div style={{ fontWeight: 700 }}>{d.name}</div>
+                      <div className="row" style={{ gap: 4, marginTop: 5 }}>
+                        {e.sets.map((s, j) => (
+                          <span
+                            key={j}
+                            className="dot"
+                            style={{ background: s.done ? 'var(--success)' : 'var(--surface-3)' }}
+                          />
+                        ))}
+                        <span className="tiny faint" style={{ marginLeft: 4 }}>
+                          {done}/{e.sets.length} sets
+                        </span>
+                      </div>
+                    </button>
+                    {done === 0 && exercises.length > 1 && (
+                      <button
+                        className="icon-btn"
+                        style={{ width: 36, height: 36, color: 'var(--danger)' }}
+                        aria-label={`remove ${d.name}`}
+                        onClick={() => {
+                          removeFromSession(e.exerciseId)
+                          if (i < index || index === exercises.length - 1) {
+                            setIndex(Math.max(0, index - 1))
+                          }
+                        }}
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
+                  </div>
+                </Fragment>
+              )
+            })}
+          </div>
+          <button className="btn btn-block" style={{ marginTop: 12 }} onClick={() => setSheet('add')}>
+            <Plus size={18} /> Add exercise
+          </button>
+          <div className="tiny faint" style={{ textAlign: 'center', marginTop: 8 }}>
+            Changes apply to this workout only — your weekly plan stays as it is.
+          </div>
+        </Modal>
+      )}
+
+      {sheet === 'add' && (
+        <Modal title="Add to this workout" onClose={() => setSheet('overview')}>
+          <div style={{ maxHeight: '62vh', overflowY: 'auto' }}>
+            {BLOCKS.map((b) => {
+              const inSession = new Set(exercises.map((e) => e.exerciseId))
+              const opts = GYM_EXERCISES.filter(
+                (d) => getSlot(d.id)?.block === b.id && !inSession.has(d.id),
+              )
+              if (!opts.length) return null
+              return (
+                <div key={b.id}>
+                  <div className="eyebrow" style={{ margin: '10px 2px 6px' }}>{b.name}</div>
+                  {opts.map((d) => (
+                    <button
+                      key={d.id}
+                      className="list-row"
+                      style={{ width: '100%', background: 'none', border: 0, color: 'inherit', textAlign: 'left' }}
+                      onClick={() => {
+                        addToSession(d.id)
+                        setSheet('overview')
+                      }}
+                    >
+                      <div className="grow">
+                        <div style={{ fontWeight: 700 }}>{d.name}</div>
+                        <div className="tiny faint">
+                          {setScheme(d)} · {getSlot(d.id)?.label}
+                        </div>
+                      </div>
+                      <Plus size={16} className="faint" />
+                    </button>
+                  ))}
+                </div>
+              )
+            })}
+          </div>
+        </Modal>
+      )}
+
+      {sheet === 'swap' && slot && (
+        <Modal title={`Swap ${def.name}`} onClose={() => setSheet(null)}>
+          <p className="small muted" style={{ marginTop: 0 }}>
+            For this workout only. Each variation keeps its own weight &amp; history.
+          </p>
+          {slotOptions(slot.id).map((opt) => {
+            const current = opt.id === def.id
+            const taken = !current && exercises.some((e) => e.exerciseId === opt.id)
+            return (
+              <button
+                key={opt.id}
+                className="list-row"
+                style={{ width: '100%', background: 'none', border: 0, color: 'inherit', textAlign: 'left' }}
+                disabled={current || taken}
+                onClick={() => {
+                  swapInSession(def.id, opt.id)
+                  setSheet(null)
+                }}
+              >
+                <div className="grow">
+                  <div style={{ fontWeight: 700 }}>
+                    {opt.name}
+                    {current && <span className="chip" style={{ marginLeft: 8 }}>current</span>}
+                    {taken && <span className="chip" style={{ marginLeft: 8 }}>in workout</span>}
+                  </div>
+                  <div className="tiny faint">{setScheme(opt)}</div>
+                </div>
+              </button>
+            )
+          })}
+        </Modal>
+      )}
 
       {finishPrompt && (
         <Modal title="Finish here?" onClose={() => setFinishPrompt(false)}>
