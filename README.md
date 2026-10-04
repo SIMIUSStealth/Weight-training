@@ -1,23 +1,31 @@
 # Iron Ladder
 
-A personal **single-dumbbell hypertrophy coach** — an installable web app (PWA)
-that runs on your iPhone, stores everything on-device, and drives **double
-progression** so the work gets harder over time. Think "Runna, but for the
-one-dumbbell program."
+A personal **gym strength coach** — an installable web app (PWA) that runs on
+your iPhone, stores everything on-device, and drives **double progression** so
+the work gets harder over time. Think "Runna, but for your gym routine."
 
 It implements the training spec in [`docs/training-program.md`](docs/training-program.md):
-11 movements, 3 sets each, every exercise climbing its own ladder.
+three pairs of compounds (pull-up · squat · bench, dip · hinge, row · push), a
+core triplet or kettlebell core circuit, and optional isolations / leg-day
+extras — 3 sets each, every exercise climbing its own load ladder. (The original
+single-dumbbell home program is retired but its history is kept:
+[`docs/home-dumbbell-program.md`](docs/home-dumbbell-program.md).)
 
 ## What it does
 
-- **Guided sessions** — step through all 11 exercises in order, with form cues, a
-  rest timer (~75 s), and a plank hold timer.
+- **Guided sessions** — step through the routine block by block, with form cues,
+  a rest timer (~90 s), and a countdown for timed work (plank, kettlebell
+  circuit). In pairs, triplets and the circuit, **Next** alternates through the
+  group round by round.
 - **Double progression, automatic** — add reps toward the top of the range; once
-  you hit all three sets at the top, it bumps you to the next dumbbell rung. After
-  a jump it expects (and explains) the rep drop.
+  you hit all three sets at the top, it bumps you one step on that exercise's
+  ladder: the next barbell plate, dumbbell, machine pin or kettlebell — or less
+  help on the assisted pull-up / dip machine, then weight on a belt. Step sizes
+  match your gym (Settings → Gym equipment).
 - **Adaptive coaching** — detects stalls and suggests bridging / checking recovery,
-  flags a starting weight that was too light or heavy on day one, and climbs the
-  plank by +10 s when you complete the target.
+  flags a starting load that was too light or heavy on day one, climbs the plank
+  by +10 s, and tells you when an unloaded movement (ab wheel) needs a harder
+  variation.
 - **Tracking** — per-exercise charts (work and top set), session history, and
   bodyweight / protein / sleep logging (the "raw materials").
 - **Yours, offline, portable** — IndexedDB storage, no account, plus one-tap
@@ -68,7 +76,8 @@ npm run build     # type-check + production build into dist/
 
 ```
 src/
-  program/      the "fitness brain": ladder, exercises, progression (+ tests), analytics
+  program/      the "fitness brain": ladders, exercises & routine blocks, plan,
+                flow (pair alternation), progression (+ tests), analytics
   storage/      IndexedDB layer, data model, backup/restore
   store/        Zustand store (workout flow, progression commit, settings, data)
   screens/      Today · Progress · History · Settings

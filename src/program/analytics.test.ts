@@ -89,10 +89,10 @@ describe('weekStatuses', () => {
     expect(doneDaysThisWeek([doneWed])).toBe(1)
   })
 
-  it('an active session outranks rest — muscles toggled off mid-workout stay visible', () => {
+  it('an active session outranks rest — blocks toggled off mid-workout stay visible', () => {
     const now = new Date().toISOString()
     const plan = defaultWeeklyPlan()
-    plan[0] = { muscles: [] } // Monday edited to rest while its session runs
+    plan[0] = { blocks: [] } // Monday edited to rest while its session runs
     const active: SessionLog = { id: 'a', startedAt: now, weekday: 0, exercises: [] }
     expect(weekStatuses(plan, [], active)[0].status).toBe('inprogress')
   })
@@ -107,7 +107,7 @@ describe('weekStatuses', () => {
     }
     const todayIdx = (now.getDay() + 6) % 7
     const plan = defaultWeeklyPlan()
-    plan[todayIdx] = { muscles: ['Chest'] } // ensure today is a training day
+    plan[todayIdx] = { blocks: ['pair-1'] } // ensure today is a training day
     expect(doneDaysThisWeek([legacy])).toBe(1)
     expect(weekStatuses(plan, [legacy], null)[todayIdx].status).toBe('done')
   })
@@ -116,13 +116,13 @@ describe('weekStatuses', () => {
 describe('weekStreak', () => {
   // A one-training-day plan (Monday) keeps the fixtures simple.
   const plan: DayPlan[] = [
-    { muscles: ['Chest'] },
-    { muscles: [] },
-    { muscles: [] },
-    { muscles: [] },
-    { muscles: [] },
-    { muscles: [] },
-    { muscles: [] },
+    { blocks: ['pair-1'] },
+    { blocks: [] },
+    { blocks: [] },
+    { blocks: [] },
+    { blocks: [] },
+    { blocks: [] },
+    { blocks: [] },
   ]
 
   /** A completed Monday-tagged session `weeksAgo` weeks back. */
@@ -155,7 +155,7 @@ describe('weekStreak', () => {
   })
 
   it('no training days planned → no streak', () => {
-    const rest: DayPlan[] = Array.from({ length: 7 }, () => ({ muscles: [] }))
+    const rest: DayPlan[] = Array.from({ length: 7 }, () => ({ blocks: [] }))
     expect(weekStreak(rest, [mondaySession(0)])).toBe(0)
   })
 })

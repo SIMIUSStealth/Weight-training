@@ -1,5 +1,5 @@
 import { getExercise } from '../program/exercises'
-import { formatKg, prevRung } from '../program/ladder'
+import { formatKg, formatLoad, ladderFor, prevRung, resolveIncrements } from '../program/ladder'
 import { formatSeconds } from '../program/analytics'
 import { useStore, type SessionSummary } from '../store/useStore'
 import { Coach } from '../ui/components'
@@ -7,14 +7,20 @@ import { ArrowUp, Check, Info, Trophy } from '../ui/icons'
 import type { PRRecord } from '../storage/types'
 
 function prLabel(pr: PRRecord): string {
-  if (pr.kind === 'hold') return `${formatSeconds(pr.value)} — longest hold yet`
-  if (pr.kind === 'reps')
-    return `${pr.value} reps @ ${formatKg(pr.weightKg ?? 0)} — most ever at this weight`
+  if (pr.kind === 'hold') return `${formatSeconds(pr.value)} — longest set yet`
+  if (pr.kind === 'reps') {
+    const equipment = getExercise(pr.exerciseId).equipment
+    return `${pr.value} reps @ ${formatLoad(equipment, pr.weightKg ?? 0)} — most ever at this load`
+  }
   return `est. 1RM ${formatKg(pr.value)} — all-time strength best`
 }
 
 export function Summary({ summary }: { summary: SessionSummary }) {
   const progress = useStore((s) => s.progress)
+  // Select the raw setting — a selector returning a fresh object each call
+  // would re-render forever.
+  const storedIncrements = useStore((s) => s.settings.increments)
+  const increments = resolveIncrements(storedIncrements)
   const setExerciseWeight = useStore((s) => s.setExerciseWeight)
   const setTab = useStore((s) => s.setTab)
   const closeOverlay = useStore((s) => s.closeOverlay)
@@ -110,7 +116,9 @@ export function Summary({ summary }: { summary: SessionSummary }) {
                   <div className="grow">
                     <div style={{ fontWeight: 700 }}>{getExercise(lu.exerciseId).name}</div>
                     <div className="tiny faint">
-                      {lu.kind === 'time' ? 'hold target' : 'dumbbell'} raised
+                      {getExercise(lu.exerciseId).equipment === 'none'
+                        ? 'hold target raised'
+                        : 'load raised'}
                     </div>
                   </div>
                   <div style={{ fontWeight: 800 }}>
@@ -149,7 +157,7 @@ export function Summary({ summary }: { summary: SessionSummary }) {
               const def = getExercise(n.exerciseId)
               const cur = progress[n.exerciseId]?.currentWeightKg ?? def.startWeightKg
               if (n.kind === 'too_heavy') {
-                const drop = prevRung(cur)
+                const drop = prevRung(cur, ladderFor(def.equipment, increments))
                 return (
                   <div className="card" key={n.exerciseId}>
                     <div style={{ fontWeight: 700, marginBottom: 4 }}>{def.name}</div>
@@ -162,7 +170,7 @@ export function Summary({ summary }: { summary: SessionSummary }) {
                         className="btn btn-sm btn-block"
                         onClick={() => setExerciseWeight(n.exerciseId, drop)}
                       >
-                        Drop to {formatKg(drop)}
+                        Drop to {formatLoad(def.equipment, drop)}
                       </button>
                     ) : (
                       <div className="tiny faint">Already at the lightest setting.</div>

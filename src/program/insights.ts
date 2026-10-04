@@ -9,7 +9,7 @@ import {
 } from './analytics'
 import { mondayIndex, trainingDayCount, WEEKDAYS_LONG } from './plan'
 import { computeRecommendation } from './progression'
-import { epley1RM } from './records'
+import { epley1RM, tracksOneRM } from './records'
 import type {
   DayPlan,
   ExerciseProgress,
@@ -227,7 +227,7 @@ export function strengthGains(
     .sort((a, b) => (a.completedAt! < b.completedAt! ? -1 : 1))
   const out: StrengthGain[] = []
   for (const id of exerciseIds) {
-    if (getExercise(id).kind !== 'reps') continue
+    if (!tracksOneRM(getExercise(id))) continue
     const logs = completed
       .map((s) => s.exercises.find((e) => e.exerciseId === id))
       .filter(
@@ -308,7 +308,7 @@ export function urgencies(
       let nextName = ''
       for (let i = 0; i < 7; i++) {
         const d = (todayIdx + i) % 7
-        if (plan[d]?.muscles.length) {
+        if (plan[d]?.blocks.length) {
           nextName = i === 0 ? 'today' : WEEKDAYS_LONG[d]
           break
         }
@@ -338,7 +338,9 @@ export function urgencies(
   }
 
   // Neglected muscles: trained before, but not in the last 10+ days.
-  const planMuscles = new Set<Muscle>(plan.flatMap((d) => d.muscles))
+  const planMuscles = new Set<Muscle>(
+    planExerciseIds.map((id) => getExercise(id).muscle),
+  )
   for (const muscle of MUSCLE_ORDER) {
     if (!planMuscles.has(muscle)) continue
     let lastTrained: number | null = null

@@ -1,136 +1,194 @@
-# Single-Dumbbell Hypertrophy Program — Training Spec
+# Gym Routine — Training Spec
 
-A complete description of the training system: the philosophy behind it, the equipment setup, the full exercise list with parameters, and the progression rules. This is the "fitness brain" — written so it can be read by a person or implemented by an app. It contains no code.
+The training system the app implements: the routine's structure, the exercises
+with their parameters, the equipment and how loads are logged, and the
+progression rules. It is the "fitness brain" — written so a person can follow it
+and an app can implement it. It contains no code.
 
-**Who it's for:** an adult training for muscle growth, 3 sessions per week, with one adjustable dumbbell as the only equipment.
+The structure follows the r/bodyweightfitness Recommended Routine (pairs + a core
+triplet), moved to a gym: barbells, dumbbells, machines, cables and kettlebells
+replace the bodyweight-only steps where the gym does them better.
+
+**Who it's for:** an adult training for strength and muscle, 3 sessions per week,
+with a commercial gym's equipment. (The single-dumbbell home program this
+replaced is kept in [`home-dumbbell-program.md`](home-dumbbell-program.md).)
 
 ---
 
 ## 1. Philosophy
 
-The whole program rests on a few principles. Everything else (the exercises, the rep targets, the weight jumps) is just an expression of these.
+Unchanged from the home program, and still the point of the app:
 
-**Progressive overload is the engine.** Muscle grows when it is repeatedly asked to do slightly more than before. Over weeks, the work must trend upward — more reps, then more weight. A program that never gets harder stops producing growth. With a dumbbell that only changes in fixed steps, the load can't be nudged up smoothly, so progression happens in two stages (see *double progression* below).
-
-**Effort drives growth.** Each working set should be taken close to failure — roughly 1–3 reps short of the point where form breaks down. The last couple of reps of a set should be genuinely hard. Proximity to failure, not the specific weight or rep number, is the strongest lever for muscle growth at a given amount of volume. Junk sets done well inside your capacity do little.
-
-**Rep ranges are chosen per muscle.** Most upper-body work sits in the 8–12 range — a good balance of mechanical load and total reps for growth, and a range where adjacent dumbbell settings line up nicely. Forearms and abs use higher ranges (10–15, 12–15, 14–20) because they tolerate and respond well to more volume, and because the available loads for them are limiting — you'd run out of heavy enough settings long before you ran out of capacity if you kept reps low.
-
-**Volume is moderate and repeatable.** Three working sets per exercise, roughly six sets per muscle group per session, three times a week. That is enough weekly stimulus to grow as a beginner or intermediate without digging a recovery hole. More is not automatically better; recoverable, consistent volume beats heroic sessions you can't repeat.
-
-**Frequency and recovery go together.** The same full-body session is run three times a week on non-consecutive days, with at least a day of rest between. Muscle is built during recovery, not during the workout itself. The rest days are part of the program, not gaps in it.
-
-**Unilateral training is a feature, not a limitation.** One dumbbell means most movements are done one arm at a time. This is good: each side has to do its own work, so a dominant side can't quietly compensate, left/right development stays balanced, and the trunk gets extra anti-rotation work holding position. The only real cost is that sessions take a little longer.
-
-**Consistency beats optimization.** This program works because it is simple enough to do every week and it gets progressively harder. A perfectly optimized plan you abandon in a month is worse than a good plan you run for a year.
-
-**Growth needs raw materials.** Training is the signal; food and sleep are the supply.
-- Protein: roughly **1.6–2.2 g per kg of bodyweight per day.**
-- Energy: a **slight calorie surplus** (on the order of +200–300 kcal/day) to support building tissue.
-- Sleep: **7–9 hours.** Most recovery and adaptation happen here.
+- **Progressive overload is the engine** — over weeks the work must trend up: more
+  reps, then more load.
+- **Effort drives growth** — working sets end roughly 1–3 reps short of failure.
+- **Consistency beats optimization** — a routine you run for a year beats a
+  perfect one you abandon.
+- **Recovery is part of the program** — non-consecutive training days; protein
+  1.6–2.2 g/kg/day, a slight calorie surplus, 7–9 h sleep.
 
 ---
 
-## 2. Setup
+## 2. The routine
 
-**Equipment.** One adjustable dumbbell. Its available settings are the *rungs* of the program — progression only ever moves between adjacent values, never skips:
+**Strength work: 40–60 minutes**, three times a week. A session is built from
+blocks, always in this order:
 
-```
-2,5 · 3,5 · 4,5 · 5,5 · 6,5 · 8 · 9 · 10 · 11,5 · 13,5 · 16 · 18 · 20,5 · 22,5 · 24  (kg)
-```
+| Block | What | Sets × reps | How |
+|---|---|---|---|
+| **Pair 1 · Compounds** | Pull-up progression · Squat progression · Compound bench press | 3 × 5–8 each | Alternate the three |
+| **Pair 2** *(optional)* | Dip progression · Hinge progression | 3 × 5–8 each | Alternate |
+| **Pair 3** | Row progression · Push *(optional)* | 3 × 5–8 each | Alternate |
+| **Isolations** *(extra)* | Triceps extension · Biceps curl · Extra chest · Lats | 3 × 8–12 | Straight sets |
+| **Leg day** *(extra)* | Hamstring curl · Leg raises · Bulgarian split squat · Calf raises | 3 × 8–12 (calves 12–20) | Straight sets |
+| **Core triplet** | Anti-extension · Anti-rotation · Extension | 3 × 8–12 each | Alternate the three |
+| **Kettlebell core** *(alternative)* | 8-move circuit | 30 s each, 2–3 rounds | Circuit |
 
-**Schedule.** Three sessions per week on non-consecutive days — e.g. **Monday / Wednesday / Friday.** The same full-body session each time. Keep at least one rest day between sessions; if you're still very sore, take an extra day.
+**Alternating** (pairs, triplets, the circuit): one set of the first exercise,
+rest, one set of the next, rest, … then round again until each has its three
+sets. **Rest ~90 s** between sets. Isolations and leg-day extras are done as
+straight sets.
 
-**Session length.** About **40 minutes**, including warm-up.
+The **kettlebell core circuit** replaces the anti-extension + anti-rotation part of
+the core triplet (keep the back extension).
 
-**Warm-up (≈5 minutes).** Light movement to raise temperature and prep the joints: a couple of minutes of easy cardio (or brisk walking), arm circles and shoulder rolls, then one light set of the first exercise before loading working weight. Don't skip — cold pressing and overhead work is where tweaks happen.
+### Default week
 
-**Exercise order.** Largest muscles first, smallest and most fatigue-sensitive last: **chest → shoulders → arms → forearms → abs.** Training core and grip last means they aren't already tired when you need them to stabilize your pressing and curling.
+| Mon | Tue | Wed | Thu | Fri | Sat | Sun |
+|---|---|---|---|---|---|---|
+| Full routine | rest | Full routine + Leg day | rest | Full routine + Isolations | rest | rest |
 
----
-
-## 3. The session — exercises
-
-Eleven movements, run in this order. Every exercise is **3 working sets**. "Per arm" means the rep target is *per side*, not split between sides — do the full count with one arm, then the other (or alternate reps left/right; both are fine).
-
-| # | Exercise | Muscle | Sets × reps | Start weight | Per arm | Level-up target |
-|---|----------|--------|-------------|--------------|---------|-----------------|
-| 1 | Floor Press | Chest | 3 × 8–12 | 8 kg | Yes | 3 × 12 |
-| 2 | Chest Flye (on floor) | Chest | 3 × 8–12 | 5,5 kg | Yes | 3 × 12 |
-| 3 | Overhead Press | Shoulders | 3 × 8–12 | 6,5 kg | Yes | 3 × 12 |
-| 4 | Lateral Raise | Shoulders | 3 × 8–12 | 3,5 kg | Yes | 3 × 12 |
-| 5 | Biceps Curl | Arms | 3 × 8–12 | 8 kg | Yes | 3 × 12 |
-| 6 | Triceps Extension (overhead) | Arms | 3 × 8–12 | 9 kg | No (both hands) | 3 × 12 |
-| 7 | Wrist Curl | Forearms | 3 × 10–15 | 4,5 kg | Yes | 3 × 15 |
-| 8 | Reverse Wrist Curl | Forearms | 3 × 10–15 | 2,5 kg | Yes | 3 × 15 |
-| 9 | Weighted Crunch | Abs | 3 × 12–15 | 5,5 kg | No (on chest) | 3 × 15 |
-| 10 | Russian Twist | Abs | 3 × 14–20 | 4,5 kg | No (held) | 3 × 20 |
-| 11 | Plank | Abs | 3 × hold | 30 sec (bodyweight) | No | 3 × full target → +10 sec |
-
-> **Starting weights are estimates, not rules.** They're sensible first guesses. If a weight is too light or too heavy on day one, adjust it — the progression system (Section 4) corrects for a wrong start within a session or two, so don't agonize over it.
-
-### Form cues
-
-1. **Floor Press** — On your back, dumbbell at chest level, press straight up. Lower until your upper arm taps the floor, then drive up. The floor caps the range and protects the shoulder.
-2. **Chest Flye** — On your back, arm slightly bent and fixed at that angle. Open out wide toward the floor, feel the stretch across the chest, then squeeze back up over your chest. Light weight; this is a stretch movement, not a press.
-3. **Overhead Press** — From shoulder height, press to locked out overhead. Keep your ribs down and don't lean back — the work should be in the shoulder, not the lower back.
-4. **Lateral Raise** — Raise the dumbbell out to the side up to shoulder height, leading with the elbow. No swinging or heaving; if you need momentum, the weight is too heavy. The side delt is small — keep it strict and light.
-5. **Biceps Curl** — Curl up without swinging the torso. Lower slowly and under control; the lowering half builds as much as the lifting half.
-6. **Triceps Extension** — Both hands cupping one end of the dumbbell, held behind your head. Extend straight up, keeping the elbows pointing forward and still. Only the forearms move.
-7. **Wrist Curl** — Forearm resting on your thigh, palm up, hand off the edge of the knee. Curl the weight up using only the wrist. Full range, controlled.
-8. **Reverse Wrist Curl** — Same position, palm down. Lift the back of the hand toward you. This is a weak movement — expect to use very little weight, and that's correct.
-9. **Weighted Crunch** — Hold the dumbbell on your chest. Crunch up, squeeze the abs hard at the top, lower with control. Don't yank with the neck.
-10. **Russian Twist** — Lean back with feet off the floor, holding the dumbbell. Rotate from hip to hip, touching near the floor each side. **Count every touch as one rep** (so a left + right is two).
-11. **Plank** — Forearms down, body in one straight line from head to heels. Hold steady, brace the abs, and keep breathing. When you can hold all three sets for the full target time, the target goes up.
+"Full routine" = Pairs 1–3 + the core triplet. Every day is editable: switch
+blocks on/off, swap a slot's exercise, remove one, or add an extra from any block.
 
 ---
 
-## 4. Progression — how the weight goes up
+## 3. The exercises
 
-This is **double progression**: you progress reps first, then weight. It's the part that turns a static routine into something that drives growth, and it's the core logic any app version must implement.
+Every exercise is **3 working sets**. The first option in each slot is the
+default; the others are swaps (each keeps its own load and history). Start loads
+are estimates — the app flags a clearly-wrong start after the first session.
 
-**The rule, per exercise:**
+### Pair 1 · Compounds (3 × 5–8)
 
-1. Start at the exercise's starting weight, working in its rep range (e.g. 8–12).
-2. Each session, try to **add reps** toward the **top of the range** on every set.
-3. Once you hit the **top of the range on all three sets** (the "level-up target" in the table — e.g. 3 × 12), **move up to the next dumbbell setting** the next session.
-4. After moving up, your reps will **drop** — you might only manage 8 or 9. **This is expected and correct.** Work your reps back up to the top of the range over the coming sessions, then jump again.
-5. Repeat. This is the whole climb.
+| Slot | Options | Equipment | Start |
+|---|---|---|---|
+| Pull-up progression | **Pull-up** | assisted / bodyweight / belt | bodyweight |
+| Squat progression | **Barbell back squat** · Goblet squat | barbell · dumbbell | 40 kg · 14 kg |
+| Compound bench press | **Barbell bench press** · Dumbbell bench · Incline dumbbell press (upper chest, front delts) · Decline dumbbell press (lower chest) | barbell · dumbbells | 30 kg · 12 / 10 / 12 kg |
 
-**Key behaviors:**
+With barbells available, the barbell squat (and deadlift) replace the bodyweight
+squat/hinge progressions once the basic pattern is solid; the goblet squat stays
+as the place to perfect it.
 
-- **Every exercise progresses independently.** Your biceps curl might be at 10 kg while your lateral raise is still at 4,5 kg and your floor press is at 13,5 kg. Track each exercise's current weight and reps separately. They are not linked.
-- **Form is the gate.** If reps get sloppy, or you start using momentum or partial range to hit the number, you advanced too soon. Drop back to the previous weight and earn it cleanly. A rep only counts if it looked like the form cue.
-- **Different muscles climb at different speeds.** Big muscles (chest, shoulders) tend to add weight faster; small muscles (side delts, forearms) crawl. This is normal — don't force the small ones to keep pace.
-- **The weight ladder is fixed.** Progression only ever moves to the *adjacent* setting. Never skip rungs to chase a number.
+### Pair 2 · optional (3 × 5–8)
 
-**Plank is the same idea, with time instead of reps and weight.** Hold for the target seconds. When you complete all three sets at the full target, **add 10 seconds** to the target for next time. Bodyweight never changes; the duration climbs.
+| Slot | Options | Equipment | Start |
+|---|---|---|---|
+| Dip progression | **Bench dip** · Machine dip · Dip (assisted → bodyweight → weighted) | bodyweight · machine · assisted | bodyweight · 30 kg · bodyweight |
+| Hinge progression | **Deadlift** (also a compound) · Barbell RDL · Barbell hip thrust | barbell | 50 · 40 · 40 kg |
 
-**When you stall** (can't add reps at a weight for 2–3 sessions in a row):
-- First, check recovery — protein, sleep, and rest days are usually the real bottleneck before training itself is.
-- You can **bridge the gap** by pushing reps a little past the top of the range at the current weight (say up to 15 on an 8–12 lift) before making the jump. The extra volume builds the strength to handle the next rung.
-- Accept that small muscles stall more often and progress in smaller real terms. That's the nature of a 2,5 kg jump on a movement that uses 4 kg.
+### Pair 3 (3 × 5–8)
+
+| Slot | Options | Equipment | Start |
+|---|---|---|---|
+| Row progression | **Close-grip cable row** · Machine row · T-bar row | cable · machine | 35 · 35 · 20 kg |
+| Push *(optional)* | **Machine chest press** · Shoulder press (machine) · Push-up · Diamond push-up | machine · bodyweight | 30 · 25 kg · bodyweight |
+
+### Isolations (3 × 8–12) — extra toning
+
+| Slot | Options | Start |
+|---|---|---|
+| Triceps extension | **Cable triceps pushdown** (rope) · Triceps bar pushdown · Overhead cable extension | 15 · 20 · 10 kg |
+| Biceps curl | **Zottman curl** · Biceps curl | 8 kg dumbbells |
+| Extra chest | **Low-to-high cable fly** (upper chest) · High-to-low cable fly (lower chest) | 5 kg per stack |
+| Lats (also the pull-up replacement) | **Lat pulldown** · Close-grip · Wide-grip | 40 · 40 · 35 kg |
+
+### Leg day extras (3 × 8–12)
+
+| Slot | Options | Start |
+|---|---|---|
+| Hamstring curl | **Hamstring curl** (machine) | 25 kg |
+| Leg raises | **Leg extension** (machine) · Hanging leg raise | 30 kg · bodyweight |
+| Bulgarian split squat | **Bulgarian split squat** (per leg) | 10 kg dumbbell |
+| Calf raises | **Calf raise** (machine), 3 × 12–20 | 40 kg |
+
+### Core triplet (3 × 8–12)
+
+| Slot | Exercise | Load |
+|---|---|---|
+| Anti-extension | **Ab wheel rollout** | bodyweight only |
+| Anti-rotation | **Pallof press** (each side) | cable, 10 kg |
+| Extension | **Back extension** (hyperextension bench) | bodyweight, + plate |
+
+### Kettlebell core circuit (30 s each, 2–3 rounds)
+
+Plank pull-through (12 kg) · Halo (8 kg) · Around the world (12 kg) · Shoveling
+(12 kg) · Swing (16 kg) · Iron trident (12 kg) · Plank (no kettlebell) ·
+Sit-up to stand (8 kg — works the legs too).
+
+Form cues for every exercise live in the app (`src/program/exercises.ts`).
 
 ---
 
-## 5. Running a set, and a session
+## 4. Equipment and how loads are logged
 
-- **Rest between sets:** 60–90 seconds. A consistent ~75 seconds works well — long enough to recover, short enough to keep the session tight.
-- **Per-arm movements:** either do all reps on one arm then switch, **or** alternate reps (left, right, left…). One-arm-at-a-time gives a bigger core/anti-rotation challenge; alternating gives each arm a brief rest between reps. Both are valid — pick what keeps your form clean. Either way, **each arm gets its full rep target**, not the target split between them.
-- **Track every session.** Note the weight and reps you hit for each exercise. The number you're chasing next time is simply "beat last time" — one more rep, or the next weight once you've maxed the range. Tracking is what makes progression possible; without it you're guessing.
+Each exercise climbs a **ladder** of the loads its equipment can actually make,
+and progression only ever moves to the **adjacent rung**:
+
+| Equipment | Logged load | Ladder |
+|---|---|---|
+| Barbell | everything on the bar, bar included | 20 kg up, in the gym's smallest jump (2,5 or 5 kg) |
+| Dumbbells | **one** dumbbell | the rack's step (1, 2 or 2,5 kg) |
+| Machines & cables | the stack (cable flies: one stack); T-bar row: plates loaded | one pin hole (2,5 or 5 kg) |
+| Kettlebells | the bell | 4, 6, 8 … 24, 28, 32, 36, 40, 48 kg |
+| Bodyweight lifts (push-ups, bench dips, back extension) | weight **added** — 0 = bodyweight | +2,5 kg steps |
+| Assisted lifts (pull-up, dip) | **minus** = assisted-machine help, 0 = bodyweight, **plus** = belt | assistance in pin steps → 0 → +2,5 kg steps |
+| Unloaded (ab wheel, hanging leg raise, plank) | nothing | — |
+
+The three gym-specific step sizes are set once in **Settings → Gym equipment**.
 
 ---
 
-## 6. Tracking progress and reassessing
+## 5. Progression
 
-- **Day to day:** the only question is whether you beat the previous session on each exercise — by reps, or by moving up a rung. Small, steady gains compound.
-- **You're progressing if**, over a span of weeks, weights and/or reps are trending up across most exercises. Week-to-week noise (a bad night's sleep, a heavy day) is normal; the trend is what matters.
-- **Reassess every 8–12 weeks**, or whenever an exercise stops progressing for good or you've climbed near the top of the ladder for it. At that point, change the stimulus: swap the exercise for a variation, shift the rep range, or add a fourth set. Novelty restarts progress when the current setup is tapped out.
+**Double progression, per exercise, independently:**
+
+1. Work in the rep range (5–8 for the compounds, 8–12 for isolations and core).
+2. Each session, add reps toward the top of the range on every set.
+3. All three sets at the top → **next rung** next session: the next plate,
+   dumbbell, pin or bell — or, on an assisted lift, **less assistance**
+   (−10 → −5 → bodyweight → +2,5 kg on a belt).
+4. Reps drop after a jump — expected. Build back to the top, jump again.
+
+Special cases:
+
+- **Unloaded progressions** (ab wheel, hanging leg raise) have no load to add.
+  Once you own 3 × top of range, make the movement harder (more range, a tougher
+  variation, slower lowering).
+- **Plank** (in the KB circuit): hold the target on all three rounds → +10 s.
+- **Kettlebell circuit moves**: complete all three 30 s rounds → next bell; the
+  time stays 30 s.
+- **Stall** (no new best at a load for 3 sessions): check recovery first, then
+  bridge — push 2–3 reps past the top before the jump — or swap the variation.
+- **Starting loads** self-correct: smash past the top on day one → it climbs
+  quickly; can't reach the bottom → drop a rung.
 
 ---
+
+## 6. Running a session
+
+- Go block by block. In alternating blocks, one set of each exercise per round,
+  ~90 s rest between sets.
+- Optional pieces (Pair 2, the Pair 3 push, isolations, leg-day extras) are the
+  first to drop on a short day — finish early and the session still counts.
+- Log every set (and, optionally, reps in reserve). "Beat last time" is the goal.
+- Reassess every 8–12 weeks or when a lift stalls for good: swap the variation,
+  shift the rep range, or add a set.
 
 ## 7. Safety
 
-- **Discomfort vs. pain.** Muscles burning and effort being hard is the point. Sharp, joint-centered, or pinching pain is not — stop that exercise and don't train through it.
-- **Control the weight, especially overhead and on flyes.** If you can't lower a weight under control, you can't use it safely yet.
-- **When in doubt, go lighter and add a rep.** The program is built to climb gradually; there's no prize for jumping ahead, and a tweak costs more sessions than patience ever would.
+- Use the rack's safety pins for squats and the safety arms (or a spotter) for
+  the bench.
+- Discomfort is fine; sharp or joint-centred pain is not — stop that exercise.
+- When in doubt, go lighter and add a rep.

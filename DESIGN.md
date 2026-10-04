@@ -45,8 +45,9 @@ is used mid-set, so legibility and big tap targets beat decoration.
 | `--danger` | `#d92d20` | destructive |
 | `--info` | `#2563eb` | informational |
 
-Muscle dots: chest `#ef4444`, shoulders `#f59e0b`, arms `#10b981`,
-forearms `#3b82f6`, abs `#8b5cf6`.
+Muscle dots: chest `#ef4444`, back `#3b82f6`, shoulders `#f59e0b`,
+arms `#10b981`, legs `#ec4899`, core `#8b5cf6`, forearms `#64748b` (home-era
+history only).
 
 ## Typography
 

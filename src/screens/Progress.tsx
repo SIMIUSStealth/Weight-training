@@ -1,5 +1,11 @@
 import { useMemo, useState } from 'react'
-import { MUSCLE_ORDER, getExercise, type ExerciseDef, type Muscle } from '../program/exercises'
+import {
+  ALL_EXERCISES,
+  MUSCLE_ORDER,
+  getExercise,
+  type ExerciseDef,
+  type Muscle,
+} from '../program/exercises'
 import { getWeeklyPlan, planExercises } from '../program/plan'
 import {
   exerciseSeries,
@@ -18,7 +24,7 @@ import {
   urgencies,
   weeklyVolumeSeries,
 } from '../program/insights'
-import { formatKg } from '../program/ladder'
+import { formatKg, formatLoad } from '../program/ladder'
 import { epley1RM } from '../program/records'
 import { useStore } from '../store/useStore'
 import { BarChart, Sparkline } from '../ui/charts'
@@ -99,7 +105,32 @@ function ExercisesPane({ byMuscle }: { byMuscle: Map<Muscle, ExerciseDef[]> }) {
   const progress = useStore((s) => s.progress)
   const openOverlay = useStore((s) => s.openOverlay)
 
-  const volume = useMemo(() => weeklyVolume(sessions), [sessions])
+  // Muscles nobody trains any more (home-era forearms) only show with history.
+  const volume = useMemo(
+    () =>
+      weeklyVolume(sessions).filter(
+        (v) => v.sets > 0 || (byMuscle.get(v.muscle)?.length ?? 0) > 0,
+      ),
+    [sessions, byMuscle],
+  )
+
+  // Exercises with history that the current week doesn't use — retired home
+  // lifts and swapped-out variations — stay one tap away.
+  const earlier = useMemo(() => {
+    const inPlan = new Set([...byMuscle.values()].flat().map((d) => d.id))
+    const counts = new Map<string, number>()
+    for (const s of sessions) {
+      if (!s.completedAt) continue
+      for (const ex of s.exercises) {
+        if (inPlan.has(ex.exerciseId) || !ex.sets.some((x) => x.done)) continue
+        counts.set(ex.exerciseId, (counts.get(ex.exerciseId) ?? 0) + 1)
+      }
+    }
+    return ALL_EXERCISES.filter((d) => counts.has(d.id)).map((def) => ({
+      def,
+      count: counts.get(def.id)!,
+    }))
+  }, [byMuscle, sessions])
 
   // One pass over history per data change, not one sort per card per render.
   const seriesById = useMemo(() => {
@@ -158,7 +189,7 @@ function ExercisesPane({ byMuscle }: { byMuscle: Map<Muscle, ExerciseDef[]> }) {
         </>
       )}
 
-      {MUSCLE_ORDER.map((muscle) => (
+      {MUSCLE_ORDER.filter((m) => byMuscle.get(m)!.length > 0).map((muscle) => (
         <div key={muscle}>
           <div className="eyebrow">{muscle}</div>
           {byMuscle.get(muscle)!.map((def) => {
@@ -166,11 +197,11 @@ function ExercisesPane({ byMuscle }: { byMuscle: Map<Muscle, ExerciseDef[]> }) {
             const last = series[series.length - 1]
             const p = progress[def.id]
             const current =
-              def.kind === 'time'
+              def.kind === 'time' && def.equipment === 'none'
                 ? formatSeconds(p?.targetSeconds ?? def.startSeconds ?? 0)
-                : def.bodyweight
-                  ? '—'
-                  : formatKg(p?.currentWeightKg ?? def.startWeightKg)
+                : def.equipment === 'none'
+                  ? 'Bodyweight'
+                  : formatLoad(def.equipment, p?.currentWeightKg ?? def.startWeightKg)
             return (
               <button
                 key={def.id}
@@ -217,6 +248,35 @@ function ExercisesPane({ byMuscle }: { byMuscle: Map<Muscle, ExerciseDef[]> }) {
           })}
         </div>
       ))}
+
+      {earlier.length > 0 && (
+        <>
+          <div className="eyebrow">Earlier exercises · history</div>
+          <div className="card" style={{ padding: '4px 16px' }}>
+            {earlier.map(({ def, count }) => (
+              <button
+                key={def.id}
+                className="list-row"
+                style={{ width: '100%', background: 'none', border: 0, color: 'inherit', textAlign: 'left' }}
+                onClick={() => openOverlay({ name: 'exercise', exerciseId: def.id })}
+              >
+                <span
+                  className="dot"
+                  style={{ background: muscleColor(def.muscle), flexShrink: 0 }}
+                />
+                <div className="grow">
+                  <div style={{ fontWeight: 700 }}>{def.name}</div>
+                  <div className="tiny faint">
+                    {count} session{count === 1 ? '' : 's'}
+                    {def.retired ? ' · home program' : ' · not in your week'}
+                  </div>
+                </div>
+                <ChevronRight size={18} className="faint" />
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </>
   )
 }
@@ -248,7 +308,13 @@ function InsightsPane({
   )
   const momentum = useMemo(() => fourWeekCompare(sessions), [sessions])
   const volSeries = useMemo(() => weeklyVolumeSeries(sessions, 10), [sessions])
-  const muscleTotals = useMemo(() => muscleSetTotals(sessions), [sessions])
+  const muscleTotals = useMemo(
+    () =>
+      muscleSetTotals(sessions).filter(
+        (m) => m.sets > 0 || (byMuscle.get(m.muscle)?.length ?? 0) > 0,
+      ),
+    [sessions, byMuscle],
+  )
   const gains = useMemo(
     () => strengthGains(sessions, planIds).filter((g) => g.pct > 0).slice(0, 3),
     [sessions, planIds],

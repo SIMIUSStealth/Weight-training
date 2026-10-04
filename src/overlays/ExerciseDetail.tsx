@@ -6,9 +6,17 @@ import {
   slotOptions,
   type ExerciseDef,
 } from '../program/exercises'
-import { computeRecommendation, defaultProgress } from '../program/progression'
-import { collectBests } from '../program/records'
-import { formatKg, isTopRung, nextRung, prevRung } from '../program/ladder'
+import { computeRecommendation, defaultProgress, isLoaded } from '../program/progression'
+import { collectBests, tracksOneRM } from '../program/records'
+import {
+  formatKg,
+  formatLoad,
+  isTopRung,
+  ladderFor,
+  nextRung,
+  prevRung,
+  resolveIncrements,
+} from '../program/ladder'
 import { exerciseSeries, formatSeconds, relativeDay } from '../program/analytics'
 import { useStore } from '../store/useStore'
 import { LineChart } from '../ui/charts'
@@ -19,8 +27,9 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
   const def = getExercise(exerciseId)
   const sessions = useStore((s) => s.sessions)
   const progress = useStore((s) => s.progress)
+  const settings = useStore((s) => s.settings)
   const setExerciseWeight = useStore((s) => s.setExerciseWeight)
-  const setPlankTarget = useStore((s) => s.setPlankTarget)
+  const setTimeTarget = useStore((s) => s.setTimeTarget)
   const swapExercise = useStore((s) => s.swapExercise)
   const openOverlay = useStore((s) => s.openOverlay)
   const closeOverlay = useStore((s) => s.closeOverlay)
@@ -31,12 +40,18 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
   const slot = getSlot(exerciseId)
   const options = slot ? slotOptions(slot.id) : []
   const color = muscleColor(def.muscle)
+  const increments = useMemo(
+    () => resolveIncrements(settings.increments),
+    [settings.increments],
+  )
+  const ladder = ladderFor(def.equipment, increments)
+  const loaded = isLoaded(def)
 
   // Both walk the full session history — recompute only when the data does,
   // not on every stepper tap.
   const rec = useMemo(
-    () => computeRecommendation(def, p, sessions),
-    [def, p, sessions],
+    () => computeRecommendation(def, p, sessions, increments),
+    [def, p, sessions, increments],
   )
   const { series, loadPoints, topPoints } = useMemo(() => {
     const series = exerciseSeries(exerciseId, sessions)
@@ -48,9 +63,20 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
   }, [exerciseId, sessions])
 
   const bests = useMemo(() => collectBests(exerciseId, sessions), [exerciseId, sessions])
-  const hasBests = def.kind === 'time' ? bests.longestHold > 0 : bests.best1RM > 0
+  const hasBests =
+    def.kind === 'time' ? bests.longestHold > 0 : bests.best1RM > 0 || !!bests.topSet
 
   const isTime = def.kind === 'time'
+  // Unloaded time = a hold whose target climbs; loaded time = kettlebell work.
+  const isHold = isTime && !loaded
+  const bestLabel = (() => {
+    if (isTime) return `${formatSeconds(bests.longestHold)} ${isHold ? 'hold' : 'set'}`
+    if (bests.best1RM > 0) {
+      return `${bests.best1RMReps} × ${formatKg(bests.best1RMWeightKg ?? 0)} · est. 1RM ${formatKg(bests.best1RM)}`
+    }
+    const top = bests.topSet
+    return top ? `${top.reps} reps @ ${formatLoad(def.equipment, top.weightKg)}` : ''
+  })()
 
   return (
     <div className="overlay">
@@ -72,27 +98,37 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
           <div className="row between">
             <div>
               <div className="tiny faint">
-                {isTime ? 'TARGET HOLD' : def.bodyweight ? 'BODYWEIGHT' : 'CURRENT WEIGHT'}
+                {isHold
+                  ? 'TARGET HOLD'
+                  : !loaded
+                    ? 'BODYWEIGHT'
+                    : def.equipment === 'kettlebell'
+                      ? 'KETTLEBELL'
+                      : 'CURRENT LOAD'}
               </div>
               <div className="display" style={{ fontSize: 32, fontWeight: 800 }}>
-                {isTime
+                {isHold
                   ? formatSeconds(p.targetSeconds ?? def.startSeconds ?? 0)
-                  : def.bodyweight
-                    ? '—'
-                    : formatKg(p.currentWeightKg)}
+                  : formatLoad(def.equipment, p.currentWeightKg)}
               </div>
               <div className="tiny muted">
                 {def.sets} ×{' '}
-                {isTime ? 'hold' : `${def.repMin}–${def.repMax}`}
-                {def.perArm ? ' · each arm' : ''}
+                {isHold
+                  ? 'hold'
+                  : isTime
+                    ? formatSeconds(p.targetSeconds ?? def.startSeconds ?? 30)
+                    : `${def.repMin}–${def.repMax}`}
+                {def.perArm ? ' · each side' : ''}
               </div>
             </div>
-            {!def.bodyweight && !isTime && (
+            {loaded && (
               <div className="stepper">
                 <button
                   aria-label="lighter"
-                  disabled={prevRung(p.currentWeightKg) === p.currentWeightKg}
-                  onClick={() => setExerciseWeight(exerciseId, prevRung(p.currentWeightKg))}
+                  disabled={prevRung(p.currentWeightKg, ladder) === p.currentWeightKg}
+                  onClick={() =>
+                    setExerciseWeight(exerciseId, prevRung(p.currentWeightKg, ladder))
+                  }
                 >
                   <Minus size={20} />
                 </button>
@@ -101,19 +137,21 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
                 </div>
                 <button
                   aria-label="heavier"
-                  disabled={isTopRung(p.currentWeightKg)}
-                  onClick={() => setExerciseWeight(exerciseId, nextRung(p.currentWeightKg))}
+                  disabled={isTopRung(p.currentWeightKg, ladder)}
+                  onClick={() =>
+                    setExerciseWeight(exerciseId, nextRung(p.currentWeightKg, ladder))
+                  }
                 >
                   <Plus size={20} />
                 </button>
               </div>
             )}
-            {isTime && (
+            {isHold && (
               <div className="stepper">
                 <button
                   aria-label="less"
                   onClick={() =>
-                    setPlankTarget(
+                    setTimeTarget(
                       exerciseId,
                       Math.max(10, (p.targetSeconds ?? 30) - 10),
                     )
@@ -126,13 +164,18 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
                 </div>
                 <button
                   aria-label="more"
-                  onClick={() => setPlankTarget(exerciseId, (p.targetSeconds ?? 30) + 10)}
+                  onClick={() => setTimeTarget(exerciseId, (p.targetSeconds ?? 30) + 10)}
                 >
                   <Plus size={20} />
                 </button>
               </div>
             )}
           </div>
+          {def.holdNote && (
+            <div className="tiny faint" style={{ marginTop: 8 }}>
+              {def.holdNote}
+            </div>
+          )}
         </div>
 
         {hasBests && (
@@ -142,9 +185,7 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
                 <Trophy size={14} /> ALL-TIME BEST
               </span>
               <span className="small" style={{ fontWeight: 700 }}>
-                {def.kind === 'time'
-                  ? `${formatSeconds(bests.longestHold)} hold`
-                  : `${bests.best1RMReps} × ${formatKg(bests.best1RMWeightKg ?? 0)} · est. 1RM ${formatKg(bests.best1RM)}`}
+                {bestLabel}
               </span>
             </div>
           </div>
@@ -161,7 +202,7 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
         {slot && options.length > 1 && (
           <>
             <div className="eyebrow">Swap · {slot.label}</div>
-            {(rec.stalled || rec.atTopRung) && (
+            {(rec.stalled || (loaded && rec.atTopRung)) && (
               <Coach tone="info">
                 Tapped out? Swapping for a variation restarts progress — exactly
                 what the plan suggests every 8–12 weeks.
@@ -210,7 +251,9 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
         {/* charts */}
         {series.length >= 2 ? (
           <>
-            <div className="eyebrow">{isTime ? 'Total hold' : 'Work per session'}</div>
+            <div className="eyebrow">
+              {isTime ? 'Total time' : tracksOneRM(def) ? 'Work per session' : 'Total reps'}
+            </div>
             <div className="card">
               <LineChart
                 points={loadPoints}
@@ -218,7 +261,7 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
                 formatY={(v) => (isTime ? formatSeconds(Math.round(v)) : String(Math.round(v)))}
               />
             </div>
-            <div className="eyebrow">{isTime ? 'Best hold' : 'Top set (reps)'}</div>
+            <div className="eyebrow">{isTime ? 'Best set (seconds)' : 'Top set (reps)'}</div>
             <div className="card">
               <LineChart
                 points={topPoints}
@@ -256,7 +299,7 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
                           className="chip"
                           style={{ background: 'var(--surface-3)', fontWeight: 700 }}
                         >
-                          {isTime ? formatSeconds(v) : `${v}${def.perArm ? '/arm' : ''}`}
+                          {isTime ? formatSeconds(v) : `${v}${def.perArm ? '/side' : ''}`}
                         </span>
                       ))}
                     </div>
@@ -266,7 +309,7 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
                       {isTime ? formatSeconds(s.best) : `${s.total} reps`}
                     </div>
                     <div className="tiny faint">
-                      {isTime ? `${def.sets} sets` : def.bodyweight ? '' : formatKg(s.weightKg)}
+                      {isHold ? `${def.sets} sets` : formatLoad(def.equipment, s.weightKg)}
                     </div>
                   </div>
                 </div>
@@ -290,9 +333,9 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
             {progress[swapTo.id]
               ? 'Your saved progress for it returns where you left off.'
               : `It starts fresh at ${
-                  swapTo.kind === 'time'
+                  swapTo.kind === 'time' && swapTo.equipment === 'none'
                     ? formatSeconds(swapTo.startSeconds ?? 30)
-                    : formatKg(swapTo.startWeightKg)
+                    : formatLoad(swapTo.equipment, swapTo.startWeightKg)
                 }.`}{' '}
             Your {def.name} history stays untouched.
           </p>

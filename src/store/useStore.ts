@@ -3,19 +3,22 @@ import {
   EXERCISES_BY_ID,
   getExercise,
   getSlot,
+  isBlockId,
+  SLOTS,
   SLOTS_BY_ID,
+  type BlockId,
   type ExerciseDef,
   type ExerciseKind,
-  type Muscle,
 } from '../program/exercises'
 import {
   dayExercises,
   defaultWeeklyPlan,
   getWeeklyPlan,
+  isCurrentPlan,
   planExercises,
   selectedForSlot,
 } from '../program/plan'
-import { formatKg } from '../program/ladder'
+import { formatLoad, resolveIncrements, type Increments } from '../program/ladder'
 import {
   applyProgression,
   assessStartWeight,
@@ -37,16 +40,18 @@ import {
   requestPersistentStorage,
   resetAll as dbResetAll,
 } from '../storage/db'
-import type {
-  BackupFile,
-  BodyStat,
-  DayPlan,
-  ExerciseLog,
-  ExerciseProgress,
-  PRRecord,
-  SessionLog,
-  Settings,
-  SetLog,
+import {
+  DEFAULT_SETTINGS,
+  SETTINGS_VERSION,
+  type BackupFile,
+  type BodyStat,
+  type DayPlan,
+  type ExerciseLog,
+  type ExerciseProgress,
+  type PRRecord,
+  type SessionLog,
+  type Settings,
+  type SetLog,
 } from '../storage/types'
 
 function uid(): string {
@@ -125,13 +130,13 @@ interface StoreState {
   swapExercise: (slotId: string, exerciseId: string) => void
 
   // weekly plan editing
-  toggleDayMuscle: (weekday: number, muscle: string) => void
+  toggleDayBlock: (weekday: number, block: BlockId) => void
   addExerciseToDay: (weekday: number, exerciseId: string) => void
   removeExerciseFromDay: (weekday: number, exerciseId: string) => void
 
   // manual progression overrides
   setExerciseWeight: (exerciseId: string, weightKg: number) => void
-  setPlankTarget: (exerciseId: string, seconds: number) => void
+  setTimeTarget: (exerciseId: string, seconds: number) => void
 
   // body stats
   upsertBodyStat: (stat: BodyStat) => void
@@ -169,10 +174,36 @@ function sessionFromExercises(
 /** Deep-ish copy of a weekly plan so edits never mutate stored state. */
 function clonePlan(plan: DayPlan[]): DayPlan[] {
   return plan.map((d) => ({
-    muscles: [...d.muscles],
+    blocks: [...d.blocks],
     omit: d.omit ? [...d.omit] : undefined,
     add: d.add ? [...d.add] : undefined,
   }))
+}
+
+/** Slot ids of one routine block. */
+function blockSlotIds(block: BlockId): Set<string> {
+  return new Set(SLOTS.filter((s) => s.block === block).map((s) => s.id))
+}
+
+/**
+ * Bring stored settings up to the current schema. v1 was the single-dumbbell
+ * home program with muscle-group days: its weekly plan (and slot swaps, which
+ * name home slots) can't carry over, so the gym week replaces them. History,
+ * progress and every other setting are kept.
+ */
+export function migrateSettings(settings: Settings): Settings {
+  let next = settings
+  if (!isCurrentPlan(next.weeklyPlan)) {
+    next = { ...next, weeklyPlan: defaultWeeklyPlan() }
+    if (next.program) {
+      const program = Object.fromEntries(
+        Object.entries(next.program).filter(([slotId]) => SLOTS_BY_ID[slotId]),
+      )
+      next = { ...next, program }
+    }
+  }
+  if ((next.version ?? 1) < SETTINGS_VERSION) next = { ...next, version: SETTINGS_VERSION }
+  return next
 }
 
 /** Ensure every exercise in `defs` has a progression row, seeding any missing. */
@@ -211,6 +242,7 @@ function commitActive(
   active: SessionLog,
   sessions: SessionLog[],
   progress: Record<string, ExerciseProgress>,
+  increments: Increments,
 ): CommitResult {
   const newProgress: Record<string, ExerciseProgress> = { ...progress }
   const levelUps: LevelUp[] = []
@@ -234,15 +266,17 @@ function commitActive(
         ),
     )
 
-    const before = newProgress[log.exerciseId]
-    const res = applyProgression(def, before, log)
+    // A session from before an exercise had a progress row (e.g. imported)
+    // commits against its defaults.
+    const before = newProgress[log.exerciseId] ?? defaultProgress(def)
+    const res = applyProgression(def, before, log, increments)
     newProgress[log.exerciseId] = res.progress
 
     const nudge = assessStartWeight(def, log, hadPrior)
     if (nudge) startNudges.push({ exerciseId: log.exerciseId, kind: nudge })
 
     if (res.leveledUp) {
-      if (def.kind === 'time') {
+      if (res.newSeconds != null) {
         levelUps.push({
           exerciseId: log.exerciseId,
           kind: def.kind,
@@ -253,8 +287,8 @@ function commitActive(
         levelUps.push({
           exerciseId: log.exerciseId,
           kind: def.kind,
-          from: formatKg(before.currentWeightKg),
-          to: formatKg(res.newWeightKg ?? before.currentWeightKg),
+          from: formatLoad(def.equipment, before.currentWeightKg),
+          to: formatLoad(def.equipment, res.newWeightKg ?? before.currentWeightKg),
         })
       }
       committedExercises.push({
@@ -290,19 +324,16 @@ export const useStore = create<StoreState>((set, get) => ({
   sessions: [],
   progress: {},
   bodyStats: [],
-  settings: { restSeconds: 75, restAlert: true, version: 1 },
+  settings: { ...DEFAULT_SETTINGS },
   activeSession: null,
   tab: 'today',
   overlay: null,
 
   init: async () => {
     const data = await loadAll()
-    // Seed the default weekly plan on first run.
-    let settings = data.settings
-    if (!settings.weeklyPlan) {
-      settings = { ...settings, weeklyPlan: defaultWeeklyPlan() }
-      void putSettings(settings)
-    }
+    // Seed the gym week on first run; replace a pre-gym (v1) plan.
+    const settings = migrateSettings(data.settings)
+    if (settings !== data.settings) void putSettings(settings)
     const loaded: Record<string, ExerciseProgress> = {}
     for (const p of data.progress) loaded[p.exerciseId] = p
     // Make sure every exercise the plan can use has a progression row.
@@ -332,7 +363,7 @@ export const useStore = create<StoreState>((set, get) => ({
     const { settings, progress } = get()
     const plan = getWeeklyPlan(settings.weeklyPlan)
     const day = plan[weekday]
-    if (!day || !day.muscles.length) return
+    if (!day || !day.blocks.length) return
     const defs = dayExercises(day, settings.program)
     if (!defs.length) return
     const res = withSeededProgress(defs, progress)
@@ -393,7 +424,12 @@ export const useStore = create<StoreState>((set, get) => ({
     const { activeSession, progress, sessions } = get()
     if (!activeSession) return null
 
-    const r = commitActive(activeSession, sessions, progress)
+    const r = commitActive(
+      activeSession,
+      sessions,
+      progress,
+      resolveIncrements(get().settings.increments),
+    )
     if (r.committedExercises.length === 0) {
       // nothing was actually performed — discard the empty session
       void putActiveSession(null)
@@ -444,7 +480,12 @@ export const useStore = create<StoreState>((set, get) => ({
     // Nothing left untouched → this is just a normal finish.
     if (remaining.length === 0) return get().finishSession()
 
-    const r = commitActive(activeSession, sessions, progress)
+    const r = commitActive(
+      activeSession,
+      sessions,
+      progress,
+      resolveIncrements(get().settings.increments),
+    )
     // Nothing performed yet → nothing to commit; leave the workout as-is.
     if (r.committedExercises.length === 0) return null
 
@@ -501,7 +542,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
   swapExercise: (slotId, exerciseId) => {
     const def = getExercise(exerciseId)
-    if (def.slot !== slotId) return // only swap within the same slot
+    if (def.retired || def.slot !== slotId) return // only swap within the same slot
     const program = { ...(get().settings.program ?? {}), [slotId]: exerciseId }
     get().updateSettings({ program })
     const res = withSeededProgress([def], get().progress)
@@ -511,18 +552,23 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 
-  toggleDayMuscle: (weekday, muscle) => {
+  toggleDayBlock: (weekday, block) => {
+    if (!isBlockId(block)) return
     const plan = clonePlan(getWeeklyPlan(get().settings.weeklyPlan))
     const day = plan[weekday]
     if (!day) return
-    if (day.muscles.includes(muscle as Muscle)) {
-      day.muscles = day.muscles.filter((m) => m !== muscle)
-      day.omit = day.omit?.filter((id) => SLOTS_BY_ID[id]?.muscle !== muscle)
+    if (day.blocks.includes(block)) {
+      const slots = blockSlotIds(block)
+      day.blocks = day.blocks.filter((b) => b !== block)
+      day.omit = day.omit?.filter((id) => !slots.has(id))
       // Lookup defensively — a plan imported from another device/version may
       // reference exercise ids this build doesn't know.
-      day.add = day.add?.filter((id) => EXERCISES_BY_ID[id]?.muscle !== muscle)
+      day.add = day.add?.filter((id) => {
+        const def = EXERCISES_BY_ID[id]
+        return !!def && !slots.has(def.slot)
+      })
     } else {
-      day.muscles = [...day.muscles, muscle as Muscle]
+      day.blocks = [...day.blocks, block]
     }
     get().updateSettings({ weeklyPlan: plan })
     const res = withSeededProgress(
@@ -538,13 +584,18 @@ export const useStore = create<StoreState>((set, get) => ({
   addExerciseToDay: (weekday, exerciseId) => {
     const def = getExercise(exerciseId)
     const slot = getSlot(exerciseId)
+    if (!slot) return // retired exercises can't be scheduled
     const plan = clonePlan(getWeeklyPlan(get().settings.weeklyPlan))
     const day = plan[weekday]
     if (!day) return
-    if (!day.muscles.includes(def.muscle)) day.muscles = [...day.muscles, def.muscle]
-    const isSlotDefault =
-      slot && selectedForSlot(slot.id, get().settings.program) === exerciseId
-    if (isSlotDefault) {
+    // The slot's current pick in a block that's already on just needs
+    // un-omitting; anything else rides along as an extra (without switching
+    // on the rest of its block).
+    const unOmit =
+      day.blocks.includes(slot.block) &&
+      (day.omit ?? []).includes(slot.id) &&
+      selectedForSlot(slot.id, get().settings.program) === exerciseId
+    if (unOmit) {
       day.omit = day.omit?.filter((id) => id !== slot.id)
     } else if (!(day.add ?? []).includes(exerciseId)) {
       day.add = [...(day.add ?? []), exerciseId]
@@ -564,24 +615,30 @@ export const useStore = create<StoreState>((set, get) => ({
     if ((day.add ?? []).includes(exerciseId)) {
       day.add = (day.add ?? []).filter((id) => id !== exerciseId)
     }
-    // If the exercise is (also) the slot's current selection, omit the slot —
-    // an exercise can be both added and slot-selected (added first, swapped in
-    // later), and removing it must clear both in one tap.
+    // If the exercise is (also) the slot's current selection in a block that's
+    // on, omit the slot — an exercise can be both added and slot-selected
+    // (added first, swapped in later), and removing it must clear both.
     const slot = getSlot(exerciseId)
     if (
       slot &&
+      day.blocks.includes(slot.block) &&
       selectedForSlot(slot.id, get().settings.program) === exerciseId &&
       !(day.omit ?? []).includes(slot.id)
     ) {
       day.omit = [...(day.omit ?? []), slot.id]
     }
-    // Drop the muscle entirely if it has no exercises left.
-    const muscle = getExercise(exerciseId).muscle
-    const left = dayExercises(
-      { ...day, muscles: [muscle] },
-      get().settings.program,
-    ).length
-    if (left === 0) day.muscles = day.muscles.filter((m) => m !== muscle)
+    // Switch the block off entirely if it has no exercises left.
+    if (slot && day.blocks.includes(slot.block)) {
+      const left = dayExercises(
+        { ...day, blocks: [slot.block] },
+        get().settings.program,
+      ).filter((e) => blockSlotIds(slot.block).has(e.slot)).length
+      if (left === 0) {
+        const slots = blockSlotIds(slot.block)
+        day.blocks = day.blocks.filter((b) => b !== slot.block)
+        day.omit = day.omit?.filter((id) => !slots.has(id))
+      }
+    }
     get().updateSettings({ weeklyPlan: plan })
   },
 
@@ -595,7 +652,7 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ progress })
   },
 
-  setPlankTarget: (exerciseId, seconds) => {
+  setTimeTarget: (exerciseId, seconds) => {
     const progress = { ...get().progress }
     const cur = progress[exerciseId]
     if (!cur) return

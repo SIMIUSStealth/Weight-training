@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { getExercise } from '../program/exercises'
-import { formatKg } from '../program/ladder'
+import { formatLoad } from '../program/ladder'
 import { formatSeconds } from '../program/analytics'
 import { useStore } from '../store/useStore'
 import { Modal, muscleColor } from '../ui/components'
@@ -90,8 +90,8 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
                       <ArrowUp size={13} /> up
                     </span>
                   )}
-                  {def.kind !== 'time' && !def.bodyweight && (
-                    <span style={{ fontWeight: 800 }}>{formatKg(e.weightKg)}</span>
+                  {def.equipment !== 'none' && (
+                    <span style={{ fontWeight: 800 }}>{formatLoad(def.equipment, e.weightKg)}</span>
                   )}
                 </div>
               </div>
@@ -100,7 +100,7 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
                   <span key={i} className="chip" style={{ background: 'var(--surface-3)' }}>
                     {def.kind === 'time'
                       ? formatSeconds(s.seconds ?? 0)
-                      : `${s.reps}${def.perArm ? '/arm' : ''}`}
+                      : `${s.reps}${def.perArm ? '/side' : ''}`}
                   </span>
                 ))}
               </div>

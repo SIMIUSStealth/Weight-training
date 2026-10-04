@@ -1,16 +1,21 @@
 import { describe, it, expect } from 'vitest'
 import {
   DUMBBELL_LADDER_KG,
+  formatKg,
+  formatLoad,
+  formatLoadShort,
+  isTopRung,
+  ladderFor,
   nextRung,
   prevRung,
-  isTopRung,
-  formatKg,
+  resolveIncrements,
 } from './ladder'
-import { getExercise } from './exercises'
+import { getExercise, SLOTS } from './exercises'
 import {
   applyProgression,
   assessStartWeight,
   computeRecommendation,
+  defaultProgress,
   initialProgress,
 } from './progression'
 import type { ExerciseLog, SessionLog, SetLog, ExerciseProgress } from '../storage/types'
@@ -29,67 +34,185 @@ function session(id: string, completedAt: string, logs: ExerciseLog[]): SessionL
 }
 
 function progressFor(exerciseId: string): ExerciseProgress {
-  return initialProgress().find((p) => p.exerciseId === exerciseId)!
+  return defaultProgress(getExercise(exerciseId))
 }
 
-// ---------- ladder ----------
+// ---------- ladders ----------
 
-describe('dumbbell ladder', () => {
-  it('moves to adjacent rungs only', () => {
-    expect(nextRung(8)).toBe(9)
-    expect(nextRung(6.5)).toBe(8)
-    expect(prevRung(8)).toBe(6.5)
-    expect(prevRung(2.5)).toBe(2.5) // already at bottom
+describe('load ladders', () => {
+  it('moves to adjacent rungs only (home dumbbell)', () => {
+    const L = DUMBBELL_LADDER_KG
+    expect(nextRung(8, L)).toBe(9)
+    expect(nextRung(6.5, L)).toBe(8)
+    expect(prevRung(8, L)).toBe(6.5)
+    expect(prevRung(2.5, L)).toBe(2.5) // already at bottom
   })
 
   it('never advances past the top rung', () => {
-    const top = DUMBBELL_LADDER_KG[DUMBBELL_LADDER_KG.length - 1]
-    expect(top).toBe(24)
-    expect(isTopRung(24)).toBe(true)
-    expect(nextRung(24)).toBe(24)
+    const L = DUMBBELL_LADDER_KG
+    expect(isTopRung(24, L)).toBe(true)
+    expect(nextRung(24, L)).toBe(24)
+  })
+
+  it('builds gym ladders from the configured steps', () => {
+    const bar = ladderFor('barbell', resolveIncrements())
+    expect(bar[0]).toBe(20) // the empty bar
+    expect(nextRung(40, bar)).toBe(42.5)
+    expect(nextRung(40, ladderFor('barbell', resolveIncrements({ barbell: 5 })))).toBe(45)
+    expect(nextRung(35, ladderFor('cable'))).toBe(40) // default 5 kg stack
+    expect(nextRung(35, ladderFor('cable', resolveIncrements({ machine: 2.5 })))).toBe(37.5)
+    expect(nextRung(12, ladderFor('dumbbell'))).toBe(14)
+    expect(nextRung(16, ladderFor('kettlebell'))).toBe(18)
+    expect(nextRung(24, ladderFor('kettlebell'))).toBe(28)
+    expect(ladderFor('none')).toEqual([0])
+  })
+
+  it('snaps an off-ladder weight to the neighbouring rungs', () => {
+    // A 13,5 kg home-dumbbell weight on a 2 kg gym rack.
+    const rack = ladderFor('dumbbell')
+    expect(nextRung(13.5, rack)).toBe(14)
+    expect(prevRung(13.5, rack)).toBe(12)
+  })
+
+  it('runs assisted lifts from assistance through bodyweight to added weight', () => {
+    const L = ladderFor('assisted')
+    expect(prevRung(0, L)).toBe(-5)
+    expect(nextRung(-5, L)).toBe(0)
+    expect(nextRung(0, L)).toBe(2.5)
+    expect(L[0]).toBeLessThan(0)
+    // Plain bodyweight lifts only go up (added weight), never "assisted".
+    expect(prevRung(0, ladderFor('bodyweight'))).toBe(0)
+  })
+
+  it('ignores stale or invalid stored increments', () => {
+    expect(resolveIncrements({ dumbbell: 3 as never, machine: 2.5 })).toEqual({
+      dumbbell: 2,
+      barbell: 2.5,
+      machine: 2.5,
+    })
   })
 
   it('formats decimals with a comma, like the spec', () => {
     expect(formatKg(5.5)).toBe('5,5 kg')
     expect(formatKg(8)).toBe('8 kg')
   })
+
+  it('formats relative loads the way a lifter says them', () => {
+    expect(formatLoad('assisted', -10)).toBe('10 kg assist')
+    expect(formatLoad('assisted', 0)).toBe('Bodyweight')
+    expect(formatLoad('bodyweight', 2.5)).toBe('+2,5 kg')
+    expect(formatLoad('barbell', 60)).toBe('60 kg')
+    expect(formatLoadShort('assisted', -10)).toBe('−10kg')
+    expect(formatLoadShort('bodyweight', 0)).toBe('BW')
+  })
+})
+
+// ---------- the routine's starting state ----------
+
+describe('initialProgress', () => {
+  it('seeds every routine slot’s default exercise at its start load', () => {
+    const rows = initialProgress()
+    expect(rows).toHaveLength(SLOTS.length)
+    expect(rows.find((r) => r.exerciseId === 'bench-press')?.currentWeightKg).toBe(30)
+    expect(rows.find((r) => r.exerciseId === 'pull-up')?.currentWeightKg).toBe(0)
+    expect(rows.find((r) => r.exerciseId === 'plank')?.targetSeconds).toBe(30)
+  })
 })
 
 // ---------- double progression (reps) ----------
 
 describe('applyProgression — reps', () => {
-  const floor = getExercise('floor-press') // 8-12, start 8kg
+  const bench = getExercise('bench-press') // 5-8, start 30kg, barbell
 
   it('levels up one rung when all three sets hit the top of the range', () => {
-    const res = applyProgression(floor, progressFor('floor-press'), repLog('floor-press', 8, reps(12, 12, 12)))
+    const res = applyProgression(bench, progressFor('bench-press'), repLog('bench-press', 30, reps(8, 8, 8)))
     expect(res.leveledUp).toBe(true)
-    expect(res.newWeightKg).toBe(9)
-    expect(res.progress.currentWeightKg).toBe(9)
+    expect(res.newWeightKg).toBe(32.5)
+    expect(res.progress.currentWeightKg).toBe(32.5)
+  })
+
+  it('climbs by your gym’s step size', () => {
+    const res = applyProgression(
+      bench,
+      progressFor('bench-press'),
+      repLog('bench-press', 30, reps(8, 8, 8)),
+      resolveIncrements({ barbell: 5 }),
+    )
+    expect(res.newWeightKg).toBe(35)
   })
 
   it('does NOT level up if any set falls short of the top', () => {
-    const res = applyProgression(floor, progressFor('floor-press'), repLog('floor-press', 8, reps(12, 12, 11)))
+    const res = applyProgression(bench, progressFor('bench-press'), repLog('bench-press', 30, reps(8, 8, 7)))
     expect(res.leveledUp).toBe(false)
-    expect(res.progress.currentWeightKg).toBe(8)
+    expect(res.progress.currentWeightKg).toBe(30)
   })
 
   it('does not count a level-up logged at the wrong weight', () => {
-    // Logged at 9kg while still officially on 8kg — ignored.
-    const res = applyProgression(floor, progressFor('floor-press'), repLog('floor-press', 9, reps(12, 12, 12)))
+    // Logged at 32,5kg while still officially on 30kg — ignored.
+    const res = applyProgression(bench, progressFor('bench-press'), repLog('bench-press', 32.5, reps(8, 8, 8)))
     expect(res.leveledUp).toBe(false)
   })
 
   it('reps beyond the top still trigger the jump', () => {
-    const res = applyProgression(floor, progressFor('floor-press'), repLog('floor-press', 8, reps(15, 14, 13)))
+    const res = applyProgression(bench, progressFor('bench-press'), repLog('bench-press', 30, reps(10, 9, 8)))
     expect(res.leveledUp).toBe(true)
-    expect(res.newWeightKg).toBe(9)
+    expect(res.newWeightKg).toBe(32.5)
   })
 
   it('does not advance past the top of the ladder', () => {
+    const floor = getExercise('floor-press') // retired home lift, home ladder
     const top: ExerciseProgress = { exerciseId: 'floor-press', currentWeightKg: 24 }
     const res = applyProgression(floor, top, repLog('floor-press', 24, reps(12, 12, 12)))
     expect(res.leveledUp).toBe(false)
     expect(res.progress.currentWeightKg).toBe(24)
+  })
+
+  it('walks an assisted pull-up toward bodyweight, then adds weight', () => {
+    const pull = getExercise('pull-up')
+    const assisted: ExerciseProgress = { exerciseId: 'pull-up', currentWeightKg: -5 }
+    const a = applyProgression(pull, assisted, repLog('pull-up', -5, reps(8, 8, 8)))
+    expect(a.newWeightKg).toBe(0)
+    const b = applyProgression(pull, a.progress, repLog('pull-up', 0, reps(8, 8, 8)))
+    expect(b.newWeightKg).toBe(2.5)
+  })
+
+  it('never climbs a weight on an unloaded bodyweight progression', () => {
+    const wheel = getExercise('ab-wheel-rollout')
+    const res = applyProgression(wheel, progressFor('ab-wheel-rollout'), repLog('ab-wheel-rollout', 0, reps(12, 12, 12)))
+    expect(res.leveledUp).toBe(false)
+    expect(res.progress.currentWeightKg).toBe(0)
+  })
+})
+
+// ---------- kettlebell circuit (loaded time) ----------
+
+describe('applyProgression — kettlebell circuit', () => {
+  const swing = getExercise('kb-swing') // 30s, 16kg
+
+  it('moves to the next bell when all rounds hit the full time', () => {
+    const res = applyProgression(swing, progressFor('kb-swing'), { exerciseId: 'kb-swing', weightKg: 16, sets: secs(30, 30, 30) })
+    expect(res.leveledUp).toBe(true)
+    expect(res.newWeightKg).toBe(18)
+    expect(res.newSeconds).toBeUndefined()
+    expect(res.progress.targetSeconds).toBe(30) // the time stays put
+  })
+
+  it('stays on the bell when a round is cut short or only two were done', () => {
+    const short = applyProgression(swing, progressFor('kb-swing'), { exerciseId: 'kb-swing', weightKg: 16, sets: secs(30, 22, 30) })
+    expect(short.leveledUp).toBe(false)
+    const two = applyProgression(swing, progressFor('kb-swing'), {
+      exerciseId: 'kb-swing',
+      weightKg: 16,
+      sets: [...secs(30, 30), { done: false }],
+    })
+    expect(two.leveledUp).toBe(false)
+  })
+
+  it('explains the new bell on the next visit', () => {
+    const sessions = [session('s1', '2026-01-01T10:00:00Z', [{ exerciseId: 'kb-swing', weightKg: 16, sets: secs(30, 30, 30) }])]
+    const rec = computeRecommendation(swing, { exerciseId: 'kb-swing', currentWeightKg: 18, targetSeconds: 30 }, sessions)
+    expect(rec.justLeveledUp).toBe(true)
+    expect(rec.coach).toMatch(/18 kg/)
   })
 })
 
@@ -115,22 +238,27 @@ describe('applyProgression — plank', () => {
 // ---------- start-weight self-correction ----------
 
 describe('assessStartWeight', () => {
-  const lat = getExercise('lateral-raise') // 8-12
+  const push = getExercise('cable-pushdown') // 8-12
 
   it('flags too light when smashing past the top on the first try', () => {
-    expect(assessStartWeight(lat, repLog('lateral-raise', 3.5, reps(16, 15, 15)), false)).toBe('too_light')
+    expect(assessStartWeight(push, repLog('cable-pushdown', 15, reps(16, 15, 15)), false)).toBe('too_light')
   })
 
   it('flags too heavy when unable to hold the bottom of the range', () => {
-    expect(assessStartWeight(lat, repLog('lateral-raise', 3.5, reps(7, 6, 5)), false)).toBe('too_heavy')
+    expect(assessStartWeight(push, repLog('cable-pushdown', 15, reps(7, 6, 5)), false)).toBe('too_heavy')
   })
 
   it('returns null for a sensible first session', () => {
-    expect(assessStartWeight(lat, repLog('lateral-raise', 3.5, reps(10, 9, 8)), false)).toBeNull()
+    expect(assessStartWeight(push, repLog('cable-pushdown', 15, reps(10, 9, 8)), false)).toBeNull()
   })
 
   it('never fires once there is prior history', () => {
-    expect(assessStartWeight(lat, repLog('lateral-raise', 3.5, reps(16, 16, 16)), true)).toBeNull()
+    expect(assessStartWeight(push, repLog('cable-pushdown', 15, reps(16, 16, 16)), true)).toBeNull()
+  })
+
+  it('never fires for an unloaded progression (there is no weight to fix)', () => {
+    const wheel = getExercise('ab-wheel-rollout')
+    expect(assessStartWeight(wheel, repLog('ab-wheel-rollout', 0, reps(4, 3, 3)), false)).toBeNull()
   })
 })
 
@@ -208,6 +336,23 @@ describe('computeRecommendation', () => {
     const rec = computeRecommendation(floor, progress, sessions)
     expect(rec.stalled).toBe(true)
     expect(rec.coach).toMatch(/bridge/i)
+  })
+
+  it('tells you to make an unloaded lift harder once you own the top of the range', () => {
+    const wheel = getExercise('ab-wheel-rollout')
+    const sessions = [session('s1', '2026-01-01T10:00:00Z', [repLog('ab-wheel-rollout', 0, reps(12, 12, 12))])]
+    const rec = computeRecommendation(wheel, progressFor('ab-wheel-rollout'), sessions)
+    expect(rec.coach).toMatch(/harder/i)
+    const notYet = [session('s1', '2026-01-01T10:00:00Z', [repLog('ab-wheel-rollout', 0, reps(12, 10, 9))])]
+    expect(computeRecommendation(wheel, progressFor('ab-wheel-rollout'), notYet).coach).toBeUndefined()
+  })
+
+  it('names assisted loads in coaching after a level-up', () => {
+    const pull = getExercise('pull-up')
+    const sessions = [session('s1', '2026-01-01T10:00:00Z', [repLog('pull-up', -10, reps(8, 8, 8))])]
+    const rec = computeRecommendation(pull, { exerciseId: 'pull-up', currentWeightKg: -5 }, sessions)
+    expect(rec.justLeveledUp).toBe(true)
+    expect(rec.coach).toMatch(/5 kg assist/)
   })
 
   it('plank justLeveledUp fires only for the session that triggered the level-up', () => {

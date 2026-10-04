@@ -95,3 +95,24 @@ describe('detectPRs', () => {
     expect(detectPRs(partB2, [...prior, partA]).filter((p) => p.kind === 'reps')).toEqual([])
   })
 })
+
+describe('bodyweight-relative lifts', () => {
+  const history = [
+    sess('a', '2026-01-01T10:00:00Z', 'pull-up', -10, reps(8, 7, 6)),
+    sess('b', '2026-01-03T10:00:00Z', 'pull-up', 2.5, reps(5, 5, 4)),
+  ]
+
+  it('keeps no est. 1RM but tracks the heaviest set', () => {
+    const b = collectBests('pull-up', history)
+    expect(b.best1RM).toBe(0)
+    expect(b.topSet).toEqual({ weightKg: 2.5, reps: 5 })
+    expect(b.repsAtWeight.get((-10).toFixed(2))).toBe(8)
+  })
+
+  it('awards rep PRs at a load, never a 1RM PR', () => {
+    const next = sess('c', '2026-01-05T10:00:00Z', 'pull-up', 2.5, reps(7, 6, 5))
+    const prs = detectPRs(next, history)
+    expect(prs.map((p) => p.kind)).toEqual(['reps'])
+    expect(prs[0].value).toBe(7)
+  })
+})

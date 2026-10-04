@@ -2,15 +2,25 @@
 // a static routine into something that drives growth (Training Spec §4).
 //
 // Double progression: add reps toward the top of the range first; once all
-// three sets hit the top, move up one rung on the dumbbell ladder. The plank
-// is the same idea with time instead of reps and weight.
+// three sets hit the top, move up one rung on the exercise's load ladder
+// (barbell, dumbbell rack, stack, kettlebell, or assistance → bodyweight →
+// added weight). Timed work is the same idea: an unloaded hold climbs in
+// seconds, the kettlebell circuit climbs to the next bell.
 
 import {
-  EXERCISES,
+  SLOTS,
+  getExercise,
   type ExerciseDef,
   type ExerciseKind,
 } from './exercises'
-import { formatKg, isTopRung, nextRung } from './ladder'
+import {
+  DEFAULT_INCREMENTS,
+  formatLoad,
+  isTopRung,
+  ladderFor,
+  nextRung,
+  type Increments,
+} from './ladder'
 import type {
   ExerciseLog,
   ExerciseProgress,
@@ -57,9 +67,14 @@ export function defaultProgress(def: ExerciseDef): ExerciseProgress {
   }
 }
 
-/** Fresh per-exercise progression state from the spec's starting points. */
+/** Fresh per-exercise progression state: every routine slot's default exercise. */
 export function initialProgress(): ExerciseProgress[] {
-  return EXERCISES.map(defaultProgress)
+  return SLOTS.map((s) => defaultProgress(getExercise(s.baseId)))
+}
+
+/** True when the exercise carries a load that climbs a ladder. */
+export function isLoaded(def: ExerciseDef): boolean {
+  return def.equipment !== 'none'
 }
 
 // ---------- applying progression at session commit ----------
@@ -74,15 +89,40 @@ export interface ProgressionResult {
 /**
  * Given the current state of an exercise and how it was just performed,
  * return the updated state. Level-up rule: all three sets at the top of the
- * range (reps) or at the target hold (plank) → climb one step.
+ * range (reps) or at the target time (timed work) → climb one step.
  */
 export function applyProgression(
   def: ExerciseDef,
   progress: ExerciseProgress,
   log: ExerciseLog,
+  increments: Increments = DEFAULT_INCREMENTS,
 ): ProgressionResult {
+  const ladder = ladderFor(def.equipment, increments)
+  // A weight level-up only counts if the work was done at the current rung.
+  const atCurrentWeight =
+    Math.abs(log.weightKg - progress.currentWeightKg) < 1e-9
+  const climb = (): ProgressionResult => {
+    const newWeightKg = nextRung(progress.currentWeightKg, ladder)
+    return {
+      progress: { ...progress, currentWeightKg: newWeightKg },
+      leveledUp: true,
+      newWeightKg,
+    }
+  }
+
   if (def.kind === 'time') {
     const target = progress.targetSeconds ?? def.startSeconds ?? 30
+    if (isLoaded(def)) {
+      // Loaded time work (kettlebell): same time, next bell.
+      if (
+        atCurrentWeight &&
+        allSetsAtLeast(log, def, target) &&
+        !isTopRung(progress.currentWeightKg, ladder)
+      ) {
+        return climb()
+      }
+      return { progress, leveledUp: false }
+    }
     if (allSetsAtLeast(log, def, target)) {
       const inc = def.timeIncrementSeconds ?? 10
       const newSeconds = target + inc
@@ -95,20 +135,14 @@ export function applyProgression(
     return { progress, leveledUp: false }
   }
 
-  // reps exercise — only count the level-up if it was done at the current rung
-  const atCurrentWeight =
-    Math.abs(log.weightKg - progress.currentWeightKg) < 1e-9
+  // reps exercise (an unloaded one sits on a one-rung ladder: it never climbs
+  // a weight — the coach suggests a harder variation instead)
   if (
     atCurrentWeight &&
     allSetsAtLeast(log, def, def.repMax) &&
-    !isTopRung(progress.currentWeightKg)
+    !isTopRung(progress.currentWeightKg, ladder)
   ) {
-    const newWeightKg = nextRung(progress.currentWeightKg)
-    return {
-      progress: { ...progress, currentWeightKg: newWeightKg },
-      leveledUp: true,
-      newWeightKg,
-    }
+    return climb()
   }
   return { progress, leveledUp: false }
 }
@@ -127,7 +161,7 @@ export function assessStartWeight(
   log: ExerciseLog,
   hadPriorHistory: boolean,
 ): StartAssessment {
-  if (hadPriorHistory || def.kind !== 'reps') return null
+  if (hadPriorHistory || def.kind !== 'reps' || !isLoaded(def)) return null
   const done = doneSets(log)
   if (!done.length) return null
   const worst = worstSet(log, def.kind)
@@ -181,14 +215,18 @@ export function computeRecommendation(
   def: ExerciseDef,
   progress: ExerciseProgress,
   sessions: SessionLog[],
+  increments: Increments = DEFAULT_INCREMENTS,
 ): Recommendation {
   const logs = exerciseLogsDesc(def.id, sessions)
   const weightKg = progress.currentWeightKg
+  const loaded = isLoaded(def)
+  const load = formatLoad(def.equipment, weightKg)
   const targetSeconds =
     def.kind === 'time'
       ? progress.targetSeconds ?? def.startSeconds ?? 30
       : undefined
-  const atTopRung = def.kind === 'reps' && isTopRung(weightKg)
+  const atTopRung =
+    loaded && isTopRung(weightKg, ladderFor(def.equipment, increments))
 
   const base = {
     exerciseId: def.id,
@@ -211,8 +249,9 @@ export function computeRecommendation(
         def.kind === 'time'
           ? `Hold ${targetSeconds}s × ${def.sets}`
           : `${def.repMin}–${def.repMax} reps × ${def.sets}`,
-      coach:
-        'First time on this one — the starting weight is an estimate. If it’s clearly too light or heavy, adjust; the system self-corrects within a session or two.',
+      coach: loaded
+        ? 'First time on this one — the starting load is an estimate. If it’s clearly too light or heavy, adjust it; the system self-corrects within a session or two.'
+        : 'First time on this one — find a range of motion you can control and log what you get.',
     }
   }
 
@@ -267,14 +306,14 @@ export function computeRecommendation(
     }
   }
 
-  // Just leveled up? Last session was logged a rung lower (reps), or was the
-  // session whose commit raised the hold target to its current value (time) —
-  // the level-up stamp is exact, unlike re-deriving it from hold durations,
-  // which stays true for every later session too.
+  // Just leveled up? Last session was logged a rung lower (anything loaded),
+  // or was the session whose commit raised the hold target to its current
+  // value (unloaded holds) — the level-up stamp is exact, unlike re-deriving
+  // it from hold durations, which stays true for every later session too.
   let justLeveledUp = false
-  if (def.kind === 'reps') {
+  if (loaded) {
     justLeveledUp = last.weightKg < weightKg - 1e-9
-  } else {
+  } else if (def.kind === 'time') {
     justLeveledUp = last.leveledUp === true && last.newSeconds === targetSeconds
   }
 
@@ -299,26 +338,36 @@ export function computeRecommendation(
   let coach: string | undefined
   const beat = lastSets.join(' · ')
 
-  if (def.kind === 'time') {
+  if (def.kind === 'time' && loaded) {
+    headline = `${load} · ${targetSeconds}s × ${def.sets}`
+    if (justLeveledUp) {
+      coach = `Up to ${load}. Same ${targetSeconds}s — complete all ${def.sets} rounds to climb again.`
+    } else if (atTopRung) {
+      coach = 'Heaviest bell on the rack for this one — slow the reps down or add a round.'
+    }
+  } else if (def.kind === 'time') {
     headline = `Hold ${targetSeconds}s × ${def.sets}`
     if (justLeveledUp) {
       coach = `Target climbed to ${targetSeconds}s. Hold all ${def.sets} sets to level up again.`
     }
   } else if (justLeveledUp) {
-    headline = `${formatKg(weightKg)} — build back to ${def.repMax}`
-    coach = `Leveled up to ${formatKg(
-      weightKg,
-    )}. Reps will drop — that’s expected and correct. Work each set back to ${def.repMax}, then jump again.`
+    headline = `${load} — build back to ${def.repMax}`
+    coach = `Leveled up to ${load}. Reps will drop — that’s expected and correct. Work each set back to ${def.repMax}, then jump again.`
   } else if (stalled) {
     headline = beat ? `Beat ${beat}` : `${def.repMin}–${def.repMax} reps`
-    coach = `Stalled at ${formatKg(
-      weightKg,
-    )}. Check protein, sleep, and rest days first. You can bridge — push past ${def.repMax} reps (up to ${
-      def.repMax + 3
-    }) to build the strength for the next rung.`
+    coach = loaded
+      ? `Stalled at ${load}. Check protein, sleep, and rest days first. You can bridge — push past ${def.repMax} reps (up to ${
+          def.repMax + 3
+        }) to build the strength for the next rung.`
+      : 'Stalled for 3 sessions. Check protein, sleep, and rest days first; if it sticks, shorten the range or use an easier variation and build back up.'
+  } else if (!loaded) {
+    headline = beat ? `Beat ${beat}` : `${def.repMin}–${def.repMax} reps × ${def.sets}`
+    if (allSetsAtLeast(last, def, def.repMax)) {
+      coach = `You own ${def.sets} × ${def.repMax}. Bodyweight only — make it harder: a tougher variation, more range, or a slower lowering.`
+    }
   } else if (atTopRung) {
     headline = beat ? `Beat ${beat}` : `${def.repMin}–${def.repMax} reps`
-    coach = `Top of the dumbbell ladder for this lift. Keep adding reps for now, then reassess — swap the variation, shift the rep range, or add a 4th set.`
+    coach = `Top of the ladder for this lift. Keep adding reps for now, then reassess — swap the variation, shift the rep range, or add a 4th set.`
   } else {
     headline = beat ? `Beat ${beat}` : `${def.repMin}–${def.repMax} reps × ${def.sets}`
   }

@@ -1,6 +1,12 @@
 import { useRef, useState } from 'react'
 import { useStore } from '../store/useStore'
 import { relativeDay } from '../program/analytics'
+import {
+  INCREMENT_OPTIONS,
+  formatKg,
+  resolveIncrements,
+  type Increments,
+} from '../program/ladder'
 import { performBackup, daysSince } from '../ui/backup'
 import { Modal, Segmented, Stepper } from '../ui/components'
 import { Download, Trash, Upload } from '../ui/icons'
@@ -28,6 +34,14 @@ export function Settings() {
   }
 
   const lastBackup = daysSince(settings.lastBackupAt)
+  const increments = resolveIncrements(settings.increments)
+  const setIncrement = (key: keyof Increments, value: number) =>
+    updateSettings({ increments: { ...increments, [key]: value } })
+  const incrementRows: { key: keyof Increments; label: string; hint: string }[] = [
+    { key: 'dumbbell', label: 'Dumbbell rack', hint: 'Gap between dumbbells.' },
+    { key: 'barbell', label: 'Barbell', hint: 'Smallest jump (plates on both sides).' },
+    { key: 'machine', label: 'Machines & cables', hint: 'One pin hole on the stack.' },
+  ]
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -57,7 +71,7 @@ export function Settings() {
         <div className="row between">
           <div>
             <div style={{ fontWeight: 700 }}>Between sets</div>
-            <div className="tiny faint">Spec suggests ~75 seconds.</div>
+            <div className="tiny faint">~90 s between alternating sets.</div>
           </div>
           <Stepper
             value={settings.restSeconds}
@@ -82,6 +96,34 @@ export function Settings() {
             />
           </div>
         </div>
+      </div>
+
+      <div className="eyebrow">Gym equipment</div>
+      <div className="card">
+        <div className="tiny faint" style={{ marginBottom: 12 }}>
+          The weight steps your gym has — level-ups move exactly one step.
+        </div>
+        {incrementRows.map((row, i) => (
+          <div key={row.key}>
+            {i > 0 && <div className="divider" />}
+            <div className="row between" style={{ gap: 12 }}>
+              <div>
+                <div style={{ fontWeight: 700 }}>{row.label}</div>
+                <div className="tiny faint">{row.hint}</div>
+              </div>
+              <div style={{ width: INCREMENT_OPTIONS[row.key].length * 56, flexShrink: 0 }}>
+                <Segmented
+                  value={String(increments[row.key])}
+                  onChange={(v) => setIncrement(row.key, Number(v))}
+                  options={INCREMENT_OPTIONS[row.key].map((kg) => ({
+                    value: String(kg),
+                    label: formatKg(kg).replace(' kg', ''),
+                  }))}
+                />
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
       <div className="eyebrow">Backup &amp; data</div>
@@ -144,8 +186,14 @@ export function Settings() {
           <p className="small" style={{ marginTop: 0 }}>
             <strong>Double progression.</strong> Each session, add reps toward the
             top of the range on every set. Once all three sets hit the top, the app
-            moves you up one rung on the dumbbell. Reps drop after a jump — work them
-            back up, then climb again.
+            moves you up one step — the next plate, dumbbell, pin or kettlebell.
+            Reps drop after a jump — work them back up, then climb again.
+          </p>
+          <p className="small">
+            <strong>Bodyweight lifts.</strong> Pull-ups and dips climb from the
+            assisted machine (minus kg) to bodyweight to added weight on a belt.
+            Pairs and the core triplet are done alternating: one set of each, rest,
+            round again.
           </p>
           <p className="small">
             <strong>Effort drives growth.</strong> Take each working set to roughly
@@ -158,8 +206,8 @@ export function Settings() {
             weeks.
           </p>
           <p className="small muted" style={{ marginBottom: 0 }}>
-            3 sessions/week on non-consecutive days · ~40 min each · one adjustable
-            dumbbell.
+            3 sessions/week on non-consecutive days · 40–60 min of strength work ·
+            three pairs + a core triplet, isolations as extras.
           </p>
         </div>
       )}
@@ -172,15 +220,15 @@ export function Settings() {
         <Trash size={18} /> Reset all data
       </button>
       <div className="tiny faint" style={{ textAlign: 'center', margin: '18px 0' }}>
-        Iron Ladder · {sessions.length} sessions · v1
+        Iron Ladder · {sessions.length} sessions · v2
       </div>
 
       {confirmReset && (
         <Modal title="Reset everything?" onClose={() => setConfirmReset(false)}>
           <p className="small muted" style={{ marginTop: 0 }}>
             This deletes all sessions, progress and body stats, and starts the
-            program fresh from the spec&rsquo;s starting weights. Consider exporting a
-            backup first.
+            routine fresh from its starting weights. Consider exporting a backup
+            first.
           </p>
           <button
             className="btn btn-danger btn-block"

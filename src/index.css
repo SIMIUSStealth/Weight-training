@@ -26,11 +26,12 @@
 
   /* muscle dots */
   --chest: #ef4444;
+  --back: #3b82f6;
   --shoulders: #f59e0b;
   --arms: #10b981;
-  --forearms: #3b82f6;
-  --abs: #8b5cf6;
   --legs: #ec4899;
+  --core: #8b5cf6;
+  --forearms: #64748b;
 
   --radius: 16px;
   --radius-sm: 11px;
@@ -257,6 +258,13 @@ h1 {
   background: var(--surface-2);
   color: var(--muted);
   white-space: nowrap;
+}
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 .chip .dot {
   width: 7px;

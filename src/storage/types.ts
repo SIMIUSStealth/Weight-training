@@ -2,15 +2,17 @@
 // user, no accounts. All of it is JSON-serialisable so it can be exported and
 // re-imported as a backup.
 
-import type { Muscle } from '../program/exercises'
+import type { BlockId } from '../program/exercises'
+import type { Increments } from '../program/ladder'
 
 /**
- * One weekday in the weekly plan. A day trains a set of muscle groups; the
- * exercises are derived from those groups' slots (using the global per-slot
- * choice), minus any omitted slots, plus any added extras. Empty = rest day.
+ * One weekday in the weekly plan. A day runs a set of routine blocks (the
+ * pairs, isolations, leg-day extras, core); the exercises are derived from
+ * those blocks' slots (using the global per-slot choice), minus any omitted
+ * slots, plus any added extras. Empty = rest day.
  */
 export interface DayPlan {
-  muscles: Muscle[]
+  blocks: BlockId[]
   /** Slot ids excluded from this day. */
   omit?: string[]
   /** Extra exercise ids added to this day (beyond the slot defaults). */
@@ -35,7 +37,10 @@ export interface SetLog {
 /** One exercise as performed within a session. */
 export interface ExerciseLog {
   exerciseId: string
-  /** Working weight used this session, in kg (0 for bodyweight). */
+  /**
+   * Load used this session, in kg. 0 = bodyweight / unloaded; for assisted
+   * bodyweight lifts, negative = machine assistance.
+   */
   weightKg: number
   sets: SetLog[]
   /** Did this exercise level up (weight or plank time) at session commit? */
@@ -84,9 +89,9 @@ export interface SessionLog {
 /** Per-exercise progression state — the current rung each exercise sits on. */
 export interface ExerciseProgress {
   exerciseId: string
-  /** Current dumbbell weight in kg (0 for bodyweight movements). */
+  /** Current load in kg on the exercise's ladder (0 = bodyweight / unloaded). */
   currentWeightKg: number
-  /** Current hold target in seconds (the plank). */
+  /** Current work-time target in seconds (time exercises). */
   targetSeconds?: number
   /** Set true once the user has confirmed/adjusted the starting weight. */
   startConfirmed?: boolean
@@ -116,16 +121,24 @@ export interface Settings {
    * slot's base exercise. Lives here so it rides along in backups.
    */
   program?: Record<string, string>
-  /** The weekly plan — 7 days, Mon..Sun. Missing = the default full-body M/W/F. */
+  /** The weekly plan — 7 days, Mon..Sun. Missing = the default gym week. */
   weeklyPlan?: DayPlan[]
+  /** Your gym's weight steps (dumbbell rack, barbell, machines/cables). */
+  increments?: Partial<Increments>
   /** Schema version, for future migrations. */
   version: number
 }
 
+/**
+ * Settings schema version. 2 = the gym routine (block-based weekly plan); a
+ * v1 plan (muscle-group days, home program) is replaced on load.
+ */
+export const SETTINGS_VERSION = 2
+
 export const DEFAULT_SETTINGS: Settings = {
-  restSeconds: 75,
+  restSeconds: 90,
   restAlert: true,
-  version: 1,
+  version: SETTINGS_VERSION,
 }
 
 /** The full export/backup envelope. */

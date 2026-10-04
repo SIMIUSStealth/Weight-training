@@ -15,10 +15,10 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'icons/*.png'],
       manifest: {
-        name: 'Iron Ladder — Dumbbell Hypertrophy',
+        name: 'Iron Ladder — Gym Strength Coach',
         short_name: 'Iron Ladder',
         description:
-          'A personal single-dumbbell hypertrophy coach. Guided sessions, double-progression overload, and progress tracking.',
+          'A personal gym strength coach. Guided pairs-based sessions, double-progression overload, and progress tracking.',
         theme_color: '#f4f6f8',
         background_color: '#f4f6f8',
         display: 'standalone',

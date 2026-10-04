@@ -1,6 +1,7 @@
 // Derived stats for the tracking screens — pure functions over the session log.
 
-import { getExercise, MUSCLE_ORDER, type Muscle } from './exercises'
+import { getExercise, MUSCLE_ORDER, type BlockId, type Muscle } from './exercises'
+import { isRelativeLoad } from './ladder'
 import { mondayIndex } from './plan'
 import type { DayPlan, SessionLog } from '../storage/types'
 
@@ -12,7 +13,10 @@ export interface ExercisePoint {
   best: number
   /** Sum across sets: reps, or seconds for the plank. */
   total: number
-  /** Rough work done: weight × total reps (reps), or total seconds (plank). */
+  /**
+   * Rough work done: weight × total reps for absolute loads, total reps for
+   * bodyweight lifts (assisted loads are negative), total seconds for time.
+   */
   load: number
   /** Per-set values (reps, or seconds for the plank). */
   sets: number[]
@@ -26,6 +30,7 @@ export function exerciseSeries(
 ): ExercisePoint[] {
   const def = getExercise(exerciseId)
   const isTime = def.kind === 'time'
+  const repsOnly = def.equipment === 'none' || isRelativeLoad(def.equipment)
   return sessions
     .filter((s) => s.completedAt)
     .sort((a, b) => (a.completedAt! < b.completedAt! ? -1 : 1))
@@ -36,7 +41,7 @@ export function exerciseSeries(
       const vals = done.map((x) => (isTime ? x.seconds ?? 0 : x.reps ?? 0))
       const total = vals.reduce((a, b) => a + b, 0)
       const best = vals.length ? Math.max(...vals) : 0
-      const load = isTime ? total : log.weightKg * total
+      const load = isTime || repsOnly ? total : log.weightKg * total
       return {
         date: s.completedAt!,
         weightKg: log.weightKg,
@@ -158,7 +163,7 @@ export type DayStatus = 'rest' | 'todo' | 'inprogress' | 'done'
 
 export interface WeekDayView {
   weekday: number
-  muscles: Muscle[]
+  blocks: BlockId[]
   status: DayStatus
 }
 
@@ -193,7 +198,7 @@ function completedWeekdaysThisWeek(sessions: SessionLog[]): Set<number> {
  * the CURRENT plan's target — a deliberate simplification.
  */
 export function weekStreak(plan: DayPlan[], sessions: SessionLog[]): number {
-  const target = plan.filter((d) => d.muscles.length > 0).length
+  const target = plan.filter((d) => d.blocks.length > 0).length
   if (!target) return 0
   const thisStart = startOfWeek(new Date())
   let streak =
@@ -207,7 +212,7 @@ export function weekStreak(plan: DayPlan[], sessions: SessionLog[]): number {
   return streak
 }
 
-/** Per-weekday view for the current week: muscles + status. */
+/** Per-weekday view for the current week: blocks + status. */
 export function weekStatuses(
   plan: DayPlan[],
   sessions: SessionLog[],
@@ -216,13 +221,13 @@ export function weekStatuses(
   const done = completedWeekdaysThisWeek(sessions)
   return plan.map((day, weekday) => {
     let status: DayStatus
-    // An active session outranks everything — even a day whose muscles were
+    // An active session outranks everything — even a day whose blocks were
     // toggled off mid-workout must keep showing (and resuming) its session.
     if (active && active.weekday === weekday) status = 'inprogress'
-    else if (!day.muscles.length) status = 'rest'
+    else if (!day.blocks.length) status = 'rest'
     else if (done.has(weekday)) status = 'done'
     else status = 'todo'
-    return { weekday, muscles: day.muscles, status }
+    return { weekday, blocks: day.blocks, status }
   })
 }
 
@@ -231,7 +236,7 @@ export function doneDaysThisWeek(sessions: SessionLog[]): number {
   return completedWeekdaysThisWeek(sessions).size
 }
 
-/** Format plank seconds as e.g. "1:05" or "45s". */
+/** Format seconds as e.g. "1:05" or "45s". */
 export function formatSeconds(total: number): string {
   if (total < 60) return `${total}s`
   const m = Math.floor(total / 60)

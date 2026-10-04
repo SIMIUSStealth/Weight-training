@@ -1,8 +1,7 @@
 import { useMemo } from 'react'
-import { MUSCLE_ORDER } from '../program/exercises'
 import {
-  UPPER_BODY,
   dayLabel,
+  dayMuscles,
   getWeeklyPlan,
   todayIndex,
   trainingDayCount,
@@ -18,7 +17,7 @@ import {
 } from '../program/analytics'
 import { useStore } from '../store/useStore'
 import { performBackup, daysSince } from '../ui/backup'
-import { Coach, MuscleChip } from '../ui/components'
+import { Coach, muscleColor } from '../ui/components'
 import { Check, Download, Flame, Play } from '../ui/icons'
 
 export function Today() {
@@ -158,11 +157,7 @@ export function Today() {
       <div className="card" style={{ padding: '4px 16px' }}>
         {statuses.map((d) => {
           const isToday = d.weekday === today
-          // "Full body" = exactly the upper-body program; a legs day (or
-          // full body + legs) falls through to the muscle chips instead.
-          const isFull =
-            d.muscles.length === UPPER_BODY.length &&
-            UPPER_BODY.every((m) => d.muscles.includes(m))
+          const day = plan[d.weekday]
           return (
             <button
               key={d.weekday}
@@ -190,14 +185,20 @@ export function Today() {
               <div className="grow">
                 {d.status === 'rest' ? (
                   <span className="muted small">Rest day</span>
-                ) : isFull ? (
-                  <span style={{ fontWeight: 600 }}>Full body</span>
                 ) : (
-                  <div className="row wrap" style={{ gap: 6 }}>
-                    {MUSCLE_ORDER.filter((m) => d.muscles.includes(m)).map((m) => (
-                      <MuscleChip key={m} muscle={m} />
-                    ))}
-                  </div>
+                  <>
+                    <div style={{ fontWeight: 600 }}>{dayLabel(day)}</div>
+                    <div className="row" style={{ gap: 4, marginTop: 4 }}>
+                      {dayMuscles(day, settings.program).map((m) => (
+                        <span
+                          key={m}
+                          className="dot"
+                          title={m}
+                          style={{ background: muscleColor(m) }}
+                        />
+                      ))}
+                    </div>
+                  </>
                 )}
               </div>
 

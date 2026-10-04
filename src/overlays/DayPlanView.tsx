@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import {
+  BLOCKS,
   getSlot,
-  MUSCLE_ORDER,
   setScheme,
   slotOptions,
+  type BlockId,
   type ExerciseDef,
-  type Muscle,
 } from '../program/exercises'
 import {
-  addableForMuscle,
+  addableForBlock,
   dayExercises,
+  dayMuscles,
   getWeeklyPlan,
   muscleFrequency,
   WEEKDAYS_LONG,
@@ -18,12 +19,13 @@ import { weekStatuses } from '../program/analytics'
 import { useStore } from '../store/useStore'
 import { Coach, Modal, muscleColor } from '../ui/components'
 import { Check, ChevronLeft, Play, Plus, X } from '../ui/icons'
+import type { DayPlan } from '../storage/types'
 
 export function DayPlanView({ weekday }: { weekday: number }) {
   const settings = useStore((s) => s.settings)
   const sessions = useStore((s) => s.sessions)
   const activeSession = useStore((s) => s.activeSession)
-  const toggleDayMuscle = useStore((s) => s.toggleDayMuscle)
+  const toggleDayBlock = useStore((s) => s.toggleDayBlock)
   const addExerciseToDay = useStore((s) => s.addExerciseToDay)
   const removeExerciseFromDay = useStore((s) => s.removeExerciseFromDay)
   const swapExercise = useStore((s) => s.swapExercise)
@@ -33,19 +35,22 @@ export function DayPlanView({ weekday }: { weekday: number }) {
   const closeOverlay = useStore((s) => s.closeOverlay)
 
   const [swapFor, setSwapFor] = useState<ExerciseDef | null>(null)
-  const [addFor, setAddFor] = useState<Muscle | null>(null)
+  const [addFor, setAddFor] = useState<BlockId | null>(null)
 
   const plan = getWeeklyPlan(settings.weeklyPlan)
   const day = plan[weekday]
   const exs = dayExercises(day, settings.program)
-  const freq = muscleFrequency(plan)
+  const freq = muscleFrequency(plan, settings.program)
+  const muscles = dayMuscles(day, settings.program)
   const status = weekStatuses(plan, sessions, activeSession)[weekday].status
   const activeOtherDay = !!activeSession && activeSession.weekday !== weekday
 
-  const groups = MUSCLE_ORDER.filter((m) => day.muscles.includes(m)).map((m) => ({
-    muscle: m,
-    items: exs.filter((e) => e.muscle === m),
-  }))
+  // A section per block that's switched on or carries an added extra.
+  const sections = BLOCKS.map((b) => ({
+    block: b,
+    on: day.blocks.includes(b.id),
+    items: exs.filter((e) => getSlot(e.id)?.block === b.id),
+  })).filter((s) => s.on || s.items.length > 0)
 
   const doneSession =
     status === 'done'
@@ -64,7 +69,7 @@ export function DayPlanView({ weekday }: { weekday: number }) {
           <div className="grow">
             <div style={{ fontWeight: 800, fontSize: 17 }}>{WEEKDAYS_LONG[weekday]}</div>
             <div className="tiny faint">
-              {day.muscles.length ? `${exs.length} exercises` : 'Rest day'}
+              {day.blocks.length ? `${exs.length} exercises` : 'Rest day'}
             </div>
           </div>
           {status === 'done' && (
@@ -81,13 +86,13 @@ export function DayPlanView({ weekday }: { weekday: number }) {
       </div>
 
       <div className="overlay-body">
-        <div className="eyebrow">Muscle groups</div>
+        <div className="eyebrow">Routine</div>
         <div className="row wrap" style={{ gap: 8 }}>
-          {MUSCLE_ORDER.map((m) => {
-            const sel = day.muscles.includes(m)
+          {BLOCKS.map((b) => {
+            const sel = day.blocks.includes(b.id)
             return (
               <button
-                key={m}
+                key={b.id}
                 className="chip"
                 style={{
                   border: '1px solid var(--border)',
@@ -96,69 +101,97 @@ export function DayPlanView({ weekday }: { weekday: number }) {
                   fontWeight: sel ? 700 : 600,
                   padding: '8px 13px',
                 }}
-                onClick={() => toggleDayMuscle(weekday, m)}
+                onClick={() => toggleDayBlock(weekday, b.id)}
               >
-                <span
-                  className="dot"
-                  style={{ background: sel ? muscleColor(m) : 'var(--faint)' }}
-                />
-                {m}
+                {sel && <Check size={13} />}
+                {b.short}
               </button>
             )
           })}
         </div>
 
-        {day.muscles.length === 0 ? (
+        {muscles.length > 0 && (
+          <div className="row wrap" style={{ gap: 10, marginTop: 12 }}>
+            {muscles.map((m) => (
+              <span
+                key={m}
+                className="tiny"
+                style={{
+                  fontWeight: 700,
+                  color: freq[m] < 2 ? 'var(--accent-ink)' : 'var(--muted)',
+                }}
+              >
+                <span
+                  className="dot"
+                  style={{ background: muscleColor(m), marginRight: 5 }}
+                />
+                {m} {freq[m]}×/wk
+              </span>
+            ))}
+          </div>
+        )}
+
+        {sections.length === 0 ? (
           <Coach tone="info">
-            Rest day. Tap a muscle group above to train it on this day — recovery is
-            where muscle is actually built.
+            Rest day. Tap a block above to train on this day — recovery is where
+            muscle is actually built.
           </Coach>
         ) : (
-          groups.map((g) => (
-            <div key={g.muscle}>
+          sections.map(({ block, on, items }) => (
+            <div key={block.id}>
               <div className="eyebrow row between">
-                <span>{g.muscle}</span>
-                <span
-                  className="tiny"
-                  style={{
-                    color: freq[g.muscle] < 2 ? 'var(--accent-ink)' : 'var(--faint)',
-                    fontWeight: 700,
-                  }}
-                >
-                  {freq[g.muscle]}×/week
+                <span>{block.name}</span>
+                <span className="tiny faint" style={{ fontWeight: 700 }}>
+                  {!on ? 'extras only' : block.optional ? 'optional' : ''}
                 </span>
               </div>
+              <div className="tiny faint" style={{ margin: '-4px 2px 8px' }}>
+                {block.note}
+              </div>
               <div className="card" style={{ padding: '4px 16px' }}>
-                {g.items.map((e) => (
-                  <div className="list-row" key={e.id}>
-                    <div className="grow">
-                      <div style={{ fontWeight: 700 }}>{e.name}</div>
-                      <div className="tiny faint">{setScheme(e)}</div>
+                {items.map((e) => {
+                  const slot = getSlot(e.id)
+                  return (
+                    <div className="list-row" key={e.id}>
+                      <span
+                        className="dot"
+                        style={{ background: muscleColor(e.muscle), flexShrink: 0 }}
+                      />
+                      <div className="grow">
+                        <div style={{ fontWeight: 700 }}>{e.name}</div>
+                        <div className="tiny faint">
+                          {setScheme(e)}
+                          {slot ? ` · ${slot.label}` : ''}
+                          {slot?.optional ? ' · optional' : ''}
+                        </div>
+                      </div>
+                      {slot && slot.optionIds.length > 1 && (
+                        <button className="btn btn-sm" onClick={() => setSwapFor(e)}>
+                          Swap
+                        </button>
+                      )}
+                      <button
+                        className="icon-btn"
+                        style={{ width: 36, height: 36, color: 'var(--danger)' }}
+                        onClick={() => removeExerciseFromDay(weekday, e.id)}
+                        aria-label="remove exercise"
+                      >
+                        <X size={16} />
+                      </button>
                     </div>
-                    <button className="btn btn-sm" onClick={() => setSwapFor(e)}>
-                      Swap
-                    </button>
-                    <button
-                      className="icon-btn"
-                      style={{ width: 36, height: 36, color: 'var(--danger)' }}
-                      onClick={() => removeExerciseFromDay(weekday, e.id)}
-                      aria-label="remove exercise"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                ))}
-                {g.items.length === 0 && (
+                  )
+                })}
+                {items.length === 0 && (
                   <div className="tiny faint" style={{ padding: '10px 0' }}>
-                    No exercises — add one or turn the group off.
+                    No exercises — add one or turn the block off.
                   </div>
                 )}
                 <button
                   className="btn btn-ghost btn-sm btn-block"
                   style={{ justifyContent: 'flex-start', color: 'var(--accent-ink)' }}
-                  onClick={() => setAddFor(g.muscle)}
+                  onClick={() => setAddFor(block.id)}
                 >
-                  <Plus size={16} /> Add {g.muscle.toLowerCase()} exercise
+                  <Plus size={16} /> Add to {block.short.toLowerCase()}
                 </button>
               </div>
             </div>
@@ -187,7 +220,7 @@ export function DayPlanView({ weekday }: { weekday: number }) {
           </button>
         ) : status === 'rest' ? (
           <div className="tiny faint" style={{ textAlign: 'center' }}>
-            Add a muscle group above to train this day.
+            Switch on a block above to train this day.
           </div>
         ) : status === 'done' ? (
           <div className="row" style={{ gap: 10 }}>
@@ -229,9 +262,12 @@ export function DayPlanView({ weekday }: { weekday: number }) {
         />
       )}
       {addFor && (
-        <Modal title={`Add ${addFor.toLowerCase()} exercise`} onClose={() => setAddFor(null)}>
+        <Modal
+          title={`Add to ${BLOCKS.find((b) => b.id === addFor)?.name ?? ''}`}
+          onClose={() => setAddFor(null)}
+        >
           <AddList
-            muscle={addFor}
+            block={addFor}
             day={day}
             program={settings.program}
             onPick={(id) => {
@@ -259,8 +295,8 @@ function SwapModal({
   return (
     <Modal title={`Swap ${exercise.name}`} onClose={onClose}>
       <p className="small muted" style={{ marginTop: 0 }}>
-        Same muscle, same rep model. Applies wherever this slot appears in your week;
-        each variation keeps its own weight &amp; history.
+        Same spot in the routine ({slot?.label}). Applies wherever this slot appears
+        in your week; each variation keeps its own weight &amp; history.
       </p>
       <div className="card" style={{ padding: '4px 16px', marginBottom: 0 }}>
         {options.map((opt) => {
@@ -293,22 +329,22 @@ function SwapModal({
 }
 
 function AddList({
-  muscle,
+  block,
   day,
   program,
   onPick,
 }: {
-  muscle: Muscle
-  day: import('../storage/types').DayPlan
+  block: BlockId
+  day: DayPlan
   program?: Record<string, string>
   onPick: (id: string) => void
 }) {
-  const options = addableForMuscle(muscle, day, program)
+  const options = addableForBlock(block, day, program)
   if (options.length === 0) {
-    return <div className="tiny faint">Every {muscle.toLowerCase()} exercise is already in this day.</div>
+    return <div className="tiny faint">Everything from this block is already in the day.</div>
   }
   return (
-    <div className="card" style={{ padding: '4px 16px', marginBottom: 0 }}>
+    <div className="card" style={{ padding: '4px 16px', marginBottom: 0, maxHeight: '60vh', overflowY: 'auto' }}>
       {options.map((opt) => (
         <button
           key={opt.id}
@@ -318,7 +354,9 @@ function AddList({
         >
           <div className="grow">
             <div style={{ fontWeight: 700 }}>{opt.name}</div>
-            <div className="tiny faint">{setScheme(opt)}</div>
+            <div className="tiny faint">
+              {setScheme(opt)} · {getSlot(opt.id)?.label}
+            </div>
           </div>
           <Plus size={16} className="faint" />
         </button>

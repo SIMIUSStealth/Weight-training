@@ -1,13 +1,17 @@
-// The session: eleven slots in a fixed order (Training Spec §3), each filled by
-// a base exercise or a single-dumbbell alternative that hits the same muscle in
-// the same rep/time model. Order is deliberate — largest muscles first, smallest
-// and most fatigue-sensitive last: chest -> shoulders -> arms -> forearms -> abs.
+// The gym routine (Training Spec §3). A session is built from routine BLOCKS —
+// the three pairs, the optional isolations, the leg-day extras and the core
+// triplet (or the kettlebell core circuit) — in a fixed order. Each block is a
+// list of SLOTS, and each slot is filled by one exercise from its options, the
+// first being the default. Swaps stay within a slot; every exercise keeps its
+// own weight and history.
 //
-// Legs are an opt-in module (not part of the default upper-body session): a
-// handful of simple single-dumbbell leg movements you can schedule as their own
-// day — handy for runners adding some strength work.
+// The single-dumbbell home program the app started with is retired to
+// ./home-exercises.ts: still registered (so old sessions resolve), never offered.
 
-export type Muscle = 'Chest' | 'Shoulders' | 'Arms' | 'Forearms' | 'Abs' | 'Legs'
+import { HOME_EXERCISES } from './home-exercises'
+import type { Equipment } from './ladder'
+
+export type Muscle = 'Chest' | 'Back' | 'Shoulders' | 'Arms' | 'Legs' | 'Core' | 'Forearms'
 
 export type ExerciseKind = 'reps' | 'time'
 
@@ -15,648 +19,828 @@ export interface ExerciseDef {
   id: string
   name: string
   muscle: Muscle
-  /** The session slot this exercise can fill (swaps stay within a slot). */
+  /** The routine slot this exercise fills (swaps stay within a slot). */
   slot: string
-  /** Display order within the session (1-based, follows the slot). */
-  order: number
-  /** Working sets — always 3 in this program. */
+  /** Working sets (rounds, for the kettlebell circuit) — always 3. */
   sets: number
   kind: ExerciseKind
   /** Bottom of the rep range (reps exercises only). */
   repMin: number
   /** Top of the rep range — the per-set "level-up" target (reps exercises only). */
   repMax: number
-  /** Starting dumbbell weight in kg. 0 for bodyweight movements. */
+  /** What the load is and which ladder it climbs (see ladder.ts). */
+  equipment: Equipment
+  /** Starting load in kg (0 = bodyweight / no load). */
   startWeightKg: number
-  /** True when the rep target is per side (do the full count with each arm). */
+  /** True when the rep target is per side (each arm / leg does the full count). */
   perArm: boolean
-  /** Bodyweight movement with no weight progression (planks/holds). */
-  bodyweight: boolean
-  /** Starting hold target in seconds (time exercises only). */
+  /** Starting work time in seconds (time exercises only). */
   startSeconds?: number
-  /** Seconds added to the target each time all sets hit it (time exercises). */
+  /**
+   * Seconds added to the target each time all sets hit it (unloaded holds).
+   * Loaded time work (the kettlebell circuit) keeps its time and climbs the
+   * kettlebell instead.
+   */
   timeIncrementSeconds?: number
-  /** A short cue on how to hold / weight is not the point. */
+  /** A short note on how the load is held / logged. */
   holdNote?: string
   formCue: string
+  /** Retired (home-program) exercise: kept for history, never offered. */
+  retired?: boolean
 }
 
-// ---------- the 11 base exercises (the default program) ----------
+/** Note shown on two-dumbbell lifts. */
+const ONE_DUMBBELL = 'Log the weight of ONE dumbbell.'
+const ASSIST_NOTE =
+  'Assisted machine = minus kg (the help it gives). Dip belt = plus kg. 0 = bodyweight.'
 
-export const EXERCISES: readonly ExerciseDef[] = [
+// ---------- routine blocks ----------
+
+export type BlockId =
+  | 'pair-1'
+  | 'pair-2'
+  | 'pair-3'
+  | 'isolation'
+  | 'leg-day'
+  | 'core'
+  | 'kb-core'
+
+export interface Block {
+  id: BlockId
+  /** Full name, e.g. "Pair 1 · Compounds". */
+  name: string
+  /** Short name for day labels, e.g. "Pair 1". */
+  short: string
+  /**
+   * Sets alternate between the block's exercises (a pair, triplet or circuit:
+   * one set of each, then round again) instead of straight sets.
+   */
+  alternate: boolean
+  /** Not essential — skip it on a short day. */
+  optional: boolean
+  /** How to run the block. */
+  note: string
+}
+
+export const BLOCKS: readonly Block[] = [
   {
-    id: 'floor-press',
-    name: 'Floor Press',
+    id: 'pair-1',
+    name: 'Pair 1 · Compounds',
+    short: 'Pair 1',
+    alternate: true,
+    optional: false,
+    note: 'Alternate the three: one set of each, rest ~90 s between, three rounds.',
+  },
+  {
+    id: 'pair-2',
+    name: 'Pair 2',
+    short: 'Pair 2',
+    alternate: true,
+    optional: true,
+    note: 'Optional — alternate sets; skip the pair on a short day.',
+  },
+  {
+    id: 'pair-3',
+    name: 'Pair 3',
+    short: 'Pair 3',
+    alternate: true,
+    optional: false,
+    note: 'Alternate sets. The push is optional.',
+  },
+  {
+    id: 'isolation',
+    name: 'Isolations',
+    short: 'Isolations',
+    alternate: false,
+    optional: true,
+    note: 'Extra toning — straight sets. Pick what you have time for.',
+  },
+  {
+    id: 'leg-day',
+    name: 'Leg day',
+    short: 'Leg day',
+    alternate: false,
+    optional: true,
+    note: 'Extra leg isolations for leg days — straight sets.',
+  },
+  {
+    id: 'core',
+    name: 'Core triplet',
+    short: 'Core',
+    alternate: true,
+    optional: false,
+    note: 'Alternate the three, 3 × 8–12 each.',
+  },
+  {
+    id: 'kb-core',
+    name: 'Kettlebell core',
+    short: 'KB core',
+    alternate: true,
+    optional: true,
+    note: 'A circuit in place of anti-extension + anti-rotation: 30 s each, 2–3 rounds.',
+  },
+] as const
+
+export const BLOCKS_BY_ID: Record<BlockId, Block> = Object.fromEntries(
+  BLOCKS.map((b) => [b.id, b]),
+) as Record<BlockId, Block>
+
+export function isBlockId(v: unknown): v is BlockId {
+  return typeof v === 'string' && v in BLOCKS_BY_ID
+}
+
+// ---------- the gym exercises ----------
+
+/** Shared shape of the 30-second kettlebell circuit moves. */
+function kb(
+  id: string,
+  name: string,
+  startWeightKg: number,
+  formCue: string,
+): ExerciseDef {
+  return {
+    id,
+    name,
+    muscle: 'Core',
+    slot: id,
+    sets: 3,
+    kind: 'time',
+    repMin: 0,
+    repMax: 0,
+    equipment: 'kettlebell',
+    startWeightKg,
+    perArm: false,
+    startSeconds: 30,
+    formCue,
+  }
+}
+
+export const GYM_EXERCISES: readonly ExerciseDef[] = [
+  // ----- Pair 1 · compounds -----
+  {
+    id: 'pull-up',
+    name: 'Pull-up',
+    muscle: 'Back',
+    slot: 'pull',
+    sets: 3,
+    kind: 'reps',
+    repMin: 5,
+    repMax: 8,
+    equipment: 'assisted',
+    startWeightKg: 0,
+    perArm: false,
+    holdNote: ASSIST_NOTE,
+    formCue:
+      'Hang from the bar, hands just outside shoulder width, palms away. Pull until your chin clears the bar, then lower all the way to straight arms under control — no kipping. Can’t do 5 yet? Use the assisted machine and log the help as minus kg: the app walks you toward bodyweight, then adds weight. (The lat pulldown in Isolations is the stand-in on days you skip these.)',
+  },
+  {
+    id: 'back-squat',
+    name: 'Barbell Back Squat',
+    muscle: 'Legs',
+    slot: 'squat',
+    sets: 3,
+    kind: 'reps',
+    repMin: 5,
+    repMax: 8,
+    equipment: 'barbell',
+    startWeightKg: 40,
+    perArm: false,
+    formCue:
+      'Bar on your upper back in the rack, feet about shoulder width, toes slightly out. Brace, then sit down and back until the hip crease is at or below the knee, knees tracking over the toes, chest tall. Drive up through mid-foot. Set the safety pins just below your bottom position.',
+  },
+  {
+    id: 'goblet-squat',
+    name: 'Goblet Squat',
+    muscle: 'Legs',
+    slot: 'squat',
+    sets: 3,
+    kind: 'reps',
+    repMin: 5,
+    repMax: 8,
+    equipment: 'dumbbell',
+    startWeightKg: 14,
+    perArm: false,
+    holdNote: 'One dumbbell held vertically against the chest.',
+    formCue:
+      'Hold one dumbbell vertically against your chest, elbows down. Sit back and down between your knees until your thighs are at least parallel, chest tall, then drive up through mid-foot. The way to perfect the basic squat before (or between) barbell blocks.',
+  },
+  {
+    id: 'bench-press',
+    name: 'Barbell Bench Press',
     muscle: 'Chest',
-    slot: 'chest-press',
-    order: 1,
+    slot: 'bench',
+    sets: 3,
+    kind: 'reps',
+    repMin: 5,
+    repMax: 8,
+    equipment: 'barbell',
+    startWeightKg: 30,
+    perArm: false,
+    formCue:
+      'Eyes under the bar, shoulder blades pinched together, feet planted. Lower the bar under control to mid-chest with the elbows ~45° from your sides, then press back up over the shoulders. Use the safety arms or a spotter.',
+  },
+  {
+    id: 'db-bench-press',
+    name: 'Dumbbell Bench Press',
+    muscle: 'Chest',
+    slot: 'bench',
+    sets: 3,
+    kind: 'reps',
+    repMin: 5,
+    repMax: 8,
+    equipment: 'dumbbell',
+    startWeightKg: 12,
+    perArm: false,
+    holdNote: ONE_DUMBBELL,
+    formCue:
+      'Flat bench, a dumbbell in each hand at chest level, shoulder blades back and down. Press up to straight arms, bringing the bells slightly together at the top, then lower slowly into a deep stretch.',
+  },
+  {
+    id: 'incline-db-press',
+    name: 'Incline Dumbbell Press',
+    muscle: 'Chest',
+    slot: 'bench',
+    sets: 3,
+    kind: 'reps',
+    repMin: 5,
+    repMax: 8,
+    equipment: 'dumbbell',
+    startWeightKg: 10,
+    perArm: false,
+    holdNote: ONE_DUMBBELL,
+    formCue:
+      'Bench at 30–45°. Press the dumbbells from upper-chest level to straight arms, lower under control. Shifts the work toward the upper chest and front shoulders.',
+  },
+  {
+    id: 'decline-db-press',
+    name: 'Decline Dumbbell Press',
+    muscle: 'Chest',
+    slot: 'bench',
+    sets: 3,
+    kind: 'reps',
+    repMin: 5,
+    repMax: 8,
+    equipment: 'dumbbell',
+    startWeightKg: 12,
+    perArm: false,
+    holdNote: ONE_DUMBBELL,
+    formCue:
+      'Bench slightly declined, feet hooked in. Press from lower-chest level to straight arms, lower under control. Shifts the work toward the lower chest.',
+  },
+
+  // ----- Pair 2 (optional) -----
+  {
+    id: 'bench-dip',
+    name: 'Bench Dip',
+    muscle: 'Arms',
+    slot: 'dip',
+    sets: 3,
+    kind: 'reps',
+    repMin: 5,
+    repMax: 8,
+    equipment: 'bodyweight',
+    startWeightKg: 0,
+    perArm: false,
+    holdNote: 'Plate on your lap = plus kg. 0 = bodyweight.',
+    formCue:
+      'Hands on the edge of a bench behind you, legs out in front. Lower by bending the elbows to about 90°, shoulders down and back, then press up to straight arms. Too easy? Rest a plate on your lap.',
+  },
+  {
+    id: 'machine-dip',
+    name: 'Machine Dip',
+    muscle: 'Arms',
+    slot: 'dip',
+    sets: 3,
+    kind: 'reps',
+    repMin: 5,
+    repMax: 8,
+    equipment: 'machine',
+    startWeightKg: 30,
+    perArm: false,
+    formCue:
+      'Seated dip machine, chest up, handles at your sides. Press down until the arms are straight, squeeze the triceps, then let the handles rise slowly back to about 90° at the elbow.',
+  },
+  {
+    id: 'dip',
+    name: 'Dip',
+    muscle: 'Chest',
+    slot: 'dip',
+    sets: 3,
+    kind: 'reps',
+    repMin: 5,
+    repMax: 8,
+    equipment: 'assisted',
+    startWeightKg: 0,
+    perArm: false,
+    holdNote: ASSIST_NOTE,
+    formCue:
+      'On parallel bars with locked arms, lean slightly forward. Lower until the shoulders are just below the elbows, then press back up to lockout. Use the assisted machine (minus kg) until you own 3 × 8, then add weight on a belt.',
+  },
+  {
+    id: 'deadlift',
+    name: 'Deadlift',
+    muscle: 'Legs',
+    slot: 'hinge',
+    sets: 3,
+    kind: 'reps',
+    repMin: 5,
+    repMax: 8,
+    equipment: 'barbell',
+    startWeightKg: 50,
+    perArm: false,
+    formCue:
+      'Bar over mid-foot, hip-width stance. Hinge down and grip just outside the legs, back flat, lats tight. Push the floor away and stand tall by driving the hips through, then lower the bar back down the same path. Reset each rep.',
+  },
+  {
+    id: 'barbell-rdl',
+    name: 'Barbell RDL',
+    muscle: 'Legs',
+    slot: 'hinge',
+    sets: 3,
+    kind: 'reps',
+    repMin: 5,
+    repMax: 8,
+    equipment: 'barbell',
+    startWeightKg: 40,
+    perArm: false,
+    formCue:
+      'Start standing with the bar. Soft knees, push the hips back and slide the bar down your thighs until the hamstrings are stretched (around mid-shin), back flat. Drive the hips forward to stand. Hinge, don’t squat.',
+  },
+  {
+    id: 'hip-thrust',
+    name: 'Barbell Hip Thrust',
+    muscle: 'Legs',
+    slot: 'hinge',
+    sets: 3,
+    kind: 'reps',
+    repMin: 5,
+    repMax: 8,
+    equipment: 'barbell',
+    startWeightKg: 40,
+    perArm: false,
+    formCue:
+      'Upper back on a bench, padded bar across your hips, feet flat. Drive the hips up until you’re straight from shoulders to knees, squeeze the glutes hard, lower under control. Chin tucked, ribs down.',
+  },
+
+  // ----- Pair 3 -----
+  {
+    id: 'cable-row',
+    name: 'Close-Grip Cable Row',
+    muscle: 'Back',
+    slot: 'row',
+    sets: 3,
+    kind: 'reps',
+    repMin: 5,
+    repMax: 8,
+    equipment: 'cable',
+    startWeightKg: 35,
+    perArm: false,
+    formCue:
+      'Seated at the cable with the V-handle, knees soft, chest tall. Pull the handle to your lower ribs, squeezing the shoulder blades together, then let the arms stretch forward without rounding your back.',
+  },
+  {
+    id: 'machine-row',
+    name: 'Machine Row',
+    muscle: 'Back',
+    slot: 'row',
+    sets: 3,
+    kind: 'reps',
+    repMin: 5,
+    repMax: 8,
+    equipment: 'machine',
+    startWeightKg: 35,
+    perArm: false,
+    formCue:
+      'Chest against the pad, grip the handles. Drive the elbows back past your torso, squeeze the shoulder blades, then return slowly to a full stretch.',
+  },
+  {
+    id: 't-bar-row',
+    name: 'T-Bar Row',
+    muscle: 'Back',
+    slot: 'row',
+    sets: 3,
+    kind: 'reps',
+    repMin: 5,
+    repMax: 8,
+    equipment: 'machine',
+    startWeightKg: 20,
+    perArm: false,
+    holdNote: 'Log the plates you load (not the bar).',
+    formCue:
+      'Straddle the bar (or chest on the pad), hinged to about 45° with a flat back. Row the handle to your lower chest, squeeze, lower under control.',
+  },
+  {
+    id: 'machine-chest-press',
+    name: 'Machine Chest Press',
+    muscle: 'Chest',
+    slot: 'push',
+    sets: 3,
+    kind: 'reps',
+    repMin: 5,
+    repMax: 8,
+    equipment: 'machine',
+    startWeightKg: 30,
+    perArm: false,
+    formCue:
+      'Seat set so the handles line up with mid-chest. Press forward to straight arms, then return slowly until you feel the chest stretch. Shoulder blades stay against the pad.',
+  },
+  {
+    id: 'shoulder-press',
+    name: 'Shoulder Press',
+    muscle: 'Shoulders',
+    slot: 'push',
+    sets: 3,
+    kind: 'reps',
+    repMin: 5,
+    repMax: 8,
+    equipment: 'machine',
+    startWeightKg: 25,
+    perArm: false,
+    formCue:
+      'Shoulder press machine, seat set so the handles start at shoulder height. Press overhead to straight arms, lower under control back to shoulder level. Ribs down, back against the pad.',
+  },
+  {
+    id: 'push-up',
+    name: 'Push-up',
+    muscle: 'Chest',
+    slot: 'push',
+    sets: 3,
+    kind: 'reps',
+    repMin: 5,
+    repMax: 8,
+    equipment: 'bodyweight',
+    startWeightKg: 0,
+    perArm: false,
+    holdNote: 'Plate on your upper back = plus kg. 0 = bodyweight.',
+    formCue:
+      'Hands just outside shoulder width, body in one straight line. Lower until the chest nearly touches the floor, elbows ~45° from the body, then press up. Too easy for 8? A plate on the upper back makes it heavier.',
+  },
+  {
+    id: 'diamond-push-up',
+    name: 'Diamond Push-up',
+    muscle: 'Arms',
+    slot: 'push',
+    sets: 3,
+    kind: 'reps',
+    repMin: 5,
+    repMax: 8,
+    equipment: 'bodyweight',
+    startWeightKg: 0,
+    perArm: false,
+    holdNote: 'Plate on your upper back = plus kg. 0 = bodyweight.',
+    formCue:
+      'Hands together under your chest, thumbs and index fingers making a diamond. Lower with the elbows tucked back along your sides, then press up. Heavier on the triceps than a regular push-up.',
+  },
+
+  // ----- Isolations -----
+  {
+    id: 'cable-pushdown',
+    name: 'Cable Triceps Pushdown',
+    muscle: 'Arms',
+    slot: 'triceps',
     sets: 3,
     kind: 'reps',
     repMin: 8,
     repMax: 12,
+    equipment: 'cable',
+    startWeightKg: 15,
+    perArm: false,
+    formCue:
+      'High cable with the rope. Elbows pinned to your sides, push down until the arms are straight and spread the rope at the bottom, then let it rise slowly to about 90°. Only the forearms move.',
+  },
+  {
+    id: 'bar-pushdown',
+    name: 'Triceps Bar Pushdown',
+    muscle: 'Arms',
+    slot: 'triceps',
+    sets: 3,
+    kind: 'reps',
+    repMin: 8,
+    repMax: 12,
+    equipment: 'cable',
+    startWeightKg: 20,
+    perArm: false,
+    formCue:
+      'High cable with a straight or V-bar, overhand grip. Elbows pinned to your sides, press the bar down to straight arms, squeeze, return slowly. Don’t lean over the bar.',
+  },
+  {
+    id: 'overhead-cable-extension',
+    name: 'Overhead Cable Extension',
+    muscle: 'Arms',
+    slot: 'triceps',
+    sets: 3,
+    kind: 'reps',
+    repMin: 8,
+    repMax: 12,
+    equipment: 'cable',
+    startWeightKg: 10,
+    perArm: false,
+    formCue:
+      'Face away from the cable with the rope behind your head, elbows pointing forward. Extend overhead until the arms are straight, then return slowly into a deep stretch. Loads the long head of the triceps.',
+  },
+  {
+    id: 'zottman-curl',
+    name: 'Zottman Curl',
+    muscle: 'Arms',
+    slot: 'biceps',
+    sets: 3,
+    kind: 'reps',
+    repMin: 8,
+    repMax: 12,
+    equipment: 'dumbbell',
     startWeightKg: 8,
     perArm: true,
-    bodyweight: false,
+    holdNote: ONE_DUMBBELL,
     formCue:
-      'On your back, dumbbell at chest level, press straight up. Lower until your upper arm taps the floor, then drive up. The floor caps the range and protects the shoulder.',
-  },
-  {
-    id: 'chest-flye',
-    name: 'Chest Flye',
-    muscle: 'Chest',
-    slot: 'chest-stretch',
-    order: 2,
-    sets: 3,
-    kind: 'reps',
-    repMin: 8,
-    repMax: 12,
-    startWeightKg: 5.5,
-    perArm: true,
-    bodyweight: false,
-    formCue:
-      'On your back, arm slightly bent and fixed at that angle. Open out wide toward the floor, feel the stretch across the chest, then squeeze back up over your chest. Light weight — this is a stretch movement, not a press.',
-  },
-  {
-    id: 'overhead-press',
-    name: 'Overhead Press',
-    muscle: 'Shoulders',
-    slot: 'shoulder-press',
-    order: 3,
-    sets: 3,
-    kind: 'reps',
-    repMin: 8,
-    repMax: 12,
-    startWeightKg: 6.5,
-    perArm: true,
-    bodyweight: false,
-    formCue:
-      'From shoulder height, press to locked out overhead. Keep your ribs down and don’t lean back — the work should be in the shoulder, not the lower back.',
-  },
-  {
-    id: 'lateral-raise',
-    name: 'Lateral Raise',
-    muscle: 'Shoulders',
-    slot: 'shoulder-raise',
-    order: 4,
-    sets: 3,
-    kind: 'reps',
-    repMin: 8,
-    repMax: 12,
-    startWeightKg: 3.5,
-    perArm: true,
-    bodyweight: false,
-    formCue:
-      'Raise the dumbbell out to the side up to shoulder height, leading with the elbow. No swinging or heaving — if you need momentum, the weight is too heavy. The side delt is small; keep it strict and light.',
+      'Curl the dumbbells up palms-up, rotate to palms-down at the top, and lower slowly with the overhand grip. Biceps on the way up, forearms on the way down.',
   },
   {
     id: 'biceps-curl',
     name: 'Biceps Curl',
     muscle: 'Arms',
-    slot: 'arm-biceps',
-    order: 5,
+    slot: 'biceps',
     sets: 3,
     kind: 'reps',
     repMin: 8,
     repMax: 12,
+    equipment: 'dumbbell',
     startWeightKg: 8,
     perArm: true,
-    bodyweight: false,
+    holdNote: ONE_DUMBBELL,
     formCue:
-      'Curl up without swinging the torso. Lower slowly and under control — the lowering half builds as much as the lifting half.',
+      'Dumbbells at your sides, palms forward, elbows pinned. Curl up without swinging the torso and lower slowly — the lowering half builds as much as the lifting half.',
   },
   {
-    id: 'triceps-extension',
-    name: 'Triceps Extension',
-    muscle: 'Arms',
-    slot: 'arm-triceps',
-    order: 6,
-    sets: 3,
-    kind: 'reps',
-    repMin: 8,
-    repMax: 12,
-    startWeightKg: 9,
-    perArm: false,
-    bodyweight: false,
-    holdNote: 'Both hands cupping one end of the dumbbell, behind your head.',
-    formCue:
-      'Both hands cupping one end of the dumbbell, held behind your head. Extend straight up, keeping the elbows pointing forward and still. Only the forearms move.',
-  },
-  {
-    id: 'wrist-curl',
-    name: 'Wrist Curl',
-    muscle: 'Forearms',
-    slot: 'forearm-flexor',
-    order: 7,
-    sets: 3,
-    kind: 'reps',
-    repMin: 10,
-    repMax: 15,
-    startWeightKg: 4.5,
-    perArm: true,
-    bodyweight: false,
-    formCue:
-      'Forearm resting on your thigh, palm up, hand off the edge of the knee. Curl the weight up using only the wrist. Full range, controlled.',
-  },
-  {
-    id: 'reverse-wrist-curl',
-    name: 'Reverse Wrist Curl',
-    muscle: 'Forearms',
-    slot: 'forearm-extensor',
-    order: 8,
-    sets: 3,
-    kind: 'reps',
-    repMin: 10,
-    repMax: 15,
-    startWeightKg: 2.5,
-    perArm: true,
-    bodyweight: false,
-    formCue:
-      'Same position as the wrist curl, palm down. Lift the back of the hand toward you. This is a weak movement — expect to use very little weight, and that’s correct.',
-  },
-  {
-    id: 'weighted-crunch',
-    name: 'Weighted Crunch',
-    muscle: 'Abs',
-    slot: 'ab-crunch',
-    order: 9,
-    sets: 3,
-    kind: 'reps',
-    repMin: 12,
-    repMax: 15,
-    startWeightKg: 5.5,
-    perArm: false,
-    bodyweight: false,
-    holdNote: 'Hold the dumbbell on your chest.',
-    formCue:
-      'Hold the dumbbell on your chest. Crunch up, squeeze the abs hard at the top, lower with control. Don’t yank with the neck.',
-  },
-  {
-    id: 'russian-twist',
-    name: 'Russian Twist',
-    muscle: 'Abs',
-    slot: 'ab-rotation',
-    order: 10,
-    sets: 3,
-    kind: 'reps',
-    repMin: 14,
-    repMax: 20,
-    startWeightKg: 4.5,
-    perArm: false,
-    bodyweight: false,
-    holdNote: 'Held at the chest. Count every touch as one rep (left + right = two).',
-    formCue:
-      'Lean back with feet off the floor, holding the dumbbell. Rotate from hip to hip, touching near the floor each side. Count every touch as one rep (so a left + right is two).',
-  },
-  {
-    id: 'plank',
-    name: 'Plank',
-    muscle: 'Abs',
-    slot: 'ab-core',
-    order: 11,
-    sets: 3,
-    kind: 'time',
-    repMin: 0,
-    repMax: 0,
-    startWeightKg: 0,
-    perArm: false,
-    bodyweight: true,
-    startSeconds: 30,
-    timeIncrementSeconds: 10,
-    formCue:
-      'Forearms down, body in one straight line from head to heels. Hold steady, brace the abs, and keep breathing. When you can hold all three sets for the full target, the target goes up.',
-  },
-] as const
-
-// ---------- single-dumbbell alternatives (swap targets) ----------
-
-export const ALTERNATIVE_EXERCISES: readonly ExerciseDef[] = [
-  // Chest press
-  {
-    id: 'squeeze-press',
-    name: 'Squeeze Press',
+    id: 'low-to-high-cable-fly',
+    name: 'Low-to-High Cable Fly',
     muscle: 'Chest',
-    slot: 'chest-press',
-    order: 1,
+    slot: 'chest-fly',
     sets: 3,
     kind: 'reps',
     repMin: 8,
     repMax: 12,
-    startWeightKg: 8,
+    equipment: 'cable',
+    startWeightKg: 5,
     perArm: false,
-    bodyweight: false,
-    holdNote: 'One dumbbell held vertically, squeezed between both palms.',
+    holdNote: 'Log the weight of ONE stack.',
     formCue:
-      'On your back, hold one dumbbell vertically, sandwiched between your palms at chest level. Press straight up while squeezing your palms together hard — the squeeze is what drives the chest. Lower under control.',
+      'Cables set low, a handle in each hand, slight fixed bend in the elbows. Sweep the hands up and together to about chin height, squeezing the upper chest, then lower slowly to a stretch. For the upper chest.',
   },
-  // Chest stretch
   {
-    id: 'dumbbell-pullover',
-    name: 'Dumbbell Pullover',
+    id: 'high-to-low-cable-fly',
+    name: 'High-to-Low Cable Fly',
     muscle: 'Chest',
-    slot: 'chest-stretch',
-    order: 2,
+    slot: 'chest-fly',
     sets: 3,
     kind: 'reps',
     repMin: 8,
     repMax: 12,
-    startWeightKg: 6.5,
+    equipment: 'cable',
+    startWeightKg: 5,
     perArm: false,
-    bodyweight: false,
-    holdNote: 'Both hands cupping one end of the dumbbell.',
+    holdNote: 'Log the weight of ONE stack.',
     formCue:
-      'On your back, both hands cupping one end of the dumbbell over your chest, slight bend in the elbows. Lower it back over and behind your head until you feel the stretch, then pull it back over your chest. Light and controlled.',
+      'Cables set high, split stance. With a slight fixed elbow bend, sweep the hands down and together in front of your hips, squeeze, return slowly. For the lower chest.',
   },
-  // Shoulder press
   {
-    id: 'arnold-press',
-    name: 'Arnold Press',
-    muscle: 'Shoulders',
-    slot: 'shoulder-press',
-    order: 3,
+    id: 'lat-pulldown',
+    name: 'Lat Pulldown',
+    muscle: 'Back',
+    slot: 'lats',
     sets: 3,
     kind: 'reps',
     repMin: 8,
     repMax: 12,
-    startWeightKg: 6.5,
-    perArm: true,
-    bodyweight: false,
-    formCue:
-      'Start at shoulder height with your palm facing you. Press up while rotating the palm to face forward at the top; reverse on the way down. Ribs down, no leaning back.',
-  },
-  // Shoulder raise
-  {
-    id: 'front-raise',
-    name: 'Front Raise',
-    muscle: 'Shoulders',
-    slot: 'shoulder-raise',
-    order: 4,
-    sets: 3,
-    kind: 'reps',
-    repMin: 8,
-    repMax: 12,
-    startWeightKg: 3.5,
-    perArm: true,
-    bodyweight: false,
-    formCue:
-      'Raise the dumbbell straight out in front to shoulder height, arm almost straight. No swinging — control it up and down. Hits the front of the shoulder.',
-  },
-  {
-    id: 'rear-delt-fly',
-    name: 'Rear-Delt Fly',
-    muscle: 'Shoulders',
-    slot: 'shoulder-raise',
-    order: 4,
-    sets: 3,
-    kind: 'reps',
-    repMin: 10,
-    repMax: 15,
-    startWeightKg: 3.5,
-    perArm: true,
-    bodyweight: false,
-    formCue:
-      'Hinge forward at the hips, back flat. With a slight, fixed elbow bend, raise the dumbbell out to the side until level with your back, squeezing the rear shoulder. Strict and light — great for shoulder balance.',
-  },
-  // Biceps
-  {
-    id: 'hammer-curl',
-    name: 'Hammer Curl',
-    muscle: 'Arms',
-    slot: 'arm-biceps',
-    order: 5,
-    sets: 3,
-    kind: 'reps',
-    repMin: 8,
-    repMax: 12,
-    startWeightKg: 8,
-    perArm: true,
-    bodyweight: false,
-    formCue:
-      'Curl with a neutral grip — palm facing in, thumb up, like holding a hammer. No torso swing; lower under control. Builds the biceps and the brachialis underneath.',
-  },
-  {
-    id: 'concentration-curl',
-    name: 'Concentration Curl',
-    muscle: 'Arms',
-    slot: 'arm-biceps',
-    order: 5,
-    sets: 3,
-    kind: 'reps',
-    repMin: 8,
-    repMax: 12,
-    startWeightKg: 6.5,
-    perArm: true,
-    bodyweight: false,
-    formCue:
-      'Seated, elbow braced against the inside of your thigh. Curl the dumbbell up with a hard squeeze at the top, lower slowly. Strict isolation — no momentum at all.',
-  },
-  // Triceps
-  {
-    id: 'triceps-kickback',
-    name: 'Triceps Kickback',
-    muscle: 'Arms',
-    slot: 'arm-triceps',
-    order: 6,
-    sets: 3,
-    kind: 'reps',
-    repMin: 10,
-    repMax: 15,
-    startWeightKg: 5.5,
-    perArm: true,
-    bodyweight: false,
-    formCue:
-      'Hinge forward, upper arm pinned parallel to your torso and still. Extend the forearm straight back until the arm locks out, squeeze the triceps, return under control. Only the forearm moves.',
-  },
-  {
-    id: 'single-arm-oh-ext',
-    name: 'Single-Arm Overhead Extension',
-    muscle: 'Arms',
-    slot: 'arm-triceps',
-    order: 6,
-    sets: 3,
-    kind: 'reps',
-    repMin: 8,
-    repMax: 12,
-    startWeightKg: 5.5,
-    perArm: true,
-    bodyweight: false,
-    formCue:
-      'One dumbbell in one hand overhead, upper arm vertical and still. Lower it behind your head, then extend straight up. Keep the elbow pointing forward, not flaring out.',
-  },
-  // Forearm flexors
-  {
-    id: 'behind-back-wrist-curl',
-    name: 'Behind-the-Back Wrist Curl',
-    muscle: 'Forearms',
-    slot: 'forearm-flexor',
-    order: 7,
-    sets: 3,
-    kind: 'reps',
-    repMin: 10,
-    repMax: 15,
-    startWeightKg: 5.5,
-    perArm: true,
-    bodyweight: false,
-    formCue:
-      'Stand holding the dumbbell behind your back, palm facing back, arm straight. Curl it up using only the wrist, then lower for a full stretch. Small range, strict.',
-  },
-  // Forearm extensors
-  {
-    id: 'reverse-curl',
-    name: 'Reverse Curl',
-    muscle: 'Forearms',
-    slot: 'forearm-extensor',
-    order: 8,
-    sets: 3,
-    kind: 'reps',
-    repMin: 10,
-    repMax: 15,
-    startWeightKg: 4.5,
-    perArm: true,
-    bodyweight: false,
-    formCue:
-      'Curl with a palm-down (overhand) grip, elbow tucked at your side. Lift to about chest height and lower slowly. Targets the top of the forearm and the brachioradialis — expect to use less than a normal curl.',
-  },
-  // Abs crunch
-  {
-    id: 'weighted-situp',
-    name: 'Weighted Sit-up',
-    muscle: 'Abs',
-    slot: 'ab-crunch',
-    order: 9,
-    sets: 3,
-    kind: 'reps',
-    repMin: 12,
-    repMax: 15,
-    startWeightKg: 5.5,
+    equipment: 'cable',
+    startWeightKg: 40,
     perArm: false,
-    bodyweight: false,
-    holdNote: 'Hold the dumbbell on your chest.',
     formCue:
-      'Full sit-up holding the dumbbell on your chest. Curl all the way up, then lower with control to the floor. Don’t yank with the neck or throw with the hips.',
+      'Thighs under the pad, hands just outside shoulder width. Pull the bar to your upper chest, driving the elbows down and back with the chest up; let it rise slowly to a full stretch. No leaning way back. Also the pull-up replacement.',
   },
-  // Abs rotation
   {
-    id: 'weighted-side-bend',
-    name: 'Weighted Side Bend',
-    muscle: 'Abs',
-    slot: 'ab-rotation',
-    order: 10,
+    id: 'close-grip-lat-pulldown',
+    name: 'Close-Grip Lat Pulldown',
+    muscle: 'Back',
+    slot: 'lats',
     sets: 3,
     kind: 'reps',
-    repMin: 12,
-    repMax: 15,
-    startWeightKg: 8,
-    perArm: true,
-    bodyweight: false,
+    repMin: 8,
+    repMax: 12,
+    equipment: 'cable',
+    startWeightKg: 40,
+    perArm: false,
     formCue:
-      'Stand tall, dumbbell in one hand at your side. Bend sideways toward that hand, then pull straight back up using the opposite obliques. Full count one side, then switch. No leaning forward or back.',
+      'V-handle or close neutral grip. Pull to your upper chest with the elbows tight to your sides, squeeze the lats, return slowly to a full stretch.',
   },
   {
-    id: 'wood-chop',
-    name: 'Wood Chop',
-    muscle: 'Abs',
-    slot: 'ab-rotation',
-    order: 10,
+    id: 'wide-grip-lat-pulldown',
+    name: 'Wide-Grip Lat Pulldown',
+    muscle: 'Back',
+    slot: 'lats',
     sets: 3,
     kind: 'reps',
-    repMin: 12,
-    repMax: 15,
-    startWeightKg: 5.5,
+    repMin: 8,
+    repMax: 12,
+    equipment: 'cable',
+    startWeightKg: 35,
     perArm: false,
-    bodyweight: false,
-    holdNote: 'Both hands; do the full count on one side, then the other.',
     formCue:
-      'Both hands on the dumbbell. From low by one hip, sweep it diagonally up and across to above the opposite shoulder, rotating through the trunk, then back down. Full count one side, then switch.',
+      'Hands well outside shoulder width. Pull the bar to your upper chest, elbows driving down and out, chest up; control it back up to a full stretch.',
   },
-  // Abs core hold
-  {
-    id: 'side-plank',
-    name: 'Side Plank',
-    muscle: 'Abs',
-    slot: 'ab-core',
-    order: 11,
-    sets: 3,
-    kind: 'time',
-    repMin: 0,
-    repMax: 0,
-    startWeightKg: 0,
-    perArm: false,
-    bodyweight: true,
-    startSeconds: 20,
-    timeIncrementSeconds: 10,
-    holdNote: 'Hold each side for the target.',
-    formCue:
-      'On one forearm, body in a straight line, hips stacked and lifted. Brace the side abs and hold the target, then switch sides. Bodyweight only — the duration climbs.',
-  },
-  {
-    id: 'hollow-hold',
-    name: 'Hollow Hold',
-    muscle: 'Abs',
-    slot: 'ab-core',
-    order: 11,
-    sets: 3,
-    kind: 'time',
-    repMin: 0,
-    repMax: 0,
-    startWeightKg: 0,
-    perArm: false,
-    bodyweight: true,
-    startSeconds: 20,
-    timeIncrementSeconds: 10,
-    formCue:
-      'On your back, lower back pressed flat into the floor, arms and legs extended and lifted into a shallow “banana”. Hold and keep breathing. Higher arms/legs = easier, lower = harder.',
-  },
-] as const
 
-// ---------- legs (opt-in single-dumbbell module) ----------
-// Four simple slots — squat, hinge, lunge, calves — each with one alternative.
-// Single dumbbell throughout; unilateral options build the single-leg strength
-// and balance that carry over to running. Schedule these as their own leg day.
-
-export const LEG_EXERCISES: readonly ExerciseDef[] = [
-  // Squat
+  // ----- Leg day extras -----
   {
-    id: 'goblet-squat',
-    name: 'Goblet Squat',
+    id: 'hamstring-curl',
+    name: 'Hamstring Curl',
     muscle: 'Legs',
-    slot: 'leg-squat',
-    order: 12,
+    slot: 'hamstring-curl',
     sets: 3,
     kind: 'reps',
-    repMin: 10,
-    repMax: 15,
-    startWeightKg: 10,
+    repMin: 8,
+    repMax: 12,
+    equipment: 'machine',
+    startWeightKg: 25,
     perArm: false,
-    bodyweight: false,
-    holdNote: 'One dumbbell held vertically against the chest.',
     formCue:
-      'Hold one dumbbell vertically against your chest, elbows down. Sit back and down between your knees until your thighs are about parallel, chest tall, then drive up through mid-foot. Depth and control over weight.',
+      'Lying or seated curl machine, pad just above the heels, knees lined up with the pivot. Curl the heels toward your glutes, squeeze, lower slowly. Hips stay down.',
+  },
+  {
+    id: 'leg-extension',
+    name: 'Leg Extension',
+    muscle: 'Legs',
+    slot: 'leg-raise',
+    sets: 3,
+    kind: 'reps',
+    repMin: 8,
+    repMax: 12,
+    equipment: 'machine',
+    startWeightKg: 30,
+    perArm: false,
+    formCue:
+      'Seated, pad on the front of the ankles, knees lined up with the pivot. Raise the legs until straight, squeeze the quads at the top, lower slowly. No kicking.',
+  },
+  {
+    id: 'hanging-leg-raise',
+    name: 'Hanging Leg Raise',
+    muscle: 'Core',
+    slot: 'leg-raise',
+    sets: 3,
+    kind: 'reps',
+    repMin: 8,
+    repMax: 12,
+    equipment: 'none',
+    startWeightKg: 0,
+    perArm: false,
+    formCue:
+      'Hang from a bar (or use the captain’s chair). Raise the legs until the thighs pass parallel, curling the pelvis up at the top, then lower slowly without swinging. Bent knees are easier, straight legs harder.',
   },
   {
     id: 'bulgarian-split-squat',
     name: 'Bulgarian Split Squat',
     muscle: 'Legs',
-    slot: 'leg-squat',
-    order: 12,
+    slot: 'split-squat',
     sets: 3,
     kind: 'reps',
     repMin: 8,
     repMax: 12,
-    startWeightKg: 6.5,
-    perArm: true,
-    bodyweight: false,
-    formCue:
-      'Rear foot resting on a chair or step behind you, dumbbell in the opposite hand. Drop straight down over the front leg until the back knee nearly touches, then push up through the front heel. Full count one leg, then switch.',
-  },
-  // Hinge
-  {
-    id: 'romanian-deadlift',
-    name: 'Romanian Deadlift',
-    muscle: 'Legs',
-    slot: 'leg-hinge',
-    order: 13,
-    sets: 3,
-    kind: 'reps',
-    repMin: 10,
-    repMax: 15,
+    equipment: 'dumbbell',
     startWeightKg: 10,
-    perArm: false,
-    bodyweight: false,
-    holdNote: 'One dumbbell held in both hands in front of the thighs.',
-    formCue:
-      'Hold one dumbbell in both hands in front of your thighs. Soft knees, push your hips back and lower the weight down your legs until you feel the hamstrings stretch, back flat. Drive the hips forward to stand tall. Hinge, don’t squat.',
-  },
-  {
-    id: 'single-leg-rdl',
-    name: 'Single-Leg RDL',
-    muscle: 'Legs',
-    slot: 'leg-hinge',
-    order: 13,
-    sets: 3,
-    kind: 'reps',
-    repMin: 8,
-    repMax: 12,
-    startWeightKg: 6.5,
     perArm: true,
-    bodyweight: false,
+    holdNote: 'Log ONE dumbbell (per hand if you hold two).',
     formCue:
-      'Dumbbell in one hand, stand on the opposite leg. Hinge at the hip and let the free leg float back as the weight lowers, back flat, until you feel the standing hamstring. Return to tall. Full count one side, then switch — great for a runner’s balance.',
-  },
-  // Lunge
-  {
-    id: 'reverse-lunge',
-    name: 'Reverse Lunge',
-    muscle: 'Legs',
-    slot: 'leg-lunge',
-    order: 14,
-    sets: 3,
-    kind: 'reps',
-    repMin: 8,
-    repMax: 12,
-    startWeightKg: 8,
-    perArm: true,
-    bodyweight: false,
-    formCue:
-      'Dumbbell in one hand or held at your chest. Step one foot back and lower until both knees are about 90°, front shin vertical, then push through the front heel to stand. Full count one leg, then switch — easier on the knees than a forward lunge.',
+      'Rear foot on a bench behind you, dumbbell(s) in hand. Drop straight down over the front leg until the back knee nearly touches the floor, then push up through the front heel. Full count one leg, then switch.',
   },
   {
-    id: 'step-up',
-    name: 'Step-up',
+    id: 'machine-calf-raise',
+    name: 'Calf Raise',
     muscle: 'Legs',
-    slot: 'leg-lunge',
-    order: 14,
-    sets: 3,
-    kind: 'reps',
-    repMin: 8,
-    repMax: 12,
-    startWeightKg: 8,
-    perArm: true,
-    bodyweight: false,
-    formCue:
-      'Dumbbell in one hand, one foot planted on a sturdy knee-height step. Drive through that heel to stand all the way up, then lower under control without pushing off the floor. Full count one leg, then switch.',
-  },
-  // Calves
-  {
-    id: 'calf-raise',
-    name: 'Standing Calf Raise',
-    muscle: 'Legs',
-    slot: 'leg-calf',
-    order: 15,
+    slot: 'calves',
     sets: 3,
     kind: 'reps',
     repMin: 12,
     repMax: 20,
-    startWeightKg: 10,
+    equipment: 'machine',
+    startWeightKg: 40,
     perArm: false,
-    bodyweight: false,
-    holdNote: 'One dumbbell held at your side; balls of the feet on the floor or a step.',
     formCue:
-      'Hold one dumbbell at your side, balls of the feet on the floor or the edge of a step for more range. Rise up onto your toes as high as you can, pause at the top, lower slowly. Full range and a hard squeeze — key for durable running calves.',
+      'Standing or seated calf machine, balls of the feet on the edge. Lower the heels into a deep stretch, rise as high as you can, pause at the top. Slow and full-range beats heavy and bouncy.',
   },
+
+  // ----- Core triplet -----
   {
-    id: 'single-leg-calf-raise',
-    name: 'Single-Leg Calf Raise',
-    muscle: 'Legs',
-    slot: 'leg-calf',
-    order: 15,
+    id: 'ab-wheel-rollout',
+    name: 'Ab Wheel Rollout',
+    muscle: 'Core',
+    slot: 'anti-extension',
     sets: 3,
     kind: 'reps',
-    repMin: 12,
-    repMax: 20,
-    startWeightKg: 6.5,
-    perArm: true,
-    bodyweight: false,
+    repMin: 8,
+    repMax: 12,
+    equipment: 'none',
+    startWeightKg: 0,
+    perArm: false,
     formCue:
-      'Balance on one foot, dumbbell in the same-side hand, other hand on a wall for balance. Rise onto the toes, pause, lower slowly. Full count one leg, then switch.',
+      'From your knees, roll the wheel out as far as you can without the lower back sagging (ribs down, glutes squeezed), then pull back in with the abs. Own 3 × 12, then roll out further — toward rollouts from standing.',
   },
-] as const
+  {
+    id: 'pallof-press',
+    name: 'Pallof Press',
+    muscle: 'Core',
+    slot: 'anti-rotation',
+    sets: 3,
+    kind: 'reps',
+    repMin: 8,
+    repMax: 12,
+    equipment: 'cable',
+    startWeightKg: 10,
+    perArm: true,
+    formCue:
+      'Stand side-on to a cable at chest height, handle at your sternum. Press straight out and hold a beat, resisting the pull to rotate, then bring it back. Full count facing one way, then switch sides.',
+  },
+  {
+    id: 'back-extension',
+    name: 'Back Extension',
+    muscle: 'Core',
+    slot: 'extension',
+    sets: 3,
+    kind: 'reps',
+    repMin: 8,
+    repMax: 12,
+    equipment: 'bodyweight',
+    startWeightKg: 0,
+    perArm: false,
+    holdNote: 'Plate held at your chest = plus kg. 0 = bodyweight.',
+    formCue:
+      'On the hyperextension bench, pad just below the hips. Lower the torso with a flat back, then rise until your body is a straight line — squeeze the glutes, don’t over-arch. Hold a plate at your chest to make it harder.',
+  },
+
+  // ----- Kettlebell core circuit (30 s each) -----
+  kb(
+    'kb-plank-pull-through',
+    'Plank Pull-Through',
+    12,
+    'High plank, kettlebell just behind one hand. Reach under with the other hand and drag the bell across; alternate for the whole interval. Hips stay square and still — resisting the twist is the work.',
+  ),
+  kb(
+    'kb-halo',
+    'Kettlebell Halo',
+    8,
+    'Hold the bell upside down by the horns at chest height. Circle it slowly around your head, close to the skull, ribs down and glutes tight. Switch direction halfway.',
+  ),
+  kb(
+    'kb-around-the-world',
+    'Around the World',
+    12,
+    'Stand tall and pass the bell around your waist from hand to hand, hips and shoulders square — don’t let it pull you around. Switch direction halfway.',
+  ),
+  kb(
+    'kb-shoveling',
+    'Kettlebell Shoveling',
+    12,
+    'Staggered stance, bell held by the horns. Dig it low by your back hip and drive it up and across the body like shovelling, rotating through the trunk and pivoting the back foot. Switch sides halfway.',
+  ),
+  kb(
+    'kb-swing',
+    'Kettlebell Swing',
+    16,
+    'Hike the bell back between your legs, then snap the hips forward to float it to chest height — the arms are just ropes, the hips do the work. Flat back, brace hard at the top.',
+  ),
+  kb(
+    'kb-iron-trident',
+    'Iron Trident',
+    12,
+    'Do it the way you were coached: 30 s of steady, controlled work with the core braced and the bell kept close. End the interval early if your form breaks.',
+  ),
+  {
+    id: 'plank',
+    name: 'Plank',
+    muscle: 'Core',
+    slot: 'kb-plank',
+    sets: 3,
+    kind: 'time',
+    repMin: 0,
+    repMax: 0,
+    equipment: 'none',
+    startWeightKg: 0,
+    perArm: false,
+    startSeconds: 30,
+    timeIncrementSeconds: 10,
+    formCue:
+      'No kettlebell for this one. Forearms down, body in one straight line from head to heels. Brace the abs, squeeze the glutes and keep breathing. Hold all three rounds for the full target and the target goes up.',
+  },
+  kb(
+    'kb-situp-to-stand',
+    'Sit-up to Stand',
+    8,
+    'Lie on your back holding the bell at your chest. Sit up, plant your feet and stand up in one flow (a hand on the floor is fine), then reverse back down with control. Works the legs as well as the core.',
+  ),
+]
 
 // ---------- registry + lookups ----------
 
 export const ALL_EXERCISES: readonly ExerciseDef[] = [
-  ...EXERCISES,
-  ...ALTERNATIVE_EXERCISES,
-  ...LEG_EXERCISES,
+  ...GYM_EXERCISES,
+  ...HOME_EXERCISES,
 ]
 
 export const EXERCISES_BY_ID: Record<string, ExerciseDef> = Object.fromEntries(
@@ -669,66 +853,128 @@ export function getExercise(id: string): ExerciseDef {
   return def
 }
 
+/** Display order of muscle groups (Forearms only appears in home-era history). */
 export const MUSCLE_ORDER: Muscle[] = [
   'Chest',
+  'Back',
   'Shoulders',
   'Arms',
-  'Forearms',
-  'Abs',
   'Legs',
+  'Core',
+  'Forearms',
 ]
 
-// ---------- slots (swap groups) ----------
+// ---------- slots (swap groups), in routine order ----------
 
 export interface Slot {
   id: string
-  order: number
-  muscle: Muscle
-  /** Short human label for the slot, e.g. "Chest · press". */
+  block: BlockId
+  /** Human label for the slot, e.g. "Pull-up progression". */
   label: string
+  /** Optional within its block (e.g. the Pair 3 push). */
+  optional?: boolean
   /** The default exercise id (first option). */
   baseId: string
   /** All exercise ids that can fill this slot, base first. */
   optionIds: string[]
 }
 
+function slot(
+  id: string,
+  block: BlockId,
+  label: string,
+  optionIds: string[],
+  optional?: boolean,
+): Slot {
+  return { id, block, label, baseId: optionIds[0], optionIds, optional }
+}
+
 export const SLOTS: readonly Slot[] = [
-  { id: 'chest-press', order: 1, muscle: 'Chest', label: 'Chest · press', baseId: 'floor-press', optionIds: ['floor-press', 'squeeze-press'] },
-  { id: 'chest-stretch', order: 2, muscle: 'Chest', label: 'Chest · stretch', baseId: 'chest-flye', optionIds: ['chest-flye', 'dumbbell-pullover'] },
-  { id: 'shoulder-press', order: 3, muscle: 'Shoulders', label: 'Shoulders · press', baseId: 'overhead-press', optionIds: ['overhead-press', 'arnold-press'] },
-  { id: 'shoulder-raise', order: 4, muscle: 'Shoulders', label: 'Shoulders · raise', baseId: 'lateral-raise', optionIds: ['lateral-raise', 'front-raise', 'rear-delt-fly'] },
-  { id: 'arm-biceps', order: 5, muscle: 'Arms', label: 'Arms · biceps', baseId: 'biceps-curl', optionIds: ['biceps-curl', 'hammer-curl', 'concentration-curl'] },
-  { id: 'arm-triceps', order: 6, muscle: 'Arms', label: 'Arms · triceps', baseId: 'triceps-extension', optionIds: ['triceps-extension', 'triceps-kickback', 'single-arm-oh-ext'] },
-  { id: 'forearm-flexor', order: 7, muscle: 'Forearms', label: 'Forearms · flexors', baseId: 'wrist-curl', optionIds: ['wrist-curl', 'behind-back-wrist-curl'] },
-  { id: 'forearm-extensor', order: 8, muscle: 'Forearms', label: 'Forearms · extensors', baseId: 'reverse-wrist-curl', optionIds: ['reverse-wrist-curl', 'reverse-curl'] },
-  { id: 'ab-crunch', order: 9, muscle: 'Abs', label: 'Abs · flexion', baseId: 'weighted-crunch', optionIds: ['weighted-crunch', 'weighted-situp'] },
-  { id: 'ab-rotation', order: 10, muscle: 'Abs', label: 'Abs · rotation', baseId: 'russian-twist', optionIds: ['russian-twist', 'weighted-side-bend', 'wood-chop'] },
-  { id: 'ab-core', order: 11, muscle: 'Abs', label: 'Abs · core hold', baseId: 'plank', optionIds: ['plank', 'side-plank', 'hollow-hold'] },
-  // Legs (opt-in module)
-  { id: 'leg-squat', order: 12, muscle: 'Legs', label: 'Legs · squat', baseId: 'goblet-squat', optionIds: ['goblet-squat', 'bulgarian-split-squat'] },
-  { id: 'leg-hinge', order: 13, muscle: 'Legs', label: 'Legs · hinge', baseId: 'romanian-deadlift', optionIds: ['romanian-deadlift', 'single-leg-rdl'] },
-  { id: 'leg-lunge', order: 14, muscle: 'Legs', label: 'Legs · lunge', baseId: 'reverse-lunge', optionIds: ['reverse-lunge', 'step-up'] },
-  { id: 'leg-calf', order: 15, muscle: 'Legs', label: 'Legs · calves', baseId: 'calf-raise', optionIds: ['calf-raise', 'single-leg-calf-raise'] },
-] as const
+  // Pair 1 — compounds
+  slot('pull', 'pair-1', 'Pull-up progression', ['pull-up']),
+  slot('squat', 'pair-1', 'Squat progression', ['back-squat', 'goblet-squat']),
+  slot('bench', 'pair-1', 'Compound bench press', [
+    'bench-press',
+    'db-bench-press',
+    'incline-db-press',
+    'decline-db-press',
+  ]),
+  // Pair 2 — optional
+  slot('dip', 'pair-2', 'Dip progression', ['bench-dip', 'machine-dip', 'dip']),
+  slot('hinge', 'pair-2', 'Hinge progression', ['deadlift', 'barbell-rdl', 'hip-thrust']),
+  // Pair 3
+  slot('row', 'pair-3', 'Row progression', ['cable-row', 'machine-row', 't-bar-row']),
+  slot(
+    'push',
+    'pair-3',
+    'Push',
+    ['machine-chest-press', 'shoulder-press', 'push-up', 'diamond-push-up'],
+    true,
+  ),
+  // Isolations
+  slot('triceps', 'isolation', 'Triceps extension', [
+    'cable-pushdown',
+    'bar-pushdown',
+    'overhead-cable-extension',
+  ]),
+  slot('biceps', 'isolation', 'Biceps curl', ['zottman-curl', 'biceps-curl']),
+  slot('chest-fly', 'isolation', 'Extra chest', [
+    'low-to-high-cable-fly',
+    'high-to-low-cable-fly',
+  ]),
+  slot('lats', 'isolation', 'Lats', [
+    'lat-pulldown',
+    'close-grip-lat-pulldown',
+    'wide-grip-lat-pulldown',
+  ]),
+  // Leg day extras
+  slot('hamstring-curl', 'leg-day', 'Hamstring curl', ['hamstring-curl']),
+  slot('leg-raise', 'leg-day', 'Leg raises', ['leg-extension', 'hanging-leg-raise']),
+  slot('split-squat', 'leg-day', 'Bulgarian split squat', ['bulgarian-split-squat']),
+  slot('calves', 'leg-day', 'Calf raises', ['machine-calf-raise']),
+  // Core triplet
+  slot('anti-extension', 'core', 'Anti-extension', ['ab-wheel-rollout']),
+  slot('anti-rotation', 'core', 'Anti-rotation', ['pallof-press']),
+  slot('extension', 'core', 'Extension', ['back-extension']),
+  // Kettlebell core circuit
+  slot('kb-plank-pull-through', 'kb-core', 'Kettlebell core', ['kb-plank-pull-through']),
+  slot('kb-halo', 'kb-core', 'Kettlebell core', ['kb-halo']),
+  slot('kb-around-the-world', 'kb-core', 'Kettlebell core', ['kb-around-the-world']),
+  slot('kb-shoveling', 'kb-core', 'Kettlebell core', ['kb-shoveling']),
+  slot('kb-swing', 'kb-core', 'Kettlebell core', ['kb-swing']),
+  slot('kb-iron-trident', 'kb-core', 'Kettlebell core', ['kb-iron-trident']),
+  slot('kb-plank', 'kb-core', 'Kettlebell core', ['plank']),
+  slot('kb-situp-to-stand', 'kb-core', 'Kettlebell core', ['kb-situp-to-stand']),
+]
 
 export const SLOTS_BY_ID: Record<string, Slot> = Object.fromEntries(
   SLOTS.map((s) => [s.id, s]),
 )
 
-/** Which slot an exercise belongs to. */
+/** Which slot an exercise belongs to (undefined for retired exercises). */
 export function getSlot(exerciseId: string): Slot | undefined {
   const def = EXERCISES_BY_ID[exerciseId]
-  return def ? SLOTS_BY_ID[def.slot] : undefined
+  return def && !def.retired ? SLOTS_BY_ID[def.slot] : undefined
+}
+
+/** Which routine block an exercise belongs to (undefined for retired ones). */
+export function getBlock(exerciseId: string): Block | undefined {
+  const s = getSlot(exerciseId)
+  return s ? BLOCKS_BY_ID[s.block] : undefined
 }
 
 /** All exercises that can fill a slot (base first). */
 export function slotOptions(slotId: string): ExerciseDef[] {
-  const slot = SLOTS_BY_ID[slotId]
-  return slot ? slot.optionIds.map((id) => EXERCISES_BY_ID[id]) : []
+  const s = SLOTS_BY_ID[slotId]
+  return s ? s.optionIds.map((id) => EXERCISES_BY_ID[id]) : []
 }
 
-/** Compact set-scheme label, e.g. "3 × 8–12 · ea" or "3 × hold". */
+/** Compact set-scheme label, e.g. "3 × 5–8", "3 × 8–12 · ea" or "3 × 30s". */
 export function setScheme(def: ExerciseDef): string {
-  if (def.kind === 'time') return `${def.sets} × hold`
+  if (def.kind === 'time') {
+    return def.equipment === 'none'
+      ? `${def.sets} × hold`
+      : `${def.sets} × ${def.startSeconds ?? 30}s`
+  }
   return `${def.sets} × ${def.repMin}–${def.repMax}${def.perArm ? ' · ea' : ''}`
 }

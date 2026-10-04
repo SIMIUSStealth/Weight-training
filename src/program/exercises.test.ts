@@ -1,44 +1,91 @@
 import { describe, it, expect } from 'vitest'
-import { SLOTS, getExercise, getSlot, setScheme, slotOptions } from './exercises'
+import {
+  ALL_EXERCISES,
+  BLOCKS,
+  GYM_EXERCISES,
+  SLOTS,
+  getBlock,
+  getExercise,
+  getSlot,
+  setScheme,
+  slotOptions,
+} from './exercises'
+import { HOME_EXERCISES } from './home-exercises'
+import { ladderFor, rungIndex } from './ladder'
 import { selectedForSlot } from './plan'
 
 describe('slots & program selection', () => {
   it('honours a valid selection but ignores an id from another slot', () => {
-    expect(selectedForSlot('arm-biceps', { 'arm-biceps': 'hammer-curl' })).toBe(
-      'hammer-curl',
-    )
-    // plank belongs to ab-core, so it is rejected → base remains
-    expect(selectedForSlot('arm-biceps', { 'arm-biceps': 'plank' })).toBe(
-      'biceps-curl',
-    )
+    expect(selectedForSlot('biceps', { biceps: 'biceps-curl' })).toBe('biceps-curl')
+    // plank belongs to the kettlebell circuit, so it is rejected → base remains
+    expect(selectedForSlot('biceps', { biceps: 'plank' })).toBe('zottman-curl')
+    // a retired home exercise never fills a gym slot
+    expect(selectedForSlot('biceps', { biceps: 'hammer-curl' })).toBe('zottman-curl')
     // no selection → the base exercise
-    expect(selectedForSlot('chest-press')).toBe('floor-press')
+    expect(selectedForSlot('bench')).toBe('bench-press')
   })
 
   it('formats the set scheme consistently', () => {
-    expect(setScheme(getExercise('floor-press'))).toBe('3 × 8–12 · ea')
-    expect(setScheme(getExercise('triceps-extension'))).toBe('3 × 8–12')
+    expect(setScheme(getExercise('bench-press'))).toBe('3 × 5–8')
+    expect(setScheme(getExercise('pallof-press'))).toBe('3 × 8–12 · ea')
     expect(setScheme(getExercise('plank'))).toBe('3 × hold')
+    expect(setScheme(getExercise('kb-swing'))).toBe('3 × 30s')
   })
 
-  it('getSlot and slotOptions are consistent (base first)', () => {
-    const slot = getSlot('hammer-curl')
-    expect(slot?.id).toBe('arm-biceps')
-    const opts = slotOptions('arm-biceps').map((e) => e.id)
-    expect(opts[0]).toBe('biceps-curl')
-    expect(opts).toContain('hammer-curl')
+  it('getSlot, getBlock and slotOptions are consistent (base first)', () => {
+    expect(getSlot('db-bench-press')?.id).toBe('bench')
+    expect(getBlock('db-bench-press')?.id).toBe('pair-1')
+    const opts = slotOptions('bench').map((e) => e.id)
+    expect(opts[0]).toBe('bench-press')
+    expect(opts).toContain('incline-db-press')
+    // retired home exercises have no slot in the gym routine
+    expect(getSlot('floor-press')).toBeUndefined()
   })
 
-  it('every option in a slot matches the base kind and slot (structure intact)', () => {
+  it('every slot option exists, points back at its slot, and runs 3 sets', () => {
     for (const slot of SLOTS) {
-      const base = getExercise(slot.baseId)
       expect(slot.optionIds[0]).toBe(slot.baseId)
+      expect(BLOCKS.some((b) => b.id === slot.block)).toBe(true)
       for (const id of slot.optionIds) {
         const def = getExercise(id)
         expect(def.slot).toBe(slot.id)
-        expect(def.kind).toBe(base.kind) // time slots stay time, rep slots stay reps
+        expect(def.retired).toBeFalsy()
         expect(def.sets).toBe(3)
-        expect(def.muscle).toBe(base.muscle)
+      }
+    }
+  })
+
+  it('every gym exercise fills exactly one slot', () => {
+    const offered = SLOTS.flatMap((s) => s.optionIds)
+    expect(new Set(offered).size).toBe(offered.length)
+    expect([...offered].sort()).toEqual(GYM_EXERCISES.map((e) => e.id).sort())
+  })
+
+  it('every start load sits on its default ladder', () => {
+    for (const def of GYM_EXERCISES) {
+      expect(rungIndex(def.startWeightKg, ladderFor(def.equipment))).toBeGreaterThanOrEqual(0)
+    }
+  })
+
+  it('ids are unique across gym and retired home exercises', () => {
+    const ids = ALL_EXERCISES.map((e) => e.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(HOME_EXERCISES.every((e) => e.retired)).toBe(true)
+    // the home lifts that carried over into the gym keep their history
+    for (const id of ['plank', 'biceps-curl', 'goblet-squat', 'bulgarian-split-squat']) {
+      expect(getExercise(id).retired).toBeFalsy()
+    }
+  })
+
+  it('mirrors the routine: compounds 3 × 5–8, core triplet 3 × 8–12, KB moves 30 s', () => {
+    for (const slot of SLOTS) {
+      for (const def of slotOptions(slot.id)) {
+        if (slot.block.startsWith('pair')) expect([def.repMin, def.repMax]).toEqual([5, 8])
+        if (slot.block === 'core') expect([def.repMin, def.repMax]).toEqual([8, 12])
+        if (slot.block === 'kb-core') {
+          expect(def.kind).toBe('time')
+          expect(def.startSeconds).toBe(30)
+        }
       }
     }
   })

@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "A personal single-dumbbell hypertrophy coach (PWA). Tracks performance and drives double-progression overload.",
+  "description": "A personal gym strength coach (PWA). Tracks performance and drives double-progression overload.",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

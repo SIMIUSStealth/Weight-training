@@ -95,7 +95,7 @@ describe('muscleSetTotals', () => {
     const totals = muscleSetTotals([a, b])
     expect(totals.find((t) => t.muscle === 'Chest')!.sets).toBe(2)
     expect(totals.find((t) => t.muscle === 'Arms')!.sets).toBe(1)
-    expect(totals.find((t) => t.muscle === 'Abs')!.sets).toBe(0)
+    expect(totals.find((t) => t.muscle === 'Core')!.sets).toBe(0)
     expect(totals[0].muscle).toBe('Chest') // fixed order preserved
   })
 })
@@ -118,8 +118,8 @@ describe('strengthGains', () => {
 
 describe('longestWeekStreak', () => {
   const monPlan: DayPlan[] = [
-    { muscles: ['Chest'] },
-    ...Array.from({ length: 6 }, () => ({ muscles: [] as never[] })),
+    { blocks: ['pair-1'] },
+    ...Array.from({ length: 6 }, () => ({ blocks: [] as never[] })),
   ]
   function monday(weeksAgo: number): Date {
     const d = new Date(NOW)
@@ -175,11 +175,20 @@ describe('urgencies', () => {
     expect(stalled?.exerciseId).toBe('biceps-curl')
   })
 
-  it('flags a muscle untrained for 10+ days (but not never-trained ones)', () => {
-    const chest = sess('c', daysAgo(2, NOW), 'floor-press', 8, reps(8))
+  it('flags a planned muscle untrained for 10+ days (not never-trained or unplanned ones)', () => {
+    const chest = sess('c', daysAgo(2, NOW), 'bench-press', 30, reps(8))
+    const backOld = sess('b', daysAgo(12, NOW), 'cable-row', 35, reps(8))
     const forearmsOld = sess('f', daysAgo(12, NOW), 'wrist-curl', 4.5, reps(12))
-    const out = urgencies(plan, [chest, forearmsOld], noProgress, [], NOW)
-    expect(out.some((u) => u.kind === 'neglected' && /Forearms/.test(u.message))).toBe(true)
-    expect(out.some((u) => /Abs/.test(u.message))).toBe(false) // never trained
+    const planIds = ['bench-press', 'cable-row', 'pallof-press']
+    const out = urgencies(plan, [chest, backOld, forearmsOld], noProgress, planIds, NOW)
+    expect(out.some((u) => u.kind === 'neglected' && /Back/.test(u.message))).toBe(true)
+    expect(out.some((u) => /Core/.test(u.message))).toBe(false) // never trained
+    expect(out.some((u) => /Forearms/.test(u.message))).toBe(false) // not in the plan
+  })
+
+  it('leaves bodyweight-relative lifts out of strength gains', () => {
+    const s1 = sess('1', daysAgo(30, NOW), 'pull-up', -10, reps(6))
+    const s2 = sess('2', daysAgo(3, NOW), 'pull-up', 2.5, reps(8))
+    expect(strengthGains([s1, s2], ['pull-up'])).toEqual([])
   })
 })

@@ -4,11 +4,12 @@ import { Alert, ArrowUp, Info, Minus, Plus, X } from './icons'
 
 const MUSCLE_COLOR: Record<Muscle, string> = {
   Chest: 'var(--chest)',
+  Back: 'var(--back)',
   Shoulders: 'var(--shoulders)',
   Arms: 'var(--arms)',
-  Forearms: 'var(--forearms)',
-  Abs: 'var(--abs)',
   Legs: 'var(--legs)',
+  Core: 'var(--core)',
+  Forearms: 'var(--forearms)',
 }
 
 export function MuscleChip({ muscle }: { muscle: Muscle }) {

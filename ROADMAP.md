@@ -4,6 +4,17 @@ Running list of shipped features and the backlog, so ideas aren't lost.
 
 ## Shipped
 
+- **Gym routine (2026-10)** — the app moved from one adjustable dumbbell at home
+  to a full gym. The program is now the pairs routine in
+  `docs/training-program.md`: Pair 1 (pull-up · squat · bench), optional Pair 2
+  (dip · hinge), Pair 3 (row · push), optional isolations and leg-day extras, and
+  the core triplet or a kettlebell core circuit. Days are built from these
+  blocks; alternating blocks rotate "Next" round by round. Loads climb
+  per-equipment ladders (barbell, dumbbell rack, machine/cable stack, kettlebells,
+  assisted → bodyweight → belt), with the gym's step sizes in Settings. Home
+  exercises are retired but their history stays viewable ("Earlier exercises" on
+  Progress); plank, biceps curl, goblet squat and Bulgarian split squat carried
+  over with their history.
 - Guided session flow (11 slots, weight stepping on the ladder, rest timer,
   plank countdown, form cues, finish/split into parts).
 - Double-progression engine (auto level-up, stall detection + bridge coaching,
@@ -69,6 +80,11 @@ Running list of shipped features and the backlog, so ideas aren't lost.
 - **Edit a past session** (fix a mis-logged rep) + an **error boundary** with a
   one-tap export escape hatch.
 
+### Gym follow-ups
+- **Plate calculator** for barbell lifts (which plates per side for the target).
+- **Per-machine step sizes** (one global machine/cable step today).
+- **Warm-up sets** for the barbell compounds (bar × 10, 50 % × 5, 75 % × 3).
+
 ### Polish
 - **First-run calibration** wizard (bodyweight + dial in starting weights).
 - **Session notes** ("felt strong / shoulder twinge").
@@ -114,5 +130,5 @@ Adoptable (prioritized):
   - Apple Watch app, home-screen widgets, Live Activities (native-only APIs).
   - Social feed, leaderboards, routine sharing, coach marketplace (single-user
     app by design).
-  - Plate/barbell calculator (adjustable dumbbell — the ladder already is one).
+
   - Exercise video library (hosting out of scope; form cues + could link out).

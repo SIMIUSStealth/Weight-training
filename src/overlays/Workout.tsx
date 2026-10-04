@@ -1,8 +1,17 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { getExercise } from '../program/exercises'
-import { computeRecommendation, defaultProgress } from '../program/progression'
-import { formatKg, isTopRung, nextRung, prevRung } from '../program/ladder'
+import { getBlock, getExercise, getSlot } from '../program/exercises'
+import { computeRecommendation, defaultProgress, isLoaded } from '../program/progression'
+import {
+  formatLoad,
+  formatLoadShort,
+  isTopRung,
+  ladderFor,
+  nextRung,
+  prevRung,
+  resolveIncrements,
+} from '../program/ladder'
 import { formatSeconds } from '../program/analytics'
+import { alternatingGroup, groupRound, nextExerciseIndex } from '../program/flow'
 import { useStore } from '../store/useStore'
 import { Coach, Modal, MuscleChip, Stepper } from '../ui/components'
 import { Check, ChevronLeft, Minus, Plus, Timer, X } from '../ui/icons'
@@ -84,6 +93,10 @@ export function Workout() {
   const exercises = activeSession?.exercises ?? []
   const exLog = exercises[index]
   const def = exLog ? getExercise(exLog.exerciseId) : null
+  const increments = useMemo(
+    () => resolveIncrements(settings.increments),
+    [settings.increments],
+  )
   const rec = useMemo(
     () =>
       def
@@ -91,9 +104,10 @@ export function Workout() {
             def,
             progress[def.id] ?? defaultProgress(def),
             sessions,
+            increments,
           )
         : null,
-    [def, progress, sessions],
+    [def, progress, sessions, increments],
   )
   const target = rec?.targetSeconds ?? def?.startSeconds ?? 30
 
@@ -237,10 +251,11 @@ export function Workout() {
     }
   }
 
+  // The rest timer keeps running across exercises — in a pair you walk to the
+  // partner exercise during the rest. A timed set in progress is abandoned.
   const go = (next: number) => {
     setIndex(Math.min(exercises.length - 1, Math.max(0, next)))
     setShowForm(false)
-    stopRest()
     setHold(null)
   }
 
@@ -256,10 +271,18 @@ export function Workout() {
     setFinishPrompt(true)
   }
 
-  const isLast = index === exercises.length - 1
+  const nextIndex = nextExerciseIndex(exercises, index)
+  const group = alternatingGroup(exercises, index)
+  const block = getBlock(def.id)
+  const slot = getSlot(def.id)
   const weight = exLog.weightKg
+  const loaded = isLoaded(def)
+  const ladder = ladderFor(def.equipment, increments)
+  // An unloaded time exercise is a hold (plank); a loaded one is timed work
+  // with a kettlebell.
+  const isHold = def.kind === 'time' && !loaded
   const shortKg = (kg?: number) =>
-    kg == null ? '' : formatKg(kg).replace(' ', '')
+    kg == null ? '' : formatLoadShort(def.equipment, kg)
 
   return (
     <div className="overlay">
@@ -288,42 +311,54 @@ export function Workout() {
       <div className="overlay-body" key={def.id}>
         <div className="row between" style={{ marginBottom: 6 }}>
           <MuscleChip muscle={def.muscle} />
-          <span className="tiny faint">Exercise {def.order}</span>
+          {block && (
+            <span className="tiny faint" style={{ fontWeight: 700 }}>
+              {block.name}
+              {group ? ` · round ${groupRound(exercises, group)}` : ''}
+            </span>
+          )}
         </div>
-        <h1 style={{ fontSize: 24, margin: '2px 0 10px' }}>{def.name}</h1>
+        <h1 style={{ fontSize: 24, margin: '2px 0 4px' }}>{def.name}</h1>
+        {slot && (
+          <div className="tiny faint" style={{ marginBottom: 10 }}>
+            {slot.label}
+            {slot.optional || block?.optional ? ' · optional' : ''}
+            {group ? ' · alternate sets' : ''}
+          </div>
+        )}
 
-        {/* working weight / plank target */}
+        {/* working load / hold target */}
         <div className="card">
           <div className="row between">
             <div>
               <div className="tiny faint">
-                {def.kind === 'time'
+                {isHold
                   ? 'TARGET HOLD'
-                  : def.bodyweight
+                  : !loaded
                     ? 'BODYWEIGHT'
-                    : 'WORKING WEIGHT'}
+                    : def.equipment === 'kettlebell'
+                      ? 'KETTLEBELL'
+                      : 'WORKING LOAD'}
               </div>
               <div className="display" style={{ fontSize: 28, fontWeight: 800 }}>
-                {def.kind === 'time'
-                  ? formatSeconds(target)
-                  : def.bodyweight
-                    ? '—'
-                    : formatKg(weight)}
+                {isHold ? formatSeconds(target) : formatLoad(def.equipment, weight)}
               </div>
               <div className="tiny muted">
-                {def.kind === 'time'
+                {isHold
                   ? `${def.sets} sets · hold steady`
-                  : `${def.sets} × ${def.repMin}–${def.repMax} reps${
-                      def.perArm ? ' · each arm' : ''
-                    }`}
+                  : def.kind === 'time'
+                    ? `${def.sets} rounds × ${formatSeconds(target)}`
+                    : `${def.sets} × ${def.repMin}–${def.repMax} reps${
+                        def.perArm ? ' · each side' : ''
+                      }`}
               </div>
             </div>
-            {def.kind !== 'time' && !def.bodyweight && (
+            {loaded && (
               <div className="stepper">
                 <button
                   aria-label="lighter"
-                  disabled={prevRung(weight) === weight}
-                  onClick={() => setWorkingWeight(def.id, prevRung(weight))}
+                  disabled={prevRung(weight, ladder) === weight}
+                  onClick={() => setWorkingWeight(def.id, prevRung(weight, ladder))}
                 >
                   <Minus size={20} />
                 </button>
@@ -332,14 +367,19 @@ export function Workout() {
                 </div>
                 <button
                   aria-label="heavier"
-                  disabled={isTopRung(weight)}
-                  onClick={() => setWorkingWeight(def.id, nextRung(weight))}
+                  disabled={isTopRung(weight, ladder)}
+                  onClick={() => setWorkingWeight(def.id, nextRung(weight, ladder))}
                 >
                   <Plus size={20} />
                 </button>
               </div>
             )}
           </div>
+          {def.holdNote && (
+            <div className="tiny faint" style={{ marginTop: 8 }}>
+              {def.holdNote}
+            </div>
+          )}
         </div>
 
         {/* coaching */}
@@ -352,7 +392,7 @@ export function Workout() {
           {rec.effortNote && <Coach tone="info">{rec.effortNote}</Coach>}
         </div>
 
-        {/* plank live countdown */}
+        {/* timed set live countdown */}
         {def.kind === 'time' && hold && (
           <div className="hold-timer card">
             {hold.phase === 'ready' ? (
@@ -362,7 +402,7 @@ export function Workout() {
               </>
             ) : (
               <>
-                <div className="tiny faint">HOLD</div>
+                <div className="tiny faint">{isHold ? 'HOLD' : 'WORK'}</div>
                 <div className="hold-clock">{formatSeconds(Math.max(0, hold.display))}</div>
               </>
             )}
@@ -375,7 +415,7 @@ export function Workout() {
         {/* sets */}
         {rec.hasHistory && (
           <div className="tiny faint" style={{ margin: '0 2px 6px' }}>
-            Grey = last session ({def.kind === 'time' ? 'hold' : 'reps @ kg'})
+            Grey = last session ({def.kind === 'time' ? 'seconds' : 'reps @ load'})
           </div>
         )}
         <div className="card">
@@ -396,10 +436,16 @@ export function Workout() {
                     <div style={{ fontWeight: 800 }}>
                       {s.done ? formatSeconds(s.seconds ?? 0) : `Target ${formatSeconds(target)}`}
                     </div>
-                    <div className="tiny faint">{s.done ? 'held' : 'tap hold for the countdown'}</div>
+                    <div className="tiny faint">
+                      {s.done
+                        ? isHold
+                          ? 'held'
+                          : 'done'
+                        : `tap ${isHold ? 'hold' : 'go'} for the countdown`}
+                    </div>
                   </div>
                   <button className="btn btn-sm" disabled={!!hold} onClick={() => startHold(i)}>
-                    {s.done ? 'Redo' : 'Hold'}
+                    {s.done ? 'Redo' : isHold ? 'Hold' : 'Go'}
                   </button>
                   <button
                     className={'set-check' + (s.done ? ' done' : '')}
@@ -434,7 +480,7 @@ export function Workout() {
                           min={0}
                           max={60}
                           onChange={(v) => updateSet(def.id, i, { reps: v })}
-                          unit={def.perArm ? '/arm' : 'reps'}
+                          unit={def.perArm ? '/side' : 'reps'}
                         />
                       </div>
                       <button
@@ -520,13 +566,13 @@ export function Workout() {
           >
             <ChevronLeft size={22} />
           </button>
-          {isLast ? (
+          {nextIndex == null ? (
             <button className="btn btn-success btn-lg grow" onClick={attemptFinish}>
               Finish workout
             </button>
           ) : (
-            <button className="btn btn-primary btn-lg grow" onClick={() => go(index + 1)}>
-              Next: {getExercise(exercises[index + 1].exerciseId).name}
+            <button className="btn btn-primary btn-lg grow" onClick={() => go(nextIndex)}>
+              Next: {getExercise(exercises[nextIndex].exerciseId).name}
             </button>
           )}
         </div>
