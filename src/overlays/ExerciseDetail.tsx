@@ -7,6 +7,7 @@ import {
   type ExerciseDef,
 } from '../program/exercises'
 import { computeRecommendation, defaultProgress, isLoaded } from '../program/progression'
+import { getGuide } from '../program/guides'
 import { collectBests, tracksOneRM } from '../program/records'
 import {
   formatKg,
@@ -20,7 +21,7 @@ import {
 import { exerciseSeries, formatSeconds, relativeDay } from '../program/analytics'
 import { useStore } from '../store/useStore'
 import { LineChart } from '../ui/charts'
-import { Coach, Modal, MuscleChip, muscleColor } from '../ui/components'
+import { Coach, GuideLink, Modal, MuscleChip, muscleColor } from '../ui/components'
 import { ChevronLeft, ChevronRight, Minus, Plus, Trophy } from '../ui/icons'
 
 export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
@@ -320,9 +321,15 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
 
         {/* form */}
         <div className="eyebrow">Form</div>
+        {getGuide(def.id) && (
+          <p className="small muted" style={{ margin: '0 2px 10px' }}>
+            {getGuide(def.id)!.about}
+          </p>
+        )}
         <div className="coach">
           <span>{def.formCue}</span>
         </div>
+        <GuideLink exerciseId={def.id} />
       </div>
 
       {swapTo && slot && (

@@ -196,3 +196,9 @@ export const List = (p: P) => (
     <path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01" />
   </Svg>
 )
+
+export const ExternalLink = (p: P) => (
+  <Svg {...p}>
+    <path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
+  </Svg>
+)

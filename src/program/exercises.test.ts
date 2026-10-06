@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   ALL_EXERCISES,
   BLOCKS,
+  EXERCISES_BY_ID,
   GYM_EXERCISES,
   SLOTS,
   getBlock,
@@ -10,6 +11,7 @@ import {
   setScheme,
   slotOptions,
 } from './exercises'
+import { GUIDES } from './guides'
 import { HOME_EXERCISES } from './home-exercises'
 import { ladderFor, rungIndex } from './ladder'
 import { selectedForSlot } from './plan'
@@ -86,6 +88,24 @@ describe('slots & program selection', () => {
           expect(def.kind).toBe('time')
           expect(def.startSeconds).toBe(30)
         }
+      }
+    }
+  })
+})
+
+describe('exercise guides', () => {
+  it('every gym exercise has a one-line description', () => {
+    for (const def of GYM_EXERCISES) {
+      expect(GUIDES[def.id]?.about, def.id).toBeTruthy()
+    }
+  })
+
+  it('guides only name real exercises, and links are https with a source', () => {
+    for (const [id, g] of Object.entries(GUIDES)) {
+      expect(EXERCISES_BY_ID[id], id).toBeDefined()
+      if (g.url) {
+        expect(g.url.startsWith('https://'), id).toBe(true)
+        expect(g.source, id).toBeTruthy()
       }
     }
   })

@@ -612,10 +612,10 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
     repMin: 8,
     repMax: 12,
     equipment: 'cable',
-    startWeightKg: 40,
+    startWeightKg: 30,
     perArm: false,
     formCue:
-      'Thighs under the pad, hands just outside shoulder width. Pull the bar to your upper chest, driving the elbows down and back with the chest up; let it rise slowly to a full stretch. No leaning way back. Also the pull-up replacement.',
+      'Thighs locked under the pad, hands just outside shoulder width. Start each rep by pulling the shoulder blades DOWN (no shrug), then drive the elbows toward your back pockets and bring the bar to your collarbone — chest up, only a slight lean back (10–15°). Pause, then let it rise over 2–3 s to a full stretch, shoulders still down. Swinging your torso means it’s too heavy. First time: warm up light, then settle on the weight you can do 10 clean reps with ~2 to spare. Also the pull-up replacement.',
   },
   {
     id: 'close-grip-lat-pulldown',
@@ -627,7 +627,7 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
     repMin: 8,
     repMax: 12,
     equipment: 'cable',
-    startWeightKg: 40,
+    startWeightKg: 30,
     perArm: false,
     formCue:
       'V-handle or close neutral grip. Pull to your upper chest with the elbows tight to your sides, squeeze the lats, return slowly to a full stretch.',
@@ -642,7 +642,7 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
     repMin: 8,
     repMax: 12,
     equipment: 'cable',
-    startWeightKg: 35,
+    startWeightKg: 25,
     perArm: false,
     formCue:
       'Hands well outside shoulder width. Pull the bar to your upper chest, elbows driving down and out, chest up; control it back up to a full stretch.',

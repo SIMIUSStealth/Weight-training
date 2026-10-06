@@ -20,8 +20,9 @@ import {
 } from '../program/ladder'
 import { formatSeconds } from '../program/analytics'
 import { alternatingGroup, groupRound, nextExerciseIndex } from '../program/flow'
+import { getGuide } from '../program/guides'
 import { useStore } from '../store/useStore'
-import { Coach, Modal, MuscleChip, Stepper } from '../ui/components'
+import { Coach, GuideLink, Modal, MuscleChip, Stepper } from '../ui/components'
 import { Check, ChevronLeft, List, Minus, Plus, Timer, X } from '../ui/icons'
 
 // One shared AudioContext for the app's lifetime — iOS Safari caps live
@@ -104,6 +105,8 @@ export function Workout() {
   // Mid-workout editing sheets: the session overview, adding, swapping.
   const [sheet, setSheet] = useState<null | 'overview' | 'add' | 'swap'>(null)
   const alerted = useRef(false)
+  // The exercise strip in the header — keeps the current pill in view.
+  const stripRef = useRef<HTMLDivElement>(null)
 
   const exercises = activeSession?.exercises ?? []
   const exLog = exercises[index]
@@ -125,6 +128,11 @@ export function Workout() {
     [def, progress, sessions, increments],
   )
   const target = rec?.targetSeconds ?? def?.startSeconds ?? 30
+
+  useEffect(() => {
+    const pill = stripRef.current?.querySelector<HTMLElement>('.ex-pill.on')
+    pill?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
+  }, [index, exercises.length])
 
   // Rest countdown — derived from the deadline every 250ms.
   const restActive = rest !== null
@@ -326,6 +334,30 @@ export function Workout() {
         <div className="bar" style={{ marginTop: 10 }}>
           <span style={{ width: `${(doneSets / totalSets) * 100}%` }} />
         </div>
+        {/* jump to any exercise — machine taken? do another one first */}
+        <div className="ex-strip" ref={stripRef} role="tablist" aria-label="exercises">
+          {exercises.map((e, i) => {
+            const done = e.sets.filter((s) => s.done).length
+            const finished = done > 0 && done === e.sets.length
+            return (
+              <button
+                key={e.exerciseId}
+                role="tab"
+                aria-selected={i === index}
+                className={'ex-pill' + (i === index ? ' on' : finished ? ' done' : '')}
+                onClick={() => go(i)}
+              >
+                {finished && <Check size={13} />}
+                <span className="nm">{getExercise(e.exerciseId).name}</span>
+                {!finished && done > 0 && (
+                  <span className="ct">
+                    {done}/{e.sets.length}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       <div className="overlay-body" key={def.id}>
@@ -352,6 +384,11 @@ export function Workout() {
             {slot.optional || block?.optional ? ' · optional' : ''}
             {group ? ' · alternate sets' : ''}
           </div>
+        )}
+        {getGuide(def.id) && (
+          <p className="small muted" style={{ margin: '0 2px 12px' }}>
+            {getGuide(def.id)!.about}
+          </p>
         )}
 
         {/* working load / hold target */}
@@ -577,6 +614,7 @@ export function Workout() {
             <span>{def.formCue}</span>
           </div>
         )}
+        <GuideLink exerciseId={def.id} />
 
         <button
           className="btn btn-danger btn-block btn-sm"

@@ -425,7 +425,7 @@ describe('store: editing a workout in progress', () => {
     s.addToSession('lat-pulldown') // isolation → after Pair 3, before core
     const after = ids()
     expect(after.indexOf('lat-pulldown')).toBe(after.indexOf('machine-chest-press') + 1)
-    expect(useStore.getState().progress['lat-pulldown'].currentWeightKg).toBe(40)
+    expect(useStore.getState().progress['lat-pulldown'].currentWeightKg).toBe(30)
     s.addToSession('lat-pulldown') // no duplicates
     expect(ids().filter((id) => id === 'lat-pulldown')).toHaveLength(1)
     s.removeFromSession('deadlift')

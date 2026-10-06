@@ -30,13 +30,23 @@ export function alternatingGroup(
 const setsLeft = (log: ExerciseLog) => log.sets.some((s) => !s.done)
 const setsDone = (log: ExerciseLog) => log.sets.some((s) => s.done)
 
+/** First exercise from `from` onward that still has sets left, or null. */
+function nextOpen(exercises: ExerciseLog[], from: number): number | null {
+  for (let i = from; i < exercises.length; i++) if (setsLeft(exercises[i])) return i
+  return null
+}
+
 /**
- * Where "Next" goes from `index`; null at the end of the session.
+ * Where "Next" goes from `index`; null when nothing further on is left.
  *
  * Inside a group: the next member further on that still has sets left. Wrap
  * back to the group's start for the next round only once the current member
  * has a set logged — so just browsing past a group (or skipping an optional
  * pair) never traps you in it.
+ *
+ * Moving on skips exercises that are already finished — after jumping ahead
+ * (a machine was taken) and coming back, "Next" doesn't walk you through
+ * work you've done.
  */
 export function nextExerciseIndex(
   exercises: ExerciseLog[],
@@ -49,9 +59,9 @@ export function nextExerciseIndex(
     if (setsDone(exercises[index])) {
       for (let i = start; i < index; i++) if (setsLeft(exercises[i])) return i
     }
-    return end + 1 < exercises.length ? end + 1 : null
+    return nextOpen(exercises, end + 1)
   }
-  return index + 1 < exercises.length ? index + 1 : null
+  return nextOpen(exercises, index + 1)
 }
 
 /** 1-based round the group is on (the fewest sets done by any member, + 1). */

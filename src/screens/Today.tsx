@@ -52,6 +52,12 @@ export function Today() {
     return null
   }, [statuses, today, activeSession])
 
+  // Every other training day, one tap away — the week doesn't have to run in
+  // order; train whichever workout fits the day.
+  const otherDays = activeSession
+    ? []
+    : statuses.filter((d) => d.status !== 'rest' && d.weekday !== upNext)
+
   const sinceBackup = daysSince(settings.lastBackupAt)
   const backupOverdue = sessions.length > 0 && (sinceBackup == null || sinceBackup >= 7)
   const backupNow = async () => {
@@ -133,6 +139,28 @@ export function Today() {
           yours. 💪
         </Coach>
       ) : null}
+
+      {otherDays.length > 0 && (
+        <>
+          <div className="tiny faint" style={{ margin: '14px 2px 8px', fontWeight: 700 }}>
+            {upNext != null ? 'Or start a different workout' : 'Extra session'}
+          </div>
+          <div className="row wrap" style={{ gap: 6 }}>
+            {otherDays.map((d) => (
+              <button
+                key={d.weekday}
+                className={'ex-pill' + (d.status === 'done' ? ' done' : '')}
+                onClick={() => startDay(d.weekday)}
+              >
+                {d.status === 'done' && <Check size={13} />}
+                <span className="nm">
+                  {WEEKDAYS[d.weekday]} · {dayLabel(plan[d.weekday])}
+                </span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       {backupOverdue && (
         <div className="coach coach-stall" style={{ marginTop: 12 }}>

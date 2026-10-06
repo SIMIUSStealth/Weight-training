@@ -4,6 +4,15 @@ Running list of shipped features and the backlog, so ideas aren't lost.
 
 ## Shipped
 
+- **Form guides + easier navigation (2026-10)** — every exercise shows a
+  one-line "what is it" and a "See the form" link to a reputable exercise
+  library (ACE Fitness, ExRx.net, NASM, Catalyst Athletics; `guides.ts`). The
+  workout header has a scrollable strip of every exercise (done ✓ / sets logged)
+  to jump straight to whatever machine is free, and "Next" skips exercises
+  you've already finished. Today offers one-tap starts for any other training
+  day, not just the next one. Lat pulldown cue rewritten (shoulder blades down
+  first, elbows to back pockets, bar to collarbone, slow return); its start
+  loads drop to 30 / 30 / 25 kg.
 - **Flexible workouts (2026-10)** — tap the workout header for an overview of
   every exercise and its sets (jump to any one), add an exercise from any block,
   remove one you haven't started, swap the current exercise for another option

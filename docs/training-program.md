@@ -102,7 +102,7 @@ as the place to perfect it.
 | Triceps extension | **Cable triceps pushdown** (rope) · Triceps bar pushdown · Overhead cable extension | 15 · 20 · 10 kg |
 | Biceps curl | **Zottman curl** · Biceps curl | 8 kg dumbbells |
 | Extra chest | **Low-to-high cable fly** (upper chest) · High-to-low cable fly (lower chest) | 5 kg per stack |
-| Lats (also the pull-up replacement) | **Lat pulldown** · Close-grip · Wide-grip | 40 · 40 · 35 kg |
+| Lats (also the pull-up replacement) | **Lat pulldown** · Close-grip · Wide-grip | 30 · 30 · 25 kg |
 
 ### Leg day extras (3 × 8–12)
 
@@ -127,7 +127,9 @@ Plank pull-through (12 kg) · Halo (8 kg) · Around the world (12 kg) · Shoveli
 (12 kg) · Swing (16 kg) · Iron trident (12 kg) · Plank (no kettlebell) ·
 Sit-up to stand (8 kg — works the legs too).
 
-Form cues for every exercise live in the app (`src/program/exercises.ts`).
+Form cues for every exercise live in the app (`src/program/exercises.ts`), with a
+one-line description and a link to a form guide from a reputable exercise library
+(ACE Fitness, ExRx.net, NASM, Catalyst Athletics) in `src/program/guides.ts`.
 
 ---
 

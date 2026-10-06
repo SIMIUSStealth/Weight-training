@@ -72,6 +72,31 @@ describe('nextExerciseIndex', () => {
     expect(nextExerciseIndex(finished, 6)).toBeNull()
   })
 
+  it('moving on skips exercises that are already finished', () => {
+    // Did the isolation and the first core move early (machine was free).
+    const s = sessionWith({
+      'pull-up': 3,
+      'back-squat': 3,
+      'bench-press': 3,
+      'cable-pushdown': 3,
+      'ab-wheel-rollout': 3,
+    })
+    expect(nextExerciseIndex(s, 2)).toBe(5) // past the done pushdown, into the core
+    expect(nextExerciseIndex(sessionWith({ 'cable-pushdown': 3 }), 2)).toBe(4)
+  })
+
+  it('nothing open further on is the end, even with skipped work behind', () => {
+    const s = sessionWith({ 'pallof-press': 3, 'back-extension': 3 })
+    expect(nextExerciseIndex(s, 3)).toBe(4)
+    const tail = sessionWith({
+      'cable-pushdown': 3,
+      'ab-wheel-rollout': 3,
+      'pallof-press': 3,
+      'back-extension': 3,
+    })
+    expect(nextExerciseIndex(tail, 2)).toBeNull()
+  })
+
   it('reports the round the group is on', () => {
     expect(groupRound(sessionWith(), [0, 2])).toBe(1)
     expect(groupRound(sessionWith({ 'pull-up': 2, 'back-squat': 1, 'bench-press': 1 }), [0, 2])).toBe(2)

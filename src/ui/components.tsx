@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from 'react'
 import type { Muscle } from '../program/exercises'
-import { Alert, ArrowUp, Info, Minus, Plus, X } from './icons'
+import { getGuide } from '../program/guides'
+import { Alert, ArrowUp, ExternalLink, Info, Minus, Plus, X } from './icons'
 
 const MUSCLE_COLOR: Record<Muscle, string> = {
   Chest: 'var(--chest)',
@@ -173,5 +174,24 @@ export function Modal({
         {children}
       </div>
     </div>
+  )
+}
+
+/** "See the form" link to the exercise's guide on a reputable library. */
+export function GuideLink({ exerciseId }: { exerciseId: string }) {
+  const guide = getGuide(exerciseId)
+  if (!guide?.url) return null
+  return (
+    <a
+      className="btn btn-sm btn-block guide-link"
+      href={guide.url}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <span>
+        See the form <span className="faint">· {guide.source}</span>
+      </span>
+      <ExternalLink size={16} />
+    </a>
   )
 }
