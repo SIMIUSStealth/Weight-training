@@ -5,18 +5,18 @@ your iPhone, stores everything on-device, and drives **double progression** so
 the work gets harder over time. Think "Runna, but for your gym routine."
 
 It implements the training spec in [`docs/training-program.md`](docs/training-program.md):
-three pairs of compounds (pull-up · squat · bench, dip · hinge, row · push), a
-core triplet or kettlebell core circuit, and optional isolations / leg-day
-extras — 3 sets each, every exercise climbing its own load ladder. (The original
+three short full-body workouts — A (squat & bench), B (hinge & press) and C
+(leg press & chest) — each three supersetted pairs, six exercises, 3 sets each,
+every exercise climbing its own load ladder. (The original
 single-dumbbell home program is retired but its history is kept:
 [`docs/home-dumbbell-program.md`](docs/home-dumbbell-program.md).)
 
 ## What it does
 
-- **Guided sessions** — step through the routine block by block, with form cues,
+- **Guided sessions** — step through the workout pair by pair, with form cues,
   a rest timer (~90 s), and a countdown for timed work (plank, kettlebell
-  circuit). In pairs, triplets and the circuit, **Next** alternates through the
-  group round by round.
+  circuit). In a pair (and the circuit), **Next** alternates through the group
+  round by round.
 - **Double progression, automatic** — add reps toward the top of the range; once
   you hit all three sets at the top, it bumps you one step on that exercise's
   ladder: the next barbell plate, dumbbell, machine pin or kettlebell — or less

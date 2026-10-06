@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  ROUTINE,
+  WORKOUTS,
   addableForBlock,
   dayExercises,
   dayLabel,
@@ -14,59 +14,71 @@ import {
 import type { DayPlan } from '../storage/types'
 
 describe('weekly plan', () => {
-  it('default = the full routine Mon/Wed/Fri (Wed leg day, Fri isolations)', () => {
+  it('default = Workout A Mon, B Wed, C Fri', () => {
     const plan = defaultWeeklyPlan()
     expect(plan).toHaveLength(7)
     expect(trainingDayCount(plan)).toBe(3)
-    expect(plan[0].blocks).toEqual(ROUTINE)
+    expect(plan[0].blocks).toEqual(['day-a'])
     expect(plan[1].blocks).toHaveLength(0) // Tue rest
-    expect(plan[2].blocks).toContain('leg-day')
-    expect(plan[4].blocks).toContain('isolation')
+    expect(plan[2].blocks).toEqual(['day-b'])
+    expect(plan[4].blocks).toEqual(['day-c'])
+    expect(plan.flatMap((d) => d.blocks)).toEqual(WORKOUTS)
   })
 
-  it('runs the routine in order: pairs, then core', () => {
-    expect(dayExercises(defaultWeeklyPlan()[0]).map((e) => e.id)).toEqual([
-      'pull-up',
+  it('runs each workout as three pairs, six exercises', () => {
+    const [mon, , wed, , fri] = defaultWeeklyPlan().map((d) => dayExercises(d).map((e) => e.id))
+    expect(mon).toEqual([
       'back-squat',
+      'pull-up',
       'bench-press',
-      'bench-dip',
-      'deadlift',
       'cable-row',
-      'machine-chest-press',
-      'ab-wheel-rollout',
+      'hamstring-curl',
+      'ab-machine',
+    ])
+    expect(wed).toEqual([
+      'barbell-rdl',
+      'lat-pulldown',
+      'shoulder-press',
+      'dip',
+      'zottman-curl',
       'pallof-press',
+    ])
+    expect(fri).toEqual([
+      'leg-press',
+      'machine-row',
+      'pec-deck',
+      'cable-pushdown',
       'back-extension',
+      'hanging-leg-raise',
     ])
   })
 
-  it('derives only the chosen blocks', () => {
-    const day: DayPlan = { blocks: ['pair-1', 'core'] }
-    expect(dayExercises(day).map((e) => e.id)).toEqual([
-      'pull-up',
-      'back-squat',
-      'bench-press',
-      'ab-wheel-rollout',
-      'pallof-press',
-      'back-extension',
-    ])
+  it('every workout is full body: legs, a push, a pull and core', () => {
+    for (const day of defaultWeeklyPlan().filter((d) => d.blocks.length)) {
+      const muscles = dayMuscles(day)
+      for (const m of ['Legs', 'Back', 'Chest', 'Core'] as const) expect(muscles).toContain(m)
+    }
   })
 
   it('respects omit and add — extras sit next to their slot', () => {
     const day: DayPlan = {
-      blocks: ['pair-1'],
+      blocks: ['day-a'],
       omit: ['pull'],
-      add: ['incline-db-press', 'lat-pulldown'],
+      add: ['incline-db-press', 'machine-calf-raise'],
     }
     expect(dayExercises(day).map((e) => e.id)).toEqual([
       'back-squat',
       'bench-press',
       'incline-db-press', // extra, beside its slot
-      'lat-pulldown', // extra from a block that's off — no other isolations
+      'cable-row',
+      'hamstring-curl',
+      'ab-machine',
+      'machine-calf-raise', // from a block that's off — rides along alone
     ])
   })
 
   it('honours a global swap selection', () => {
-    const ids = dayExercises({ blocks: ['pair-1'] }, { bench: 'db-bench-press' }).map(
+    const ids = dayExercises({ blocks: ['day-a'] }, { bench: 'db-bench-press' }).map(
       (e) => e.id,
     )
     expect(ids).toContain('db-bench-press')
@@ -74,9 +86,10 @@ describe('weekly plan', () => {
   })
 
   it('offers what a block can add', () => {
-    const day: DayPlan = { blocks: ['isolation'] }
-    const ids = addableForBlock('isolation', day).map((e) => e.id)
+    const day: DayPlan = { blocks: ['day-b'] }
+    const ids = addableForBlock('day-b', day).map((e) => e.id)
     expect(ids).toContain('biceps-curl') // the alternative to the Zottman
+    expect(ids).toContain('deadlift') // the alternative to the RDL
     expect(ids).not.toContain('zottman-curl') // already in the day
     expect(ids).not.toContain('bench-press') // another block
   })
@@ -87,29 +100,28 @@ describe('weekly plan', () => {
   })
 
   it('labels days by their blocks', () => {
-    expect(dayLabel(defaultWeeklyPlan()[0])).toBe('Full routine')
-    expect(dayLabel(defaultWeeklyPlan()[2])).toBe('Full routine · Leg day')
-    expect(dayLabel({ blocks: ['core', 'pair-1'] })).toBe('Pair 1 · Core')
-    expect(dayLabel({ blocks: ['pair-1', 'pair-2', 'pair-3', 'kb-core'] })).toBe(
-      'Pair 1 · Pair 2 · Pair 3 · KB core',
-    )
+    expect(dayLabel(defaultWeeklyPlan()[0])).toBe('Workout A · Squat & Bench')
+    expect(dayLabel(defaultWeeklyPlan()[4])).toBe('Workout C · Leg Press & Chest')
+    expect(dayLabel({ blocks: ['extras', 'day-b'] })).toBe('Workout B · Extras')
   })
 
   it('unions every exercise the plan can use, deduped', () => {
     const plan = defaultWeeklyPlan()
     plan[0].add = ['goblet-squat']
+    plan[2].add = ['goblet-squat']
     const ids = planExercises(plan).map((e) => e.id)
-    expect(ids).toContain('goblet-squat')
-    expect(ids).toContain('hamstring-curl') // Wednesday's leg day
-    expect(ids.filter((id) => id === 'bench-press')).toHaveLength(1) // 3 days, once
+    expect(ids.filter((id) => id === 'goblet-squat')).toHaveLength(1)
+    expect(ids).toHaveLength(19) // 3 × 6 + the extra
   })
 
   it('counts training days per muscle', () => {
     const freq = muscleFrequency(defaultWeeklyPlan())
+    expect(freq.Legs).toBe(3)
     expect(freq.Chest).toBe(3)
     expect(freq.Back).toBe(3)
+    expect(freq.Core).toBe(3)
     expect(freq.Forearms).toBe(0)
-    expect(dayMuscles({ blocks: ['core'] })).toEqual(['Core'])
+    expect(dayMuscles({ blocks: ['extras'] })).toEqual(['Chest', 'Legs'])
   })
 
   it('replaces a pre-gym (muscle-group) plan with the gym week', () => {
@@ -120,7 +132,7 @@ describe('weekly plan', () => {
 
   it('drops unknown block ids from a stored plan', () => {
     const plan = defaultWeeklyPlan()
-    plan[0] = { blocks: ['pair-1', 'cardio' as never] }
-    expect(getWeeklyPlan(plan)[0].blocks).toEqual(['pair-1'])
+    plan[0] = { blocks: ['day-a', 'pair-1' as never] }
+    expect(getWeeklyPlan(plan)[0].blocks).toEqual(['day-a'])
   })
 })

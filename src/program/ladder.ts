@@ -144,6 +144,17 @@ export function formatKg(weightKg: number): string {
   return `${s} kg`
 }
 
+/**
+ * A weight typed in by hand ("37,5", "40.25", " 130 ") → kg rounded to 0,01,
+ * or null when it isn't a plain non-negative number up to `max`.
+ */
+export function parseKg(text: string, max = 500): number | null {
+  const t = text.trim().replace(',', '.')
+  if (!/^\d+(\.\d+)?$/.test(t)) return null
+  const kg = Math.round(Number(t) * 100) / 100
+  return kg <= max ? kg : null
+}
+
 /** True when the load is relative to bodyweight (added / assisted). */
 export function isRelativeLoad(equipment: Equipment): boolean {
   return equipment === 'bodyweight' || equipment === 'assisted'

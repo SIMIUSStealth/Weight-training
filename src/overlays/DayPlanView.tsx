@@ -161,8 +161,8 @@ export function DayPlanView({ weekday }: { weekday: number }) {
                         <div style={{ fontWeight: 700 }}>{e.name}</div>
                         <div className="tiny faint">
                           {setScheme(e)}
+                          {slot?.pair ? ` · Pair ${slot.pair}` : ''}
                           {slot ? ` · ${slot.label}` : ''}
-                          {slot?.optional ? ' · optional' : ''}
                         </div>
                       </div>
                       {slot && slot.optionIds.length > 1 && (

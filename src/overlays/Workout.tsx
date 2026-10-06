@@ -22,8 +22,8 @@ import { formatSeconds } from '../program/analytics'
 import { alternatingGroup, groupRound, nextExerciseIndex } from '../program/flow'
 import { getGuide } from '../program/guides'
 import { useStore } from '../store/useStore'
-import { Coach, GuideLink, Modal, MuscleChip, Stepper } from '../ui/components'
-import { Check, ChevronLeft, List, Minus, Plus, Timer, X } from '../ui/icons'
+import { Coach, GuideLink, Modal, MuscleChip, Stepper, WeightEditor } from '../ui/components'
+import { Check, ChevronLeft, List, Minus, Pencil, Plus, Timer, X } from '../ui/icons'
 
 // One shared AudioContext for the app's lifetime — iOS Safari caps live
 // contexts (~4), so creating one per beep permanently kills audio mid-workout.
@@ -103,7 +103,7 @@ export function Workout() {
   const holdPhaseStartRef = useRef(0)
   const [finishPrompt, setFinishPrompt] = useState(false)
   // Mid-workout editing sheets: the session overview, adding, swapping.
-  const [sheet, setSheet] = useState<null | 'overview' | 'add' | 'swap'>(null)
+  const [sheet, setSheet] = useState<null | 'overview' | 'add' | 'swap' | 'weight'>(null)
   const alerted = useRef(false)
   // The exercise strip in the header — keeps the current pill in view.
   const stripRef = useRef<HTMLDivElement>(null)
@@ -365,7 +365,8 @@ export function Workout() {
           <MuscleChip muscle={def.muscle} />
           {block && (
             <span className="tiny faint" style={{ fontWeight: 700 }}>
-              {block.name}
+              {block.short}
+              {slot?.pair ? ` · Pair ${slot.pair}` : ''}
               {group ? ` · round ${groupRound(exercises, group)}` : ''}
             </span>
           )}
@@ -381,7 +382,7 @@ export function Workout() {
         {slot && (
           <div className="tiny faint" style={{ marginBottom: 10 }}>
             {slot.label}
-            {slot.optional || block?.optional ? ' · optional' : ''}
+            {block?.optional ? ' · optional' : ''}
             {group ? ' · alternate sets' : ''}
           </div>
         )}
@@ -404,9 +405,22 @@ export function Workout() {
                       ? 'KETTLEBELL'
                       : 'WORKING LOAD'}
               </div>
-              <div className="display" style={{ fontSize: 28, fontWeight: 800 }}>
-                {isHold ? formatSeconds(target) : formatLoad(def.equipment, weight)}
-              </div>
+              {loaded && !isHold ? (
+                <button
+                  type="button"
+                  className="display load-btn"
+                  style={{ fontSize: 28 }}
+                  onClick={() => setSheet('weight')}
+                  aria-label="type the weight"
+                >
+                  {formatLoad(def.equipment, weight)}
+                  <Pencil size={16} />
+                </button>
+              ) : (
+                <div className="display" style={{ fontSize: 28, fontWeight: 800 }}>
+                  {isHold ? formatSeconds(target) : formatLoad(def.equipment, weight)}
+                </div>
+              )}
               <div className="tiny muted">
                 {isHold
                   ? `${def.sets} sets · hold steady`
@@ -804,6 +818,17 @@ export function Workout() {
             )
           })}
         </Modal>
+      )}
+
+      {sheet === 'weight' && (
+        <WeightEditor
+          title={def.name}
+          equipment={def.equipment}
+          weightKg={weight}
+          note="becomes your weight when you finish"
+          onSave={(kg) => setWorkingWeight(def.id, kg)}
+          onClose={() => setSheet(null)}
+        />
       )}
 
       {finishPrompt && (

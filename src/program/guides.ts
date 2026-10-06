@@ -3,7 +3,8 @@
 // on Exercise) first, then ExRx.net, NASM and Catalyst Athletics where ACE has
 // no matching page. Kept apart from exercises.ts so the routine data stays
 // readable. Moves without a trusted page (the less common kettlebell circuit
-// moves, diamond push-up, Zottman curl) carry only the description.
+// moves, diamond push-up, Zottman curl, and the leg press, pec deck and
+// abdominal machine, which vary a lot by brand) carry only the description.
 
 export interface ExerciseGuide {
   /** One-line "what is it": the movement and what it trains. */
@@ -21,7 +22,7 @@ const EXRX = 'ExRx.net'
 const exrx = (path: string) => `https://exrx.net/WeightExercises/${path}`
 
 export const GUIDES: Record<string, ExerciseGuide> = {
-  // ----- Pair 1 -----
+  // ----- Squat, pull, bench -----
   'pull-up': {
     about: 'Hang from a bar and pull your chin over it. The main vertical pull: lats, upper back and biceps.',
     url: ace('191/pull-ups'),
@@ -58,7 +59,7 @@ export const GUIDES: Record<string, ExerciseGuide> = {
     source: EXRX,
   },
 
-  // ----- Pair 2 -----
+  // ----- Dips and hinges -----
   'bench-dip': {
     about: 'Hands on a bench behind you, lower and press yourself back up. Mostly triceps, plus chest and front shoulders.',
     url: 'https://www.nasm.org/resource-center/exercise-library/bench-dips',
@@ -90,7 +91,7 @@ export const GUIDES: Record<string, ExerciseGuide> = {
     source: EXRX,
   },
 
-  // ----- Pair 3 -----
+  // ----- Rows and presses -----
   'cable-row': {
     about: 'Seated, pull a cable handle to your stomach. Mid-back, lats and rear shoulders: good for posture.',
     url: ace('48/seated-row'),
@@ -125,7 +126,10 @@ export const GUIDES: Record<string, ExerciseGuide> = {
     about: 'A push-up with your hands together under your chest. Shifts the work onto the triceps.',
   },
 
-  // ----- Isolations -----
+  // ----- Arms, chest, lats -----
+  'pec-deck': {
+    about: 'Seated machine where you sweep two handles together in front of your chest. Isolates the chest with a deep, safe stretch.',
+  },
   'cable-pushdown': {
     about: 'Push a rope down from a high cable by straightening your elbows. Isolates the triceps.',
     url: ace('333/tricep-pressdown'),
@@ -175,7 +179,10 @@ export const GUIDES: Record<string, ExerciseGuide> = {
     source: ACE,
   },
 
-  // ----- Leg day -----
+  // ----- Legs -----
+  'leg-press': {
+    about: 'Seated sled you press away with your legs. Heavy quad and glute work without loading your spine.',
+  },
   'hamstring-curl': {
     about: 'Machine curl of your heels toward your glutes. Isolates the hamstrings.',
     url: ace('153/lying-hamstrings-curl'),
@@ -202,7 +209,10 @@ export const GUIDES: Record<string, ExerciseGuide> = {
     source: ACE,
   },
 
-  // ----- Core triplet -----
+  // ----- Core -----
+  'ab-machine': {
+    about: 'Seated crunch machine with a weight stack. Loaded ab work you can progress like any lift.',
+  },
   'ab-wheel-rollout': {
     about: 'Roll a wheel out in front of you and pull it back without your lower back sagging. Anti-extension core strength.',
     url: 'https://catalystathletics.com/exercise/135/Ab-Rollout/',

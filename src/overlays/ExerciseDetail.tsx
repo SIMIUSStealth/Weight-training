@@ -21,8 +21,8 @@ import {
 import { exerciseSeries, formatSeconds, relativeDay } from '../program/analytics'
 import { useStore } from '../store/useStore'
 import { LineChart } from '../ui/charts'
-import { Coach, GuideLink, Modal, MuscleChip, muscleColor } from '../ui/components'
-import { ChevronLeft, ChevronRight, Minus, Plus, Trophy } from '../ui/icons'
+import { Coach, GuideLink, Modal, MuscleChip, muscleColor, WeightEditor } from '../ui/components'
+import { ChevronLeft, ChevronRight, Minus, Pencil, Plus, Trophy } from '../ui/icons'
 
 export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
   const def = getExercise(exerciseId)
@@ -36,6 +36,7 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
   const closeOverlay = useStore((s) => s.closeOverlay)
 
   const [swapTo, setSwapTo] = useState<ExerciseDef | null>(null)
+  const [editWeight, setEditWeight] = useState(false)
 
   const p = progress[exerciseId] ?? defaultProgress(def)
   const slot = getSlot(exerciseId)
@@ -107,11 +108,24 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
                       ? 'KETTLEBELL'
                       : 'CURRENT LOAD'}
               </div>
-              <div className="display" style={{ fontSize: 32, fontWeight: 800 }}>
-                {isHold
-                  ? formatSeconds(p.targetSeconds ?? def.startSeconds ?? 0)
-                  : formatLoad(def.equipment, p.currentWeightKg)}
-              </div>
+              {loaded && !isHold ? (
+                <button
+                  type="button"
+                  className="display load-btn"
+                  style={{ fontSize: 32 }}
+                  onClick={() => setEditWeight(true)}
+                  aria-label="type the weight"
+                >
+                  {formatLoad(def.equipment, p.currentWeightKg)}
+                  <Pencil size={17} />
+                </button>
+              ) : (
+                <div className="display" style={{ fontSize: 32, fontWeight: 800 }}>
+                  {isHold
+                    ? formatSeconds(p.targetSeconds ?? def.startSeconds ?? 0)
+                    : formatLoad(def.equipment, p.currentWeightKg)}
+                </div>
+              )}
               <div className="tiny muted">
                 {def.sets} ×{' '}
                 {isHold
@@ -358,6 +372,17 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
             Swap to {swapTo.name}
           </button>
         </Modal>
+      )}
+
+      {editWeight && (
+        <WeightEditor
+          title={def.name}
+          equipment={def.equipment}
+          weightKg={p.currentWeightKg}
+          note="your next workout starts here"
+          onSave={(kg) => setExerciseWeight(exerciseId, kg)}
+          onClose={() => setEditWeight(false)}
+        />
       )}
     </div>
   )

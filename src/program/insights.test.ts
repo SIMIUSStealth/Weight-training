@@ -118,7 +118,7 @@ describe('strengthGains', () => {
 
 describe('longestWeekStreak', () => {
   const monPlan: DayPlan[] = [
-    { blocks: ['pair-1'] },
+    { blocks: ['day-a'] },
     ...Array.from({ length: 6 }, () => ({ blocks: [] as never[] })),
   ]
   function monday(weeksAgo: number): Date {

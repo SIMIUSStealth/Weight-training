@@ -7,6 +7,7 @@ import {
   isTopRung,
   ladderFor,
   nextRung,
+  parseKg,
   prevRung,
   resolveIncrements,
 } from './ladder'
@@ -90,6 +91,14 @@ describe('load ladders', () => {
       barbell: 2.5,
       machine: 2.5,
     })
+  })
+
+  it('parses a typed-in weight, comma or dot', () => {
+    expect(parseKg('37,5')).toBe(37.5)
+    expect(parseKg(' 130 ')).toBe(130)
+    expect(parseKg('40.25')).toBe(40.25)
+    expect(parseKg('0')).toBe(0)
+    for (const bad of ['', 'abc', '-5', '1,2,3', '12kg', '9999']) expect(parseKg(bad), bad).toBeNull()
   })
 
   it('formats decimals with a comma, like the spec', () => {

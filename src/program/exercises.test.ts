@@ -5,6 +5,7 @@ import {
   EXERCISES_BY_ID,
   GYM_EXERCISES,
   SLOTS,
+  alternateGroupKey,
   getBlock,
   getExercise,
   getSlot,
@@ -36,7 +37,7 @@ describe('slots & program selection', () => {
 
   it('getSlot, getBlock and slotOptions are consistent (base first)', () => {
     expect(getSlot('db-bench-press')?.id).toBe('bench')
-    expect(getBlock('db-bench-press')?.id).toBe('pair-1')
+    expect(getBlock('db-bench-press')?.id).toBe('day-a')
     const opts = slotOptions('bench').map((e) => e.id)
     expect(opts[0]).toBe('bench-press')
     expect(opts).toContain('incline-db-press')
@@ -79,16 +80,38 @@ describe('slots & program selection', () => {
     }
   })
 
-  it('mirrors the routine: compounds 3 × 5–8, core triplet 3 × 8–12, KB moves 30 s', () => {
-    for (const slot of SLOTS) {
-      for (const def of slotOptions(slot.id)) {
-        if (slot.block.startsWith('pair')) expect([def.repMin, def.repMax]).toEqual([5, 8])
-        if (slot.block === 'core') expect([def.repMin, def.repMax]).toEqual([8, 12])
-        if (slot.block === 'kb-core') {
-          expect(def.kind).toBe('time')
-          expect(def.startSeconds).toBe(30)
-        }
-      }
+  it('builds every workout from three pairs of two', () => {
+    for (const block of ['day-a', 'day-b', 'day-c'] as const) {
+      const slots = SLOTS.filter((s) => s.block === block)
+      expect(slots.map((s) => s.pair)).toEqual([1, 1, 2, 2, 3, 3])
+    }
+    // straight-set and circuit blocks are unpaired
+    expect(SLOTS.filter((s) => s.block === 'extras' || s.block === 'kb-core').every((s) => !s.pair)).toBe(true)
+  })
+
+  it('alternates within a pair, never across pairs', () => {
+    expect(alternateGroupKey('back-squat')).toBe(alternateGroupKey('pull-up'))
+    expect(alternateGroupKey('back-squat')).not.toBe(alternateGroupKey('bench-press'))
+    expect(alternateGroupKey('kb-halo')).toBe(alternateGroupKey('plank'))
+    expect(alternateGroupKey('machine-calf-raise')).toBeUndefined()
+  })
+
+  it('starts the added machines at the loads you actually use', () => {
+    expect(getExercise('leg-press')).toMatchObject({ startWeightKg: 130, equipment: 'machine' })
+    expect(getExercise('pec-deck')).toMatchObject({ startWeightKg: 40, equipment: 'machine' })
+    expect(getExercise('ab-machine')).toMatchObject({ startWeightKg: 55, equipment: 'machine' })
+    // 35 kg of help on the assisted dip machine
+    expect(getExercise('dip')).toMatchObject({ startWeightKg: -35, equipment: 'assisted' })
+    // and the reps you do sit inside each range
+    expect(getExercise('leg-press').repMin).toBeLessThanOrEqual(10)
+    expect(getExercise('pec-deck').repMin).toBeLessThanOrEqual(8)
+    expect(getExercise('ab-machine').repMin).toBeLessThanOrEqual(7)
+  })
+
+  it('kettlebell circuit moves are 30 s', () => {
+    for (const def of SLOTS.filter((s) => s.block === 'kb-core').flatMap((s) => slotOptions(s.id))) {
+      expect(def.kind).toBe('time')
+      expect(def.startSeconds).toBe(30)
     }
   })
 })

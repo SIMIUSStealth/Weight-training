@@ -20,18 +20,14 @@ function logAll(exerciseId: string, ...values: number[]) {
   values.forEach((v, i) => logSet(exerciseId, i, v))
 }
 
-// Default Monday: the full routine (Pairs 1–3 + core triplet), 10 exercises.
+// Default Monday: Workout A, three pairs — 6 exercises.
 const MONDAY = [
-  'pull-up',
   'back-squat',
+  'pull-up',
   'bench-press',
-  'bench-dip',
-  'deadlift',
   'cable-row',
-  'machine-chest-press',
-  'ab-wheel-rollout',
-  'pallof-press',
-  'back-extension',
+  'hamstring-curl',
+  'ab-machine',
 ]
 
 describe('store: full workout → progression → persistence', () => {
@@ -50,30 +46,27 @@ describe('store: full workout → progression → persistence', () => {
 
     // Bench: 3×8 at the starting 30 kg → next plate, 32,5 kg.
     logAll('bench-press', 8, 8, 8)
-    // Machine chest press: 3×11 at 30 kg → level up AND flagged "too light".
-    logAll('machine-chest-press', 11, 11, 11)
+    // Ab machine: 3×13 at 55 kg (range 6–10) → level up AND flagged "too light".
+    logAll('ab-machine', 13, 13, 13)
     // Pull-up: 3×8 at bodyweight → the belt comes out (+2,5 kg).
     logAll('pull-up', 8, 8, 8)
-    // Ab wheel: 3×12 — unloaded, so nothing to climb.
-    logAll('ab-wheel-rollout', 12, 12, 12)
 
     const summary = useStore.getState().finishSession()
     expect(summary).not.toBeNull()
 
     const prog = useStore.getState().progress
     expect(prog['bench-press'].currentWeightKg).toBe(32.5)
-    expect(prog['machine-chest-press'].currentWeightKg).toBe(35)
+    expect(prog['ab-machine'].currentWeightKg).toBe(60)
     expect(prog['pull-up'].currentWeightKg).toBe(2.5)
-    expect(prog['ab-wheel-rollout'].currentWeightKg).toBe(0)
 
     const ids = summary!.levelUps.map((l) => l.exerciseId)
-    expect(ids).toEqual(['pull-up', 'bench-press', 'machine-chest-press'])
+    expect(ids).toEqual(['pull-up', 'bench-press', 'ab-machine'])
     expect(summary!.levelUps[0]).toMatchObject({ from: 'Bodyweight', to: '+2,5 kg' })
     expect(summary!.startNudges).toContainEqual({
-      exerciseId: 'machine-chest-press',
+      exerciseId: 'ab-machine',
       kind: 'too_light',
     })
-    expect(summary!.setsLogged).toBe(12)
+    expect(summary!.setsLogged).toBe(9)
 
     expect(useStore.getState().sessions).toHaveLength(1)
     expect(useStore.getState().activeSession).toBeNull()
@@ -175,10 +168,31 @@ describe('store: moving from the home program to the gym', () => {
     const next = migrateSettings(v1)
     expect(next.weeklyPlan).toEqual(defaultWeeklyPlan())
     expect(next.program).toEqual({ bench: 'db-bench-press' }) // home slots dropped
-    expect(next.version).toBe(2)
+    expect(next.version).toBe(3)
     expect(next.restSeconds).toBe(75)
     expect(next.restAlert).toBe(false)
     // already current → untouched (same object, no needless write)
+    expect(migrateSettings(next)).toBe(next)
+  })
+
+  it('migrates v2 settings: the A/B/C week replaces the long routine, valid swaps survive', () => {
+    const v2 = {
+      restSeconds: 90,
+      restAlert: true,
+      version: 2,
+      weeklyPlan: Array.from({ length: 7 }, (_, i) => ({
+        blocks: i % 2 ? [] : ['pair-1', 'pair-2', 'pair-3', 'core'],
+      })),
+      program: {
+        bench: 'db-bench-press', // still the bench slot → kept
+        push: 'shoulder-press', // slot gone → dropped
+        row: 'machine-row', // moved to another slot → dropped
+      },
+    } as unknown as Settings
+    const next = migrateSettings(v2)
+    expect(next.weeklyPlan).toEqual(defaultWeeklyPlan())
+    expect(next.program).toEqual({ bench: 'db-bench-press' })
+    expect(next.version).toBe(3)
     expect(migrateSettings(next)).toBe(next)
   })
 
@@ -240,7 +254,7 @@ describe('store: swapping exercises', () => {
     expect(ids).toHaveLength(MONDAY.length) // structure preserved
     expect(ids).toContain('db-bench-press')
     expect(ids).not.toContain('bench-press')
-    expect(ids[0]).toBe('pull-up') // other slots untouched
+    expect(ids[0]).toBe('back-squat') // other slots untouched
   })
 
   it('rejects a swap to another slot’s exercise or a retired one', () => {
@@ -273,7 +287,7 @@ describe('store: personal records', () => {
     const first = useStore.getState().finishSession()
     expect(first!.prs).toEqual([]) // baseline, no trophies on day one
 
-    useStore.getState().startDay(2)
+    useStore.getState().startDay(0)
     logSet('bench-press', 0, 7)
     const second = useStore.getState().finishSession()
     expect(second!.prs.some((p) => p.kind === 'reps' && p.value === 7)).toBe(true)
@@ -291,17 +305,16 @@ describe('store: weekly plan', () => {
 
   it('startDay builds a session for that day’s blocks and tags the weekday', () => {
     const s = useStore.getState()
-    // Default Monday is the full routine — pare it to Pair 1.
-    s.toggleDayBlock(0, 'pair-2')
-    s.toggleDayBlock(0, 'pair-3')
-    s.toggleDayBlock(0, 'core')
+    // Swap Monday's Workout A for the extras.
+    s.toggleDayBlock(0, 'day-a')
+    s.toggleDayBlock(0, 'extras')
     useStore.getState().startDay(0)
     const active = useStore.getState().activeSession!
     expect(active.weekday).toBe(0)
     expect(active.exercises.map((e) => e.exerciseId)).toEqual([
-      'pull-up',
-      'back-squat',
-      'bench-press',
+      'machine-calf-raise',
+      'leg-extension',
+      'push-up',
     ])
   })
 
@@ -320,19 +333,13 @@ describe('store: weekly plan', () => {
     expect(useStore.getState().settings.weeklyPlan![0].add).toContain('incline-db-press')
 
     // An extra from a block that's off doesn't switch the whole block on.
-    s.addExerciseToDay(0, 'hamstring-curl')
+    s.addExerciseToDay(0, 'machine-calf-raise')
     const mon = useStore.getState().settings.weeklyPlan![0]
-    expect(mon.add).toContain('hamstring-curl')
-    expect(mon.blocks).not.toContain('leg-day')
+    expect(mon.add).toContain('machine-calf-raise')
+    expect(mon.blocks).not.toContain('extras')
 
-    s.removeExerciseFromDay(0, 'bench-dip')
-    expect(useStore.getState().settings.weeklyPlan![0].omit).toContain('dip')
-
-    // Emptying the optional pair switches it off and clears its omits.
-    s.removeExerciseFromDay(0, 'deadlift')
-    const after = useStore.getState().settings.weeklyPlan![0]
-    expect(after.blocks).not.toContain('pair-2')
-    expect(after.omit ?? []).not.toContain('dip')
+    s.removeExerciseFromDay(0, 'pull-up')
+    expect(useStore.getState().settings.weeklyPlan![0].omit).toContain('pull')
 
     // Re-adding a removed default un-omits it rather than duplicating it.
     s.removeExerciseFromDay(0, 'cable-row')
@@ -340,15 +347,30 @@ describe('store: weekly plan', () => {
     const again = useStore.getState().settings.weeklyPlan![0]
     expect(again.omit ?? []).not.toContain('row')
     expect(again.add ?? []).not.toContain('cable-row')
+
+    // Emptying the workout switches it off and clears its omits.
+    for (const id of [
+      'back-squat',
+      'bench-press',
+      'incline-db-press',
+      'cable-row',
+      'hamstring-curl',
+      'ab-machine',
+    ]) {
+      s.removeExerciseFromDay(0, id)
+    }
+    const after = useStore.getState().settings.weeklyPlan![0]
+    expect(after.blocks).not.toContain('day-a')
+    expect(after.omit ?? []).toEqual([])
   })
 
   it('turning a block off drops its omits and extras', () => {
     const s = useStore.getState()
     s.addExerciseToDay(0, 'goblet-squat')
     s.removeExerciseFromDay(0, 'pull-up')
-    s.toggleDayBlock(0, 'pair-1')
+    s.toggleDayBlock(0, 'day-a')
     const mon = useStore.getState().settings.weeklyPlan![0]
-    expect(mon.blocks).not.toContain('pair-1')
+    expect(mon.blocks).not.toContain('day-a')
     expect(mon.add ?? []).not.toContain('goblet-squat')
     expect(mon.omit ?? []).not.toContain('pull')
   })
@@ -373,7 +395,7 @@ describe('store: splitting a workout into parts', () => {
     // Part A is recorded with only the two performed exercises.
     const sessions = useStore.getState().sessions
     expect(sessions).toHaveLength(1)
-    expect(sessions[0].exercises.map((e) => e.exerciseId)).toEqual(['pull-up', 'back-squat'])
+    expect(sessions[0].exercises.map((e) => e.exerciseId)).toEqual(['back-squat', 'pull-up'])
 
     // Part B is the active session: the remaining exercises, part 2, same group.
     const partB = useStore.getState().activeSession!
@@ -422,14 +444,15 @@ describe('store: editing a workout in progress', () => {
   it('adds an exercise in routine order and removes one', () => {
     const s = useStore.getState()
     s.startDay(0)
-    s.addToSession('lat-pulldown') // isolation → after Pair 3, before core
-    const after = ids()
-    expect(after.indexOf('lat-pulldown')).toBe(after.indexOf('machine-chest-press') + 1)
+    s.addToSession('incline-db-press') // beside its slot, right after the bench
+    expect(ids().indexOf('incline-db-press')).toBe(ids().indexOf('bench-press') + 1)
+    s.addToSession('lat-pulldown') // Workout B's → after all of Workout A
+    expect(ids().at(-1)).toBe('lat-pulldown')
     expect(useStore.getState().progress['lat-pulldown'].currentWeightKg).toBe(30)
     s.addToSession('lat-pulldown') // no duplicates
     expect(ids().filter((id) => id === 'lat-pulldown')).toHaveLength(1)
-    s.removeFromSession('deadlift')
-    expect(ids()).not.toContain('deadlift')
+    s.removeFromSession('cable-row')
+    expect(ids()).not.toContain('cable-row')
     expect(useStore.getState().settings.weeklyPlan![0].omit ?? []).toEqual([]) // plan untouched
   })
 
@@ -454,5 +477,52 @@ describe('store: editing a workout in progress', () => {
     logAll('bench-press', 8, 8, 8, 5)
     useStore.getState().finishSession()
     expect(useStore.getState().progress['bench-press'].currentWeightKg).toBe(32.5)
+  })
+})
+
+describe('store: typing in a weight by hand', () => {
+  beforeEach(async () => {
+    await useStore.getState().resetEverything()
+  })
+
+  it('a load typed in mid-workout becomes the weight when you finish', () => {
+    const s = useStore.getState()
+    s.startDay(4) // Workout C
+    s.setWorkingWeight('leg-press', 132.5) // off the 5 kg ladder
+    logAll('leg-press', 10, 10, 9)
+    useStore.getState().finishSession()
+    expect(useStore.getState().progress['leg-press'].currentWeightKg).toBe(132.5)
+  })
+
+  it('progression climbs from the typed load to the next real step', () => {
+    const s = useStore.getState()
+    s.startDay(4)
+    s.setWorkingWeight('pec-deck', 42.5)
+    logAll('pec-deck', 12, 12, 12)
+    const summary = useStore.getState().finishSession()
+    expect(useStore.getState().progress['pec-deck'].currentWeightKg).toBe(45)
+    expect(summary!.levelUps[0]).toMatchObject({ from: '42,5 kg', to: '45 kg' })
+  })
+
+  it('a cancelled workout leaves the stored weight alone', () => {
+    const s = useStore.getState()
+    s.startDay(4)
+    s.setWorkingWeight('leg-press', 150)
+    s.cancelSession()
+    expect(useStore.getState().progress['leg-press'].currentWeightKg).toBe(130)
+  })
+
+  it('sets an exact weight from the exercise page, even before it has a progress row', () => {
+    const s = useStore.getState()
+    s.setExerciseWeight('ab-machine', 57.5)
+    s.setExerciseWeight('hip-thrust', 47.5) // not in the plan yet
+    expect(useStore.getState().progress['ab-machine'].currentWeightKg).toBe(57.5)
+    expect(useStore.getState().progress['hip-thrust'].currentWeightKg).toBe(47.5)
+  })
+
+  it('assisted dips start with 35 kg of help', () => {
+    useStore.getState().startDay(2) // Workout B
+    const dip = useStore.getState().activeSession!.exercises.find((e) => e.exerciseId === 'dip')
+    expect(dip?.weightKg).toBe(-35)
   })
 })

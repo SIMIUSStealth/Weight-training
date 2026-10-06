@@ -7,7 +7,7 @@ import type { Increments } from '../program/ladder'
 
 /**
  * One weekday in the weekly plan. A day runs a set of routine blocks (the
- * pairs, isolations, leg-day extras, core); the exercises are derived from
+ * A/B/C workouts, extras, kettlebell core); the exercises are derived from
  * those blocks' slots (using the global per-slot choice), minus any omitted
  * slots, plus any added extras. Empty = rest day.
  */
@@ -130,10 +130,10 @@ export interface Settings {
 }
 
 /**
- * Settings schema version. 2 = the gym routine (block-based weekly plan); a
- * v1 plan (muscle-group days, home program) is replaced on load.
+ * Settings schema version. 2 = the gym routine (block-based weekly plan);
+ * 3 = the A/B/C full-body workouts. An older plan is replaced on load.
  */
-export const SETTINGS_VERSION = 2
+export const SETTINGS_VERSION = 3
 
 export const DEFAULT_SETTINGS: Settings = {
   restSeconds: 90,

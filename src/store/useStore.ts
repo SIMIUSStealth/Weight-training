@@ -23,6 +23,7 @@ import {
   applyProgression,
   assessStartWeight,
   defaultProgress,
+  isLoaded,
   type StartAssessment,
 } from '../program/progression'
 import { detectPRs } from '../program/records'
@@ -193,17 +194,20 @@ function blockSlotIds(block: BlockId): Set<string> {
 
 /**
  * Bring stored settings up to the current schema. v1 was the single-dumbbell
- * home program with muscle-group days: its weekly plan (and slot swaps, which
- * name home slots) can't carry over, so the gym week replaces them. History,
- * progress and every other setting are kept.
+ * home program with muscle-group days; v2 the long pairs routine. Their weekly
+ * plans name blocks that no longer exist, so the A/B/C week replaces them, and
+ * slot swaps that no longer fit a slot are dropped. History, progress (every
+ * exercise's weight) and every other setting are kept.
  */
 export function migrateSettings(settings: Settings): Settings {
   let next = settings
-  if (!isCurrentPlan(next.weeklyPlan)) {
+  if (!isCurrentPlan(next.weeklyPlan) || (next.version ?? 1) < SETTINGS_VERSION) {
     next = { ...next, weeklyPlan: defaultWeeklyPlan() }
     if (next.program) {
       const program = Object.fromEntries(
-        Object.entries(next.program).filter(([slotId]) => SLOTS_BY_ID[slotId]),
+        Object.entries(next.program).filter(
+          ([slotId, id]) => SLOTS_BY_ID[slotId] && EXERCISES_BY_ID[id]?.slot === slotId,
+        ),
       )
       next = { ...next, program }
     }
@@ -273,8 +277,11 @@ function commitActive(
     )
 
     // A session from before an exercise had a progress row (e.g. imported)
-    // commits against its defaults.
-    const before = newProgress[log.exerciseId] ?? defaultProgress(def)
+    // commits against its defaults. The weight actually lifted is the new
+    // baseline, so a load typed in mid-workout sticks — and progression climbs
+    // from it.
+    const stored = newProgress[log.exerciseId] ?? defaultProgress(def)
+    const before = isLoaded(def) ? { ...stored, currentWeightKg: log.weightKg } : stored
     const res = applyProgression(def, before, log, increments)
     newProgress[log.exerciseId] = res.progress
 
@@ -739,9 +746,10 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   setExerciseWeight: (exerciseId, weightKg) => {
+    const def = EXERCISES_BY_ID[exerciseId]
+    if (!def) return
     const progress = { ...get().progress }
-    const cur = progress[exerciseId]
-    if (!cur) return
+    const cur = progress[exerciseId] ?? defaultProgress(def)
     const next = { ...cur, currentWeightKg: weightKg }
     progress[exerciseId] = next
     void putProgress([next])

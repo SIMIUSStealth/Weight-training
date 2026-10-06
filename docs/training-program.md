@@ -31,35 +31,34 @@ Unchanged from the home program, and still the point of the app:
 
 ## 2. The routine
 
-**Strength work: 40–60 minutes**, three times a week. A session is built from
-blocks, always in this order:
+**Three short full-body workouts — A, B and C — about 45 minutes each**, three
+times a week. Every workout is **three pairs, six exercises**: each pair
+supersets two lifts that don't compete (legs with a pull, a push with a pull,
+a small leg or arm move with core), so you rest one while working the other.
+Every session hits legs, a push, a pull and core.
 
-| Block | What | Sets × reps | How |
+| Pair | Workout A · Squat & Bench | Workout B · Hinge & Press | Workout C · Leg Press & Chest |
 |---|---|---|---|
-| **Pair 1 · Compounds** | Pull-up progression · Squat progression · Compound bench press | 3 × 5–8 each | Alternate the three |
-| **Pair 2** *(optional)* | Dip progression · Hinge progression | 3 × 5–8 each | Alternate |
-| **Pair 3** | Row progression · Push *(optional)* | 3 × 5–8 each | Alternate |
-| **Isolations** *(extra)* | Triceps extension · Biceps curl · Extra chest · Lats | 3 × 8–12 | Straight sets |
-| **Leg day** *(extra)* | Hamstring curl · Leg raises · Bulgarian split squat · Calf raises | 3 × 8–12 (calves 12–20) | Straight sets |
-| **Core triplet** | Anti-extension · Anti-rotation · Extension | 3 × 8–12 each | Alternate the three |
-| **Kettlebell core** *(alternative)* | 8-move circuit | 30 s each, 2–3 rounds | Circuit |
+| **1** | Barbell back squat · Pull-up (assisted) | Barbell RDL · Lat pulldown | Leg press · Machine row |
+| **2** | Barbell bench press · Close-grip cable row | Shoulder press · Assisted dip | Pec deck · Cable triceps pushdown |
+| **3** | Hamstring curl · Abdominal machine | Zottman curl · Pallof press | Back extension · Hanging leg raise |
 
-**Alternating** (pairs, triplets, the circuit): one set of the first exercise,
-rest, one set of the next, rest, … then round again until each has its three
-sets. **Rest ~90 s** between sets. Isolations and leg-day extras are done as
-straight sets.
+**Alternating**: one set of the first lift, rest ~90 s, one set of the second,
+rest, … three rounds, then move to the next pair. 6 exercises × 3 sets = 18
+working sets a session.
 
-The **kettlebell core circuit** replaces the anti-extension + anti-rotation part of
-the core triplet (keep the back extension).
+**Optional extras** (straight sets, not scheduled by default): calf raise, leg
+extension, push-up. The **kettlebell core circuit** is an optional block too.
 
 ### Default week
 
 | Mon | Tue | Wed | Thu | Fri | Sat | Sun |
 |---|---|---|---|---|---|---|
-| Full routine | rest | Full routine + Leg day | rest | Full routine + Isolations | rest | rest |
+| Workout A | rest | Workout B | rest | Workout C | rest | rest |
 
-"Full routine" = Pairs 1–3 + the core triplet. Every day is editable: switch
-blocks on/off, swap a slot's exercise, remove one, or add an extra from any block.
+Per week: legs, back, chest and core 3×; arms 2×; shoulders 1× directly (plus
+every press). Every day is editable: switch blocks on/off, swap a slot's
+exercise, remove one, or add an extra.
 
 ---
 
@@ -67,59 +66,50 @@ blocks on/off, swap a slot's exercise, remove one, or add an extra from any bloc
 
 Every exercise is **3 working sets**. The first option in each slot is the
 default; the others are swaps (each keeps its own load and history). Start loads
-are estimates — the app flags a clearly-wrong start after the first session.
+are estimates — the app flags a clearly-wrong start after the first session —
+except the leg press, pec deck, abdominal machine and assisted dip, which start
+at the loads you actually use.
 
-### Pair 1 · Compounds (3 × 5–8)
+### Workout A · Squat & Bench
 
-| Slot | Options | Equipment | Start |
+| Pair | Slot | Options | Sets × reps | Start |
+|---|---|---|---|---|
+| 1 | Squat | **Barbell back squat** · Goblet squat | 3 × 5–8 | 40 kg · 14 kg |
+| 1 | Vertical pull | **Pull-up** (assisted → bodyweight → belt) | 3 × 5–8 | bodyweight |
+| 2 | Bench press | **Barbell bench press** · Dumbbell bench · Incline DB · Decline DB · Machine chest press | 3 × 5–8 | 30 kg · 12 / 10 / 12 kg · 30 kg |
+| 2 | Row | **Close-grip cable row** · T-bar row | 3 × 5–8 | 35 · 20 kg |
+| 3 | Hamstrings | **Hamstring curl** (machine) | 3 × 8–12 | 25 kg |
+| 3 | Abs | **Abdominal machine** · Ab wheel rollout | 3 × 6–10 · 3 × 8–12 | 55 kg · bodyweight |
+
+### Workout B · Hinge & Press
+
+| Pair | Slot | Options | Sets × reps | Start |
+|---|---|---|---|---|
+| 1 | Hinge | **Barbell RDL** · Deadlift · Barbell hip thrust | 3 × 5–8 | 40 · 50 · 40 kg |
+| 1 | Lat pulldown | **Lat pulldown** · Close-grip · Wide-grip | 3 × 8–12 | 30 · 30 · 25 kg |
+| 2 | Overhead press | **Shoulder press** (machine) | 3 × 5–8 | 25 kg |
+| 2 | Dip | **Assisted dip** · Machine dip (seated) · Bench dip | 3 × 5–8 | 35 kg assist · 30 kg · bodyweight |
+| 3 | Biceps | **Zottman curl** · Biceps curl | 3 × 8–12 | 8 kg dumbbells |
+| 3 | Anti-rotation | **Pallof press** (each side) | 3 × 8–12 | 10 kg |
+
+### Workout C · Leg Press & Chest
+
+| Pair | Slot | Options | Sets × reps | Start |
+|---|---|---|---|---|
+| 1 | Leg press | **Leg press** · Bulgarian split squat (per leg) | 3 × 8–12 | 130 kg · 10 kg dumbbell |
+| 1 | Chest-supported row | **Machine row** | 3 × 5–8 | 35 kg |
+| 2 | Chest fly | **Pec deck** · Low-to-high cable fly · High-to-low cable fly | 3 × 8–12 | 40 kg · 5 kg per stack |
+| 2 | Triceps | **Cable triceps pushdown** (rope) · Triceps bar pushdown · Overhead cable extension | 3 × 8–12 | 15 · 20 · 10 kg |
+| 3 | Lower back | **Back extension** | 3 × 8–12 | bodyweight, + plate |
+| 3 | Abs | **Hanging leg raise** | 3 × 8–12 | bodyweight |
+
+### Extras (straight sets, optional)
+
+| Slot | Options | Sets × reps | Start |
 |---|---|---|---|
-| Pull-up progression | **Pull-up** | assisted / bodyweight / belt | bodyweight |
-| Squat progression | **Barbell back squat** · Goblet squat | barbell · dumbbell | 40 kg · 14 kg |
-| Compound bench press | **Barbell bench press** · Dumbbell bench · Incline dumbbell press (upper chest, front delts) · Decline dumbbell press (lower chest) | barbell · dumbbells | 30 kg · 12 / 10 / 12 kg |
-
-With barbells available, the barbell squat (and deadlift) replace the bodyweight
-squat/hinge progressions once the basic pattern is solid; the goblet squat stays
-as the place to perfect it.
-
-### Pair 2 · optional (3 × 5–8)
-
-| Slot | Options | Equipment | Start |
-|---|---|---|---|
-| Dip progression | **Bench dip** · Machine dip · Dip (assisted → bodyweight → weighted) | bodyweight · machine · assisted | bodyweight · 30 kg · bodyweight |
-| Hinge progression | **Deadlift** (also a compound) · Barbell RDL · Barbell hip thrust | barbell | 50 · 40 · 40 kg |
-
-### Pair 3 (3 × 5–8)
-
-| Slot | Options | Equipment | Start |
-|---|---|---|---|
-| Row progression | **Close-grip cable row** · Machine row · T-bar row | cable · machine | 35 · 35 · 20 kg |
-| Push *(optional)* | **Machine chest press** · Shoulder press (machine) · Push-up · Diamond push-up | machine · bodyweight | 30 · 25 kg · bodyweight |
-
-### Isolations (3 × 8–12) — extra toning
-
-| Slot | Options | Start |
-|---|---|---|
-| Triceps extension | **Cable triceps pushdown** (rope) · Triceps bar pushdown · Overhead cable extension | 15 · 20 · 10 kg |
-| Biceps curl | **Zottman curl** · Biceps curl | 8 kg dumbbells |
-| Extra chest | **Low-to-high cable fly** (upper chest) · High-to-low cable fly (lower chest) | 5 kg per stack |
-| Lats (also the pull-up replacement) | **Lat pulldown** · Close-grip · Wide-grip | 30 · 30 · 25 kg |
-
-### Leg day extras (3 × 8–12)
-
-| Slot | Options | Start |
-|---|---|---|
-| Hamstring curl | **Hamstring curl** (machine) | 25 kg |
-| Leg raises | **Leg extension** (machine) · Hanging leg raise | 30 kg · bodyweight |
-| Bulgarian split squat | **Bulgarian split squat** (per leg) | 10 kg dumbbell |
-| Calf raises | **Calf raise** (machine), 3 × 12–20 | 40 kg |
-
-### Core triplet (3 × 8–12)
-
-| Slot | Exercise | Load |
-|---|---|---|
-| Anti-extension | **Ab wheel rollout** | bodyweight only |
-| Anti-rotation | **Pallof press** (each side) | cable, 10 kg |
-| Extension | **Back extension** (hyperextension bench) | bodyweight, + plate |
+| Calves | **Calf raise** (machine) | 3 × 12–20 | 40 kg |
+| Quads | **Leg extension** (machine) | 3 × 8–12 | 30 kg |
+| Push-up | **Push-up** · Diamond push-up | 3 × 5–8 | bodyweight |
 
 ### Kettlebell core circuit (30 s each, 2–3 rounds)
 
@@ -150,13 +140,20 @@ and progression only ever moves to the **adjacent rung**:
 
 The three gym-specific step sizes are set once in **Settings → Gym equipment**.
 
+**Typing a weight in.** When a machine's real steps don't match the ladder,
+tap the load (in a workout or on the exercise page) and type the exact weight,
+e.g. 37,5 kg. A load typed in mid-workout becomes the exercise's weight when
+the workout is finished; the next level-up then moves to the next rung above
+it.
+
 ---
 
 ## 5. Progression
 
 **Double progression, per exercise, independently:**
 
-1. Work in the rep range (5–8 for the compounds, 8–12 for isolations and core).
+1. Work in the rep range (5–8 for the barbell and bodyweight compounds, 8–12 for
+   machines, cables and core; the abdominal machine 6–10).
 2. Each session, add reps toward the top of the range on every set.
 3. All three sets at the top → **next rung** next session: the next plate,
    dumbbell, pin or bell — or, on an assisted lift, **less assistance**
@@ -180,10 +177,9 @@ Special cases:
 
 ## 6. Running a session
 
-- Go block by block. In alternating blocks, one set of each exercise per round,
-  ~90 s rest between sets.
-- Optional pieces (Pair 2, the Pair 3 push, isolations, leg-day extras) are the
-  first to drop on a short day — finish early and the session still counts.
+- Go pair by pair: one set of each exercise per round, ~90 s rest between
+  sets, three rounds.
+- Short on time? Drop pair 3 — finish early and the session still counts.
 - Log every set (and, optionally, reps in reserve). "Beat last time" is the goal.
 - Reassess every 8–12 weeks or when a lift stalls for good: swap the variation,
   shift the rep range, or add a set.

@@ -1,6 +1,7 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import type { Muscle } from '../program/exercises'
 import { getGuide } from '../program/guides'
+import { formatLoad, parseKg, type Equipment } from '../program/ladder'
 import { Alert, ArrowUp, ExternalLink, Info, Minus, Plus, X } from './icons'
 
 const MUSCLE_COLOR: Record<Muscle, string> = {
@@ -193,5 +194,86 @@ export function GuideLink({ exerciseId }: { exerciseId: string }) {
       </span>
       <ExternalLink size={16} />
     </a>
+  )
+}
+
+/**
+ * Type a load in by hand — for when the machine's real steps don't match the
+ * ladder. Assisted lifts pick "assist" (minus kg) or "added" (belt); plain
+ * bodyweight lifts take the weight added.
+ */
+export function WeightEditor({
+  title,
+  equipment,
+  weightKg,
+  note,
+  onSave,
+  onClose,
+}: {
+  title: string
+  equipment: Equipment
+  weightKg: number
+  note?: string
+  onSave: (weightKg: number) => void
+  onClose: () => void
+}) {
+  const assisted = equipment === 'assisted'
+  const [mode, setMode] = useState<'assist' | 'added'>(weightKg < 0 ? 'assist' : 'added')
+  const [text, setText] = useState(String(Math.abs(weightKg)).replace('.', ','))
+  const kg = parseKg(text)
+  const signed = kg == null ? null : assisted && mode === 'assist' ? -kg : kg
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    if (signed == null) return
+    onSave(signed)
+    onClose()
+  }
+
+  return (
+    <Modal title={title} onClose={onClose}>
+      <form onSubmit={submit}>
+        {assisted && (
+          <div style={{ marginBottom: 12 }}>
+            <Segmented
+              options={[
+                { value: 'assist', label: 'Machine help' },
+                { value: 'added', label: 'Added on a belt' },
+              ]}
+              value={mode}
+              onChange={setMode}
+            />
+          </div>
+        )}
+        <label className="tiny faint" htmlFor="weight-input">
+          {assisted
+            ? mode === 'assist'
+              ? 'ASSISTANCE (KG)'
+              : 'ADDED WEIGHT (KG) · 0 = BODYWEIGHT'
+            : equipment === 'bodyweight'
+              ? 'ADDED WEIGHT (KG) · 0 = BODYWEIGHT'
+              : 'WEIGHT (KG)'}
+        </label>
+        <input
+          id="weight-input"
+          className="input"
+          style={{ marginTop: 6, fontSize: 22, fontWeight: 800 }}
+          type="text"
+          inputMode="decimal"
+          autoComplete="off"
+          autoFocus
+          value={text}
+          onFocus={(e) => e.currentTarget.select()}
+          onChange={(e) => setText(e.target.value)}
+        />
+        <div className="tiny muted" style={{ margin: '8px 2px 14px', minHeight: 16 }}>
+          {signed == null ? 'Enter a number, e.g. 37,5' : formatLoad(equipment, signed)}
+          {note ? ` · ${note}` : ''}
+        </div>
+        <button type="submit" className="btn btn-primary btn-block" disabled={signed == null}>
+          Save
+        </button>
+      </form>
+    </Modal>
   )
 }

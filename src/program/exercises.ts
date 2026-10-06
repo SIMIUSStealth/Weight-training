@@ -1,9 +1,9 @@
-// The gym routine (Training Spec §3). A session is built from routine BLOCKS —
-// the three pairs, the optional isolations, the leg-day extras and the core
-// triplet (or the kettlebell core circuit) — in a fixed order. Each block is a
-// list of SLOTS, and each slot is filled by one exercise from its options, the
-// first being the default. Swaps stay within a slot; every exercise keeps its
-// own weight and history.
+// The gym routine (Training Spec §3). Three short full-body workouts — A, B
+// and C — each built as three PAIRS (superset two lifts, alternate sets), plus
+// optional extras and the kettlebell core circuit. Each block is a list of
+// SLOTS, and each slot is filled by one exercise from its options, the first
+// being the default. Swaps stay within a slot; every exercise keeps its own
+// weight and history.
 //
 // The single-dumbbell home program the app started with is retired to
 // ./home-exercises.ts: still registered (so old sessions resolve), never offered.
@@ -56,24 +56,18 @@ const ASSIST_NOTE =
 
 // ---------- routine blocks ----------
 
-export type BlockId =
-  | 'pair-1'
-  | 'pair-2'
-  | 'pair-3'
-  | 'isolation'
-  | 'leg-day'
-  | 'core'
-  | 'kb-core'
+export type BlockId = 'day-a' | 'day-b' | 'day-c' | 'extras' | 'kb-core'
 
 export interface Block {
   id: BlockId
-  /** Full name, e.g. "Pair 1 · Compounds". */
+  /** Full name, e.g. "Workout A · Squat & Bench". */
   name: string
-  /** Short name for day labels, e.g. "Pair 1". */
+  /** Short name for day labels, e.g. "Workout A". */
   short: string
   /**
-   * Sets alternate between the block's exercises (a pair, triplet or circuit:
-   * one set of each, then round again) instead of straight sets.
+   * Sets alternate between exercises (one set of each, then round again)
+   * instead of straight sets — within each pair when the slots are paired,
+   * otherwise across the whole block (the kettlebell circuit).
    */
   alternate: boolean
   /** Not essential — skip it on a short day. */
@@ -82,54 +76,41 @@ export interface Block {
   note: string
 }
 
+const PAIRS_NOTE =
+  'Three pairs. Alternate the two lifts in a pair — one set of each, ~90 s rest — for three rounds, then on to the next pair.'
+
 export const BLOCKS: readonly Block[] = [
   {
-    id: 'pair-1',
-    name: 'Pair 1 · Compounds',
-    short: 'Pair 1',
+    id: 'day-a',
+    name: 'Workout A · Squat & Bench',
+    short: 'Workout A',
     alternate: true,
     optional: false,
-    note: 'Alternate the three: one set of each, rest ~90 s between, three rounds.',
+    note: PAIRS_NOTE,
   },
   {
-    id: 'pair-2',
-    name: 'Pair 2',
-    short: 'Pair 2',
-    alternate: true,
-    optional: true,
-    note: 'Optional — alternate sets; skip the pair on a short day.',
-  },
-  {
-    id: 'pair-3',
-    name: 'Pair 3',
-    short: 'Pair 3',
+    id: 'day-b',
+    name: 'Workout B · Hinge & Press',
+    short: 'Workout B',
     alternate: true,
     optional: false,
-    note: 'Alternate sets. The push is optional.',
+    note: PAIRS_NOTE,
   },
   {
-    id: 'isolation',
-    name: 'Isolations',
-    short: 'Isolations',
+    id: 'day-c',
+    name: 'Workout C · Leg Press & Chest',
+    short: 'Workout C',
+    alternate: true,
+    optional: false,
+    note: PAIRS_NOTE,
+  },
+  {
+    id: 'extras',
+    name: 'Extras',
+    short: 'Extras',
     alternate: false,
     optional: true,
-    note: 'Extra toning — straight sets. Pick what you have time for.',
-  },
-  {
-    id: 'leg-day',
-    name: 'Leg day',
-    short: 'Leg day',
-    alternate: false,
-    optional: true,
-    note: 'Extra leg isolations for leg days — straight sets.',
-  },
-  {
-    id: 'core',
-    name: 'Core triplet',
-    short: 'Core',
-    alternate: true,
-    optional: false,
-    note: 'Alternate the three, 3 × 8–12 each.',
+    note: 'Optional — straight sets. Tack one on when you have time to spare.',
   },
   {
     id: 'kb-core',
@@ -137,7 +118,7 @@ export const BLOCKS: readonly Block[] = [
     short: 'KB core',
     alternate: true,
     optional: true,
-    note: 'A circuit in place of anti-extension + anti-rotation: 30 s each, 2–3 rounds.',
+    note: 'An optional core circuit: 30 s each, 2–3 rounds.',
   },
 ] as const
 
@@ -176,7 +157,7 @@ function kb(
 }
 
 export const GYM_EXERCISES: readonly ExerciseDef[] = [
-  // ----- Pair 1 · compounds -----
+  // ----- Squat, pull, bench (Workout A) -----
   {
     id: 'pull-up',
     name: 'Pull-up',
@@ -191,7 +172,7 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
     perArm: false,
     holdNote: ASSIST_NOTE,
     formCue:
-      'Hang from the bar, hands just outside shoulder width, palms away. Pull until your chin clears the bar, then lower all the way to straight arms under control — no kipping. Can’t do 5 yet? Use the assisted machine and log the help as minus kg: the app walks you toward bodyweight, then adds weight. (The lat pulldown in Isolations is the stand-in on days you skip these.)',
+      'Hang from the bar, hands just outside shoulder width, palms away. Pull until your chin clears the bar, then lower all the way to straight arms under control — no kipping. Can’t do 5 yet? Use the assisted machine and log the help as minus kg: the app walks you toward bodyweight, then adds weight. (The lat pulldown in Workout B is the stand-in on days you skip these.)',
   },
   {
     id: 'back-squat',
@@ -288,12 +269,12 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
       'Bench slightly declined, feet hooked in. Press from lower-chest level to straight arms, lower under control. Shifts the work toward the lower chest.',
   },
 
-  // ----- Pair 2 (optional) -----
+  // ----- Dips and hinges (Workout B) -----
   {
     id: 'bench-dip',
     name: 'Bench Dip',
     muscle: 'Arms',
-    slot: 'dip',
+    slot: 'dips',
     sets: 3,
     kind: 'reps',
     repMin: 5,
@@ -309,7 +290,7 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
     id: 'machine-dip',
     name: 'Machine Dip',
     muscle: 'Arms',
-    slot: 'dip',
+    slot: 'dips',
     sets: 3,
     kind: 'reps',
     repMin: 5,
@@ -322,19 +303,19 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
   },
   {
     id: 'dip',
-    name: 'Dip',
+    name: 'Assisted Dip',
     muscle: 'Chest',
-    slot: 'dip',
+    slot: 'dips',
     sets: 3,
     kind: 'reps',
     repMin: 5,
     repMax: 8,
     equipment: 'assisted',
-    startWeightKg: 0,
+    startWeightKg: -35,
     perArm: false,
     holdNote: ASSIST_NOTE,
     formCue:
-      'On parallel bars with locked arms, lean slightly forward. Lower until the shoulders are just below the elbows, then press back up to lockout. Use the assisted machine (minus kg) until you own 3 × 8, then add weight on a belt.',
+      'On the assisted dip machine, knees on the pad, arms locked, a slight forward lean. Lower until the shoulders are just below the elbows, then press back up to lockout. Each level-up takes away one pin of help — toward bodyweight, then weight on a belt.',
   },
   {
     id: 'deadlift',
@@ -382,7 +363,7 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
       'Upper back on a bench, padded bar across your hips, feet flat. Drive the hips up until you’re straight from shoulders to knees, squeeze the glutes hard, lower under control. Chin tucked, ribs down.',
   },
 
-  // ----- Pair 3 -----
+  // ----- Rows and presses -----
   {
     id: 'cable-row',
     name: 'Close-Grip Cable Row',
@@ -402,7 +383,7 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
     id: 'machine-row',
     name: 'Machine Row',
     muscle: 'Back',
-    slot: 'row',
+    slot: 'chest-row',
     sets: 3,
     kind: 'reps',
     repMin: 5,
@@ -433,7 +414,7 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
     id: 'machine-chest-press',
     name: 'Machine Chest Press',
     muscle: 'Chest',
-    slot: 'push',
+    slot: 'bench',
     sets: 3,
     kind: 'reps',
     repMin: 5,
@@ -448,7 +429,7 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
     id: 'shoulder-press',
     name: 'Shoulder Press',
     muscle: 'Shoulders',
-    slot: 'push',
+    slot: 'overhead',
     sets: 3,
     kind: 'reps',
     repMin: 5,
@@ -463,7 +444,7 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
     id: 'push-up',
     name: 'Push-up',
     muscle: 'Chest',
-    slot: 'push',
+    slot: 'push-up',
     sets: 3,
     kind: 'reps',
     repMin: 5,
@@ -479,7 +460,7 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
     id: 'diamond-push-up',
     name: 'Diamond Push-up',
     muscle: 'Arms',
-    slot: 'push',
+    slot: 'push-up',
     sets: 3,
     kind: 'reps',
     repMin: 5,
@@ -492,7 +473,7 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
       'Hands together under your chest, thumbs and index fingers making a diamond. Lower with the elbows tucked back along your sides, then press up. Heavier on the triceps than a regular push-up.',
   },
 
-  // ----- Isolations -----
+  // ----- Arms, chest, lats -----
   {
     id: 'cable-pushdown',
     name: 'Cable Triceps Pushdown',
@@ -571,10 +552,25 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
       'Dumbbells at your sides, palms forward, elbows pinned. Curl up without swinging the torso and lower slowly — the lowering half builds as much as the lifting half.',
   },
   {
+    id: 'pec-deck',
+    name: 'Pec Deck',
+    muscle: 'Chest',
+    slot: 'fly',
+    sets: 3,
+    kind: 'reps',
+    repMin: 8,
+    repMax: 12,
+    equipment: 'machine',
+    startWeightKg: 40,
+    perArm: false,
+    formCue:
+      'Seat set so the handles sit at mid-chest height, shoulder blades pinned back against the pad, a soft fixed bend in the elbows. Sweep the handles together in an arc, squeeze for a beat, then open slowly to a chest stretch without letting the shoulders roll forward.',
+  },
+  {
     id: 'low-to-high-cable-fly',
     name: 'Low-to-High Cable Fly',
     muscle: 'Chest',
-    slot: 'chest-fly',
+    slot: 'fly',
     sets: 3,
     kind: 'reps',
     repMin: 8,
@@ -590,7 +586,7 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
     id: 'high-to-low-cable-fly',
     name: 'High-to-Low Cable Fly',
     muscle: 'Chest',
-    slot: 'chest-fly',
+    slot: 'fly',
     sets: 3,
     kind: 'reps',
     repMin: 8,
@@ -648,7 +644,7 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
       'Hands well outside shoulder width. Pull the bar to your upper chest, elbows driving down and out, chest up; control it back up to a full stretch.',
   },
 
-  // ----- Leg day extras -----
+  // ----- Legs -----
   {
     id: 'hamstring-curl',
     name: 'Hamstring Curl',
@@ -665,10 +661,25 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
       'Lying or seated curl machine, pad just above the heels, knees lined up with the pivot. Curl the heels toward your glutes, squeeze, lower slowly. Hips stay down.',
   },
   {
+    id: 'leg-press',
+    name: 'Leg Press',
+    muscle: 'Legs',
+    slot: 'leg-press',
+    sets: 3,
+    kind: 'reps',
+    repMin: 8,
+    repMax: 12,
+    equipment: 'machine',
+    startWeightKg: 130,
+    perArm: false,
+    formCue:
+      'Back and hips flat against the pad, feet hip-width in the middle of the platform. Lower until the knees reach about 90° — stop before your hips peel off the seat — then press through the whole foot. Don’t snap the knees locked at the top.',
+  },
+  {
     id: 'leg-extension',
     name: 'Leg Extension',
     muscle: 'Legs',
-    slot: 'leg-raise',
+    slot: 'quads',
     sets: 3,
     kind: 'reps',
     repMin: 8,
@@ -698,7 +709,7 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
     id: 'bulgarian-split-squat',
     name: 'Bulgarian Split Squat',
     muscle: 'Legs',
-    slot: 'split-squat',
+    slot: 'leg-press',
     sets: 3,
     kind: 'reps',
     repMin: 8,
@@ -726,12 +737,27 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
       'Standing or seated calf machine, balls of the feet on the edge. Lower the heels into a deep stretch, rise as high as you can, pause at the top. Slow and full-range beats heavy and bouncy.',
   },
 
-  // ----- Core triplet -----
+  // ----- Core -----
+  {
+    id: 'ab-machine',
+    name: 'Abdominal Machine',
+    muscle: 'Core',
+    slot: 'abs',
+    sets: 3,
+    kind: 'reps',
+    repMin: 6,
+    repMax: 10,
+    equipment: 'machine',
+    startWeightKg: 55,
+    perArm: false,
+    formCue:
+      'Seated crunch machine, chest against the pads (or handles by your head). Curl your ribs down toward your hips — round the spine, don’t just fold at the hips — squeeze the abs hard, then return slowly. Breathe out on the crunch.',
+  },
   {
     id: 'ab-wheel-rollout',
     name: 'Ab Wheel Rollout',
     muscle: 'Core',
-    slot: 'anti-extension',
+    slot: 'abs',
     sets: 3,
     kind: 'reps',
     repMin: 8,
@@ -869,10 +895,10 @@ export const MUSCLE_ORDER: Muscle[] = [
 export interface Slot {
   id: string
   block: BlockId
-  /** Human label for the slot, e.g. "Pull-up progression". */
+  /** Human label for the slot, e.g. "Squat". */
   label: string
-  /** Optional within its block (e.g. the Pair 3 push). */
-  optional?: boolean
+  /** Which pair (1–3) of a workout the slot sits in; its partner alternates with it. */
+  pair?: number
   /** The default exercise id (first option). */
   baseId: string
   /** All exercise ids that can fill this slot, base first. */
@@ -884,58 +910,61 @@ function slot(
   block: BlockId,
   label: string,
   optionIds: string[],
-  optional?: boolean,
+  pair?: number,
 ): Slot {
-  return { id, block, label, baseId: optionIds[0], optionIds, optional }
+  return { id, block, label, pair, baseId: optionIds[0], optionIds }
 }
 
 export const SLOTS: readonly Slot[] = [
-  // Pair 1 — compounds
-  slot('pull', 'pair-1', 'Pull-up progression', ['pull-up']),
-  slot('squat', 'pair-1', 'Squat progression', ['back-squat', 'goblet-squat']),
-  slot('bench', 'pair-1', 'Compound bench press', [
-    'bench-press',
-    'db-bench-press',
-    'incline-db-press',
-    'decline-db-press',
-  ]),
-  // Pair 2 — optional
-  slot('dip', 'pair-2', 'Dip progression', ['bench-dip', 'machine-dip', 'dip']),
-  slot('hinge', 'pair-2', 'Hinge progression', ['deadlift', 'barbell-rdl', 'hip-thrust']),
-  // Pair 3
-  slot('row', 'pair-3', 'Row progression', ['cable-row', 'machine-row', 't-bar-row']),
+  // Workout A — squat & bench
+  slot('squat', 'day-a', 'Squat', ['back-squat', 'goblet-squat'], 1),
+  slot('pull', 'day-a', 'Vertical pull', ['pull-up'], 1),
   slot(
-    'push',
-    'pair-3',
-    'Push',
-    ['machine-chest-press', 'shoulder-press', 'push-up', 'diamond-push-up'],
-    true,
+    'bench',
+    'day-a',
+    'Bench press',
+    ['bench-press', 'db-bench-press', 'incline-db-press', 'decline-db-press', 'machine-chest-press'],
+    2,
   ),
-  // Isolations
-  slot('triceps', 'isolation', 'Triceps extension', [
-    'cable-pushdown',
-    'bar-pushdown',
-    'overhead-cable-extension',
-  ]),
-  slot('biceps', 'isolation', 'Biceps curl', ['zottman-curl', 'biceps-curl']),
-  slot('chest-fly', 'isolation', 'Extra chest', [
-    'low-to-high-cable-fly',
-    'high-to-low-cable-fly',
-  ]),
-  slot('lats', 'isolation', 'Lats', [
-    'lat-pulldown',
-    'close-grip-lat-pulldown',
-    'wide-grip-lat-pulldown',
-  ]),
-  // Leg day extras
-  slot('hamstring-curl', 'leg-day', 'Hamstring curl', ['hamstring-curl']),
-  slot('leg-raise', 'leg-day', 'Leg raises', ['leg-extension', 'hanging-leg-raise']),
-  slot('split-squat', 'leg-day', 'Bulgarian split squat', ['bulgarian-split-squat']),
-  slot('calves', 'leg-day', 'Calf raises', ['machine-calf-raise']),
-  // Core triplet
-  slot('anti-extension', 'core', 'Anti-extension', ['ab-wheel-rollout']),
-  slot('anti-rotation', 'core', 'Anti-rotation', ['pallof-press']),
-  slot('extension', 'core', 'Extension', ['back-extension']),
+  slot('row', 'day-a', 'Row', ['cable-row', 't-bar-row'], 2),
+  slot('hamstring-curl', 'day-a', 'Hamstrings', ['hamstring-curl'], 3),
+  slot('abs', 'day-a', 'Abs', ['ab-machine', 'ab-wheel-rollout'], 3),
+  // Workout B — hinge & press
+  slot('hinge', 'day-b', 'Hinge', ['barbell-rdl', 'deadlift', 'hip-thrust'], 1),
+  slot(
+    'lats',
+    'day-b',
+    'Lat pulldown',
+    ['lat-pulldown', 'close-grip-lat-pulldown', 'wide-grip-lat-pulldown'],
+    1,
+  ),
+  slot('overhead', 'day-b', 'Overhead press', ['shoulder-press'], 2),
+  slot('dips', 'day-b', 'Dip', ['dip', 'machine-dip', 'bench-dip'], 2),
+  slot('biceps', 'day-b', 'Biceps', ['zottman-curl', 'biceps-curl'], 3),
+  slot('anti-rotation', 'day-b', 'Anti-rotation', ['pallof-press'], 3),
+  // Workout C — leg press & chest
+  slot('leg-press', 'day-c', 'Leg press', ['leg-press', 'bulgarian-split-squat'], 1),
+  slot('chest-row', 'day-c', 'Chest-supported row', ['machine-row'], 1),
+  slot(
+    'fly',
+    'day-c',
+    'Chest fly',
+    ['pec-deck', 'low-to-high-cable-fly', 'high-to-low-cable-fly'],
+    2,
+  ),
+  slot(
+    'triceps',
+    'day-c',
+    'Triceps',
+    ['cable-pushdown', 'bar-pushdown', 'overhead-cable-extension'],
+    2,
+  ),
+  slot('extension', 'day-c', 'Lower back', ['back-extension'], 3),
+  slot('leg-raise', 'day-c', 'Abs', ['hanging-leg-raise'], 3),
+  // Extras — straight sets, not scheduled by default
+  slot('calves', 'extras', 'Calves', ['machine-calf-raise']),
+  slot('quads', 'extras', 'Quads', ['leg-extension']),
+  slot('push-up', 'extras', 'Push-up', ['push-up', 'diamond-push-up']),
   // Kettlebell core circuit
   slot('kb-plank-pull-through', 'kb-core', 'Kettlebell core', ['kb-plank-pull-through']),
   slot('kb-halo', 'kb-core', 'Kettlebell core', ['kb-halo']),
@@ -961,6 +990,17 @@ export function getSlot(exerciseId: string): Slot | undefined {
 export function getBlock(exerciseId: string): Block | undefined {
   const s = getSlot(exerciseId)
   return s ? BLOCKS_BY_ID[s.block] : undefined
+}
+
+/**
+ * The alternating group an exercise runs in — its pair within a workout, or
+ * the whole block for an unpaired alternating block (the kettlebell circuit).
+ * Undefined for straight sets.
+ */
+export function alternateGroupKey(exerciseId: string): string | undefined {
+  const s = getSlot(exerciseId)
+  if (!s || !BLOCKS_BY_ID[s.block].alternate) return undefined
+  return s.pair ? `${s.block}:${s.pair}` : s.block
 }
 
 /** All exercises that can fill a slot (base first). */

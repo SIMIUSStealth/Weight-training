@@ -2,15 +2,17 @@ import { describe, it, expect } from 'vitest'
 import { alternatingGroup, groupRound, nextExerciseIndex } from './flow'
 import type { ExerciseLog } from '../storage/types'
 
-// A session: Pair 1 (pull-up, squat, bench), an isolation, then the core triplet.
+// A session: Workout A's first two pairs, a straight-set extra, then three
+// kettlebell circuit moves (one alternating group across the whole block).
 const IDS = [
-  'pull-up',
   'back-squat',
+  'pull-up',
   'bench-press',
-  'cable-pushdown',
-  'ab-wheel-rollout',
-  'pallof-press',
-  'back-extension',
+  'cable-row',
+  'machine-calf-raise',
+  'kb-halo',
+  'kb-swing',
+  'plank',
 ]
 
 function sessionWith(done: Record<string, number> = {}): ExerciseLog[] {
@@ -22,14 +24,16 @@ function sessionWith(done: Record<string, number> = {}): ExerciseLog[] {
 }
 
 describe('alternating groups', () => {
-  it('groups a contiguous run from one alternating block', () => {
+  it('groups each pair on its own, and an unpaired circuit as a whole', () => {
     const s = sessionWith()
-    expect(alternatingGroup(s, 1)).toEqual([0, 2]) // Pair 1
-    expect(alternatingGroup(s, 3)).toBeNull() // isolations are straight sets
-    expect(alternatingGroup(s, 6)).toEqual([4, 6]) // core triplet
+    expect(alternatingGroup(s, 0)).toEqual([0, 1]) // pair 1
+    expect(alternatingGroup(s, 1)).toEqual([0, 1])
+    expect(alternatingGroup(s, 2)).toEqual([2, 3]) // pair 2 — not merged with pair 1
+    expect(alternatingGroup(s, 4)).toBeNull() // extras are straight sets
+    expect(alternatingGroup(s, 7)).toEqual([5, 7]) // kettlebell circuit
   })
 
-  it('a lone member of an alternating block is just straight sets', () => {
+  it('a lone member of a pair is just straight sets', () => {
     const lone: ExerciseLog[] = [{ exerciseId: 'pull-up', weightKg: 0, sets: [] }]
     expect(alternatingGroup(lone, 0)).toBeNull()
   })
@@ -37,69 +41,66 @@ describe('alternating groups', () => {
 
 describe('nextExerciseIndex', () => {
   it('rotates through a pair round by round', () => {
-    // Round 1: pull-up → squat → bench, then back to pull-up.
-    expect(nextExerciseIndex(sessionWith({ 'pull-up': 1 }), 0)).toBe(1)
-    expect(nextExerciseIndex(sessionWith({ 'pull-up': 1, 'back-squat': 1 }), 1)).toBe(2)
+    expect(nextExerciseIndex(sessionWith({ 'back-squat': 1 }), 0)).toBe(1)
+    expect(nextExerciseIndex(sessionWith({ 'back-squat': 1, 'pull-up': 1 }), 1)).toBe(0)
+  })
+
+  it('rotates through a circuit round by round', () => {
+    expect(nextExerciseIndex(sessionWith({ 'kb-halo': 1, 'kb-swing': 1 }), 6)).toBe(7)
     expect(
-      nextExerciseIndex(sessionWith({ 'pull-up': 1, 'back-squat': 1, 'bench-press': 1 }), 2),
-    ).toBe(0)
+      nextExerciseIndex(sessionWith({ 'kb-halo': 1, 'kb-swing': 1, plank: 1 }), 7),
+    ).toBe(5)
   })
 
   it('skips members that are finished', () => {
-    const s = sessionWith({ 'pull-up': 3, 'back-squat': 2, 'bench-press': 3 })
-    expect(nextExerciseIndex(s, 2)).toBe(1)
+    const s = sessionWith({ 'back-squat': 2, 'pull-up': 3 })
+    expect(nextExerciseIndex(s, 1)).toBe(0)
   })
 
-  it('leaves the group once every member is done', () => {
-    const s = sessionWith({ 'pull-up': 3, 'back-squat': 3, 'bench-press': 3 })
-    expect(nextExerciseIndex(s, 2)).toBe(3)
+  it('leaves the pair once both are done', () => {
+    const s = sessionWith({ 'back-squat': 3, 'pull-up': 3 })
+    expect(nextExerciseIndex(s, 1)).toBe(2)
   })
 
-  it('never traps you: browsing past a group without logging moves on', () => {
+  it('never traps you: browsing past a pair without logging moves on', () => {
     const s = sessionWith()
     expect(nextExerciseIndex(s, 0)).toBe(1)
-    expect(nextExerciseIndex(s, 2)).toBe(3) // no set logged on bench → no wrap
+    expect(nextExerciseIndex(s, 1)).toBe(2) // no set logged on the pull-up → no wrap
   })
 
   it('straight-set exercises go in order; the end of the session is null', () => {
     const s = sessionWith()
-    expect(nextExerciseIndex(s, 3)).toBe(4)
-    const finished = sessionWith({
-      'ab-wheel-rollout': 3,
-      'pallof-press': 3,
-      'back-extension': 3,
-    })
-    expect(nextExerciseIndex(finished, 6)).toBeNull()
+    expect(nextExerciseIndex(s, 4)).toBe(5)
+    const finished = sessionWith({ 'kb-halo': 3, 'kb-swing': 3, plank: 3 })
+    expect(nextExerciseIndex(finished, 7)).toBeNull()
   })
 
   it('moving on skips exercises that are already finished', () => {
-    // Did the isolation and the first core move early (machine was free).
+    // Did the calf raise early (the machine was free).
     const s = sessionWith({
-      'pull-up': 3,
       'back-squat': 3,
+      'pull-up': 3,
       'bench-press': 3,
-      'cable-pushdown': 3,
-      'ab-wheel-rollout': 3,
+      'cable-row': 3,
+      'machine-calf-raise': 3,
     })
-    expect(nextExerciseIndex(s, 2)).toBe(5) // past the done pushdown, into the core
-    expect(nextExerciseIndex(sessionWith({ 'cable-pushdown': 3 }), 2)).toBe(4)
+    expect(nextExerciseIndex(s, 3)).toBe(5)
+    expect(nextExerciseIndex(sessionWith({ 'machine-calf-raise': 3 }), 3)).toBe(5)
   })
 
   it('nothing open further on is the end, even with skipped work behind', () => {
-    const s = sessionWith({ 'pallof-press': 3, 'back-extension': 3 })
-    expect(nextExerciseIndex(s, 3)).toBe(4)
     const tail = sessionWith({
-      'cable-pushdown': 3,
-      'ab-wheel-rollout': 3,
-      'pallof-press': 3,
-      'back-extension': 3,
+      'machine-calf-raise': 3,
+      'kb-halo': 3,
+      'kb-swing': 3,
+      plank: 3,
     })
-    expect(nextExerciseIndex(tail, 2)).toBeNull()
+    expect(nextExerciseIndex(tail, 3)).toBeNull()
   })
 
   it('reports the round the group is on', () => {
-    expect(groupRound(sessionWith(), [0, 2])).toBe(1)
-    expect(groupRound(sessionWith({ 'pull-up': 2, 'back-squat': 1, 'bench-press': 1 }), [0, 2])).toBe(2)
-    expect(groupRound(sessionWith({ 'pull-up': 3, 'back-squat': 3, 'bench-press': 3 }), [0, 2])).toBe(3)
+    expect(groupRound(sessionWith(), [0, 1])).toBe(1)
+    expect(groupRound(sessionWith({ 'back-squat': 2, 'pull-up': 1 }), [0, 1])).toBe(2)
+    expect(groupRound(sessionWith({ 'back-squat': 3, 'pull-up': 3 }), [0, 1])).toBe(3)
   })
 })

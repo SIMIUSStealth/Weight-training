@@ -4,6 +4,19 @@ Running list of shipped features and the backlog, so ideas aren't lost.
 
 ## Shipped
 
+- **A/B/C full-body workouts (2026-10)** — the long routine (10–14 exercises a
+  day) is now three short full-body workouts of six exercises each, run as
+  three supersetted pairs: A · Squat & Bench (Mon), B · Hinge & Press (Wed),
+  C · Leg Press & Chest (Fri). New exercises: leg press, pec deck, abdominal
+  machine, and the dip slot defaults to the assisted dip machine (35 kg
+  help). Extras (calves, leg extension, push-ups) and the kettlebell circuit
+  stay as optional blocks. Older plans migrate to the new week; every
+  exercise keeps its weight and history.
+- **Type a weight in (2026-10)** — tap the load in a workout or on the
+  exercise page to enter the exact kg (comma or dot), for machines whose
+  steps don't match the ladder. Assisted lifts pick machine help or belt
+  weight. A load typed mid-workout becomes the exercise's weight when you
+  finish, and the next level-up climbs from it.
 - **Form guides + easier navigation (2026-10)** — every exercise shows a
   one-line "what is it" and a "See the form" link to a reputable exercise
   library (ACE Fitness, ExRx.net, NASM, Catalyst Athletics; `guides.ts`). The

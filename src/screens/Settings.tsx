@@ -192,8 +192,9 @@ export function Settings() {
           <p className="small">
             <strong>Bodyweight lifts.</strong> Pull-ups and dips climb from the
             assisted machine (minus kg) to bodyweight to added weight on a belt.
-            Pairs and the core triplet are done alternating: one set of each, rest,
-            round again.
+            Each workout is three pairs, done alternating: one set of each, rest,
+            round again. Tap any weight to type in the exact load if your
+            machine&rsquo;s steps don&rsquo;t match.
           </p>
           <p className="small">
             <strong>Effort drives growth.</strong> Take each working set to roughly
@@ -207,7 +208,7 @@ export function Settings() {
           </p>
           <p className="small muted" style={{ marginBottom: 0 }}>
             3 sessions/week on non-consecutive days · 40–60 min of strength work ·
-            three pairs + a core triplet, isolations as extras.
+            Workouts A, B and C — six exercises each, full body every time.
           </p>
         </div>
       )}

@@ -38,17 +38,14 @@ export function todayIndex(): number {
   return mondayIndex(new Date())
 }
 
-/** The full routine: the three pairs + the core triplet. */
-export const ROUTINE: BlockId[] = ['pair-1', 'pair-2', 'pair-3', 'core']
+/** The three full-body workouts, rotated A → B → C across the week. */
+export const WORKOUTS: BlockId[] = ['day-a', 'day-b', 'day-c']
 
-/**
- * Default plan: the full routine on Mon / Wed / Fri — Wednesday doubles as the
- * leg day, Friday adds the isolations — rest otherwise.
- */
+/** Default plan: Workout A on Monday, B on Wednesday, C on Friday — rest otherwise. */
 export function defaultWeeklyPlan(): DayPlan[] {
-  const day = (...extra: BlockId[]): DayPlan => ({ blocks: [...ROUTINE, ...extra] })
+  const day = (block: BlockId): DayPlan => ({ blocks: [block] })
   const rest = (): DayPlan => ({ blocks: [] })
-  return [day(), rest(), day('leg-day'), rest(), day('isolation'), rest(), rest()]
+  return [day('day-a'), rest(), day('day-b'), rest(), day('day-c'), rest(), rest()]
 }
 
 /** True for a 7-day, block-based plan (the current schema). */
@@ -154,13 +151,10 @@ export function muscleFrequency(
   return freq
 }
 
-/** Short label for a day, e.g. "Full routine · Leg day" or "Pair 1 · Core". */
+/** Label for a day, e.g. "Workout A · Squat & Bench" or "Workout B · Extras". */
 export function dayLabel(day: DayPlan): string {
-  if (!day.blocks.length) return 'Rest day'
   const on = BLOCKS.filter((b) => day.blocks.includes(b.id))
-  if (ROUTINE.every((id) => day.blocks.includes(id))) {
-    const extras = on.filter((b) => !ROUTINE.includes(b.id)).map((b) => b.short)
-    return ['Full routine', ...extras].join(' · ')
-  }
+  if (!on.length) return 'Rest day'
+  if (on.length === 1) return on[0].name
   return on.map((b) => b.short).join(' · ')
 }

@@ -107,7 +107,7 @@ describe('weekStatuses', () => {
     }
     const todayIdx = (now.getDay() + 6) % 7
     const plan = defaultWeeklyPlan()
-    plan[todayIdx] = { blocks: ['pair-1'] } // ensure today is a training day
+    plan[todayIdx] = { blocks: ['day-a'] } // ensure today is a training day
     expect(doneDaysThisWeek([legacy])).toBe(1)
     expect(weekStatuses(plan, [legacy], null)[todayIdx].status).toBe('done')
   })
@@ -116,7 +116,7 @@ describe('weekStatuses', () => {
 describe('weekStreak', () => {
   // A one-training-day plan (Monday) keeps the fixtures simple.
   const plan: DayPlan[] = [
-    { blocks: ['pair-1'] },
+    { blocks: ['day-a'] },
     { blocks: [] },
     { blocks: [] },
     { blocks: [] },

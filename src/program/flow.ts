@@ -1,25 +1,25 @@
-// Session flow — which exercise "Next" goes to. The pairs, the core triplet and
-// the kettlebell circuit are run alternating (one set of each member, rest,
-// round again) rather than as straight sets, so "Next" rotates through the
-// group while its members still have sets left, then moves on in routine
-// order. Pure logic.
+// Session flow — which exercise "Next" goes to. Each workout's pairs and the
+// kettlebell circuit are run alternating (one set of each member, rest, round
+// again) rather than as straight sets, so "Next" rotates through the group
+// while its members still have sets left, then moves on in routine order.
+// Pure logic.
 
-import { getBlock } from './exercises'
+import { alternateGroupKey } from './exercises'
 import type { ExerciseLog } from '../storage/types'
 
 /**
  * Inclusive [start, end] indices of the alternating group (a contiguous run
- * of exercises from one alternating block) around `index`, or null when the
- * exercise is done as straight sets.
+ * of exercises from one pair, or one unpaired alternating block) around
+ * `index`, or null when the exercise is done as straight sets.
  */
 export function alternatingGroup(
   exercises: ExerciseLog[],
   index: number,
 ): [number, number] | null {
   const id = exercises[index]?.exerciseId
-  const block = id ? getBlock(id) : undefined
-  if (!block?.alternate) return null
-  const same = (i: number) => getBlock(exercises[i].exerciseId)?.id === block.id
+  const key = id ? alternateGroupKey(id) : undefined
+  if (!key) return null
+  const same = (i: number) => alternateGroupKey(exercises[i].exerciseId) === key
   let start = index
   let end = index
   while (start > 0 && same(start - 1)) start--
