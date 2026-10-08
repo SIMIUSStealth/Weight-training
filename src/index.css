@@ -716,6 +716,46 @@ h1 {
   justify-content: center;
 }
 
+/* ---------- weight keypad ---------- */
+
+.pad-display {
+  text-align: center;
+  font-size: 40px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  margin-bottom: 6px;
+}
+.pad-display.fresh {
+  color: var(--muted);
+}
+.pad-display .unit {
+  font-size: 16px;
+  color: var(--muted);
+  font-weight: 600;
+  margin-left: 6px;
+}
+.pad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.pad-key {
+  height: 56px;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.pad-key:active {
+  background: var(--surface-3);
+}
+
 /* ---------- rest timer sheet ---------- */
 
 .rest-sheet {

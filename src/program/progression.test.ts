@@ -95,6 +95,7 @@ describe('load ladders', () => {
   it('formats decimals with a comma, like the spec', () => {
     expect(formatKg(5.5)).toBe('5,5 kg')
     expect(formatKg(8)).toBe('8 kg')
+    expect(formatKg(1.25)).toBe('1,25 kg')
   })
 
   it('formats relative loads the way a lifter says them', () => {

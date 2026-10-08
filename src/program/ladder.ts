@@ -136,12 +136,12 @@ export function isTopRung(weightKg: number, ladder: readonly number[]): boolean 
   return rungIndex(weightKg, ladder) === ladder.length - 1
 }
 
-/** Format a weight the way the spec writes it (comma decimals, e.g. "5,5 kg"). */
+/**
+ * Format a weight the way the spec writes it (comma decimals, e.g. "5,5 kg").
+ * Up to two decimals, so a typed 1,25 kg micro-plate load reads true.
+ */
 export function formatKg(weightKg: number): string {
-  const s = Number.isInteger(weightKg)
-    ? String(weightKg)
-    : weightKg.toFixed(1).replace('.', ',')
-  return `${s} kg`
+  return `${String(Math.round(weightKg * 100) / 100).replace('.', ',')} kg`
 }
 
 /** True when the load is relative to bodyweight (added / assisted). */

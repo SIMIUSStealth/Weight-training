@@ -178,6 +178,14 @@ export const Pencil = (p: P) => (
   </Svg>
 )
 
+export const Calculator = (p: P) => (
+  <Svg {...p}>
+    <rect x="5" y="2.5" width="14" height="19" rx="2" />
+    <path d="M8.5 6.5h7" />
+    <path d="M8.5 11h.01M12 11h.01M15.5 11h.01M8.5 14.5h.01M12 14.5h.01M15.5 14.5h.01M8.5 18h.01M12 18h.01M15.5 18h.01" />
+  </Svg>
+)
+
 export const Play = (p: P) => (
   <Svg {...p}>
     <path d="M7 4.5l12 7.5-12 7.5z" fill="currentColor" stroke="none" />

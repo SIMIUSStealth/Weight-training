@@ -22,8 +22,8 @@ import { formatSeconds } from '../program/analytics'
 import { alternatingGroup, groupRound, nextExerciseIndex } from '../program/flow'
 import { getGuide } from '../program/guides'
 import { useStore } from '../store/useStore'
-import { Coach, GuideLink, Modal, MuscleChip, Stepper } from '../ui/components'
-import { Check, ChevronLeft, List, Minus, Plus, Timer, X } from '../ui/icons'
+import { Coach, GuideLink, Modal, MuscleChip, Stepper, WeightPad } from '../ui/components'
+import { Calculator, Check, ChevronLeft, List, Minus, Plus, Timer, X } from '../ui/icons'
 
 // One shared AudioContext for the app's lifetime — iOS Safari caps live
 // contexts (~4), so creating one per beep permanently kills audio mid-workout.
@@ -103,7 +103,7 @@ export function Workout() {
   const holdPhaseStartRef = useRef(0)
   const [finishPrompt, setFinishPrompt] = useState(false)
   // Mid-workout editing sheets: the session overview, adding, swapping.
-  const [sheet, setSheet] = useState<null | 'overview' | 'add' | 'swap'>(null)
+  const [sheet, setSheet] = useState<null | 'overview' | 'add' | 'swap' | 'weight'>(null)
   const alerted = useRef(false)
   // The exercise strip in the header — keeps the current pill in view.
   const stripRef = useRef<HTMLDivElement>(null)
@@ -426,9 +426,9 @@ export function Workout() {
                 >
                   <Minus size={20} />
                 </button>
-                <div className="val" style={{ minWidth: 44, fontSize: 15 }}>
-                  kg
-                </div>
+                <button aria-label="type a weight" onClick={() => setSheet('weight')}>
+                  <Calculator size={20} />
+                </button>
                 <button
                   aria-label="heavier"
                   disabled={isTopRung(weight, ladder)}
@@ -773,6 +773,17 @@ export function Workout() {
         </Modal>
       )}
 
+      {sheet === 'weight' && (
+        <WeightPad
+          equipment={def.equipment}
+          weightKg={weight}
+          onClose={() => setSheet(null)}
+          onSet={(kg) => {
+            setWorkingWeight(def.id, kg)
+            setSheet(null)
+          }}
+        />
+      )}
       {sheet === 'swap' && slot && (
         <Modal title={`Swap ${def.name}`} onClose={() => setSheet(null)}>
           <p className="small muted" style={{ marginTop: 0 }}>

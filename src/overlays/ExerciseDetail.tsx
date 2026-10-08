@@ -21,8 +21,8 @@ import {
 import { exerciseSeries, formatSeconds, relativeDay } from '../program/analytics'
 import { useStore } from '../store/useStore'
 import { LineChart } from '../ui/charts'
-import { Coach, GuideLink, Modal, MuscleChip, muscleColor } from '../ui/components'
-import { ChevronLeft, ChevronRight, Minus, Plus, Trophy } from '../ui/icons'
+import { Coach, GuideLink, Modal, MuscleChip, muscleColor, WeightPad } from '../ui/components'
+import { Calculator, ChevronLeft, ChevronRight, Minus, Plus, Trophy } from '../ui/icons'
 
 export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
   const def = getExercise(exerciseId)
@@ -36,6 +36,7 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
   const closeOverlay = useStore((s) => s.closeOverlay)
 
   const [swapTo, setSwapTo] = useState<ExerciseDef | null>(null)
+  const [typing, setTyping] = useState(false)
 
   const p = progress[exerciseId] ?? defaultProgress(def)
   const slot = getSlot(exerciseId)
@@ -133,9 +134,9 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
                 >
                   <Minus size={20} />
                 </button>
-                <div className="val" style={{ minWidth: 40, fontSize: 14 }}>
-                  kg
-                </div>
+                <button aria-label="type a weight" onClick={() => setTyping(true)}>
+                  <Calculator size={20} />
+                </button>
                 <button
                   aria-label="heavier"
                   disabled={isTopRung(p.currentWeightKg, ladder)}
@@ -332,6 +333,17 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
         <GuideLink exerciseId={def.id} />
       </div>
 
+      {typing && (
+        <WeightPad
+          equipment={def.equipment}
+          weightKg={p.currentWeightKg}
+          onClose={() => setTyping(false)}
+          onSet={(kg) => {
+            setExerciseWeight(exerciseId, kg)
+            setTyping(false)
+          }}
+        />
+      )}
       {swapTo && slot && (
         <Modal title={`Swap to ${swapTo.name}?`} onClose={() => setSwapTo(null)}>
           <p className="small muted" style={{ marginTop: 0 }}>

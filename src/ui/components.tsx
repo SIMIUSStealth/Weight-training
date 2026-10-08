@@ -1,6 +1,8 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import type { Muscle } from '../program/exercises'
 import { getGuide } from '../program/guides'
+import { padEntry, padPress, padValue, type PadKey } from '../program/keypad'
+import { formatLoad, type Equipment } from '../program/ladder'
 import { Alert, ArrowUp, ExternalLink, Info, Minus, Plus, X } from './icons'
 
 const MUSCLE_COLOR: Record<Muscle, string> = {
@@ -193,5 +195,71 @@ export function GuideLink({ exerciseId }: { exerciseId: string }) {
       </span>
       <ExternalLink size={16} />
     </a>
+  )
+}
+
+const PAD_KEYS: PadKey[] = ['7', '8', '9', '4', '5', '6', '1', '2', '3', ',', '0', 'del']
+
+/** Calculator-style keypad for typing an exact load (instead of ± a rung). */
+export function WeightPad({
+  equipment,
+  weightKg,
+  onSet,
+  onClose,
+}: {
+  equipment: Equipment
+  weightKg: number
+  onSet: (weightKg: number) => void
+  onClose: () => void
+}) {
+  const [entry, setEntry] = useState(() => padEntry(weightKg))
+  const [fresh, setFresh] = useState(true)
+  const press = (key: PadKey) => {
+    setEntry((e) => padPress(e, key, fresh))
+    setFresh(false)
+  }
+  const value = padValue(entry, equipment)
+  const assisted = equipment === 'assisted'
+  return (
+    <Modal title="Type a weight" onClose={onClose}>
+      <div className={`pad-display${fresh ? ' fresh' : ''}`}>
+        {entry || '0'}
+        <span className="unit">kg</span>
+      </div>
+      <div className="tiny faint" style={{ textAlign: 'center', minHeight: 16, marginBottom: 10 }}>
+        {[
+          value !== null ? formatLoad(equipment, value) : '',
+          assisted ? 'minus = assist, plus = added' : '',
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+      </div>
+      <div className="pad-grid">
+        {PAD_KEYS.map((k) => (
+          <button
+            key={k}
+            className="pad-key"
+            onClick={() => press(k)}
+            aria-label={k === 'del' ? 'delete' : k === ',' ? 'decimal comma' : k}
+          >
+            {k === 'del' ? '⌫' : k}
+          </button>
+        ))}
+      </div>
+      <div className="row" style={{ gap: 10, marginTop: 12 }}>
+        {assisted && (
+          <button className="btn btn-lg" onClick={() => press('sign')} aria-label="plus or minus">
+            ±
+          </button>
+        )}
+        <button
+          className="btn btn-primary btn-lg grow"
+          disabled={value === null}
+          onClick={() => value !== null && onSet(value)}
+        >
+          Set weight
+        </button>
+      </div>
+    </Modal>
   )
 }
