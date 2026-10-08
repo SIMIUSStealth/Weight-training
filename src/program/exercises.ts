@@ -647,6 +647,21 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
     formCue:
       'Hands well outside shoulder width. Pull the bar to your upper chest, elbows driving down and out, chest up; control it back up to a full stretch.',
   },
+  {
+    id: 'face-pull',
+    name: 'Face Pull',
+    muscle: 'Shoulders',
+    slot: 'rear-delts',
+    sets: 3,
+    kind: 'reps',
+    repMin: 12,
+    repMax: 15,
+    equipment: 'cable',
+    startWeightKg: 10,
+    perArm: false,
+    formCue:
+      'Rope on a cable at about forehead height, thumbs pointing back. Pull the rope toward your face, splitting the ends past your ears with the elbows high, and finish with the knuckles pointing up — squeeze the upper back. Return slowly. Light and strict: if you have to lean back, drop the weight.',
+  },
 
   // ----- Leg day extras -----
   {
@@ -773,6 +788,36 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
     formCue:
       'On the hyperextension bench, pad just below the hips. Lower the torso with a flat back, then rise until your body is a straight line — squeeze the glutes, don’t over-arch. Hold a plate at your chest to make it harder.',
   },
+  {
+    id: 'machine-ab-crunch',
+    name: 'Abdominal Crunch Machine',
+    muscle: 'Core',
+    slot: 'flexion',
+    sets: 3,
+    kind: 'reps',
+    repMin: 8,
+    repMax: 12,
+    equipment: 'machine',
+    startWeightKg: 20,
+    perArm: false,
+    formCue:
+      'Seated (selectorised) crunch machine, pads or handles at your chest. Breathe out and curl your ribs down toward your hips — round the spine, don’t just hinge at the hips or pull with the arms. Squeeze at the bottom, then return slowly without letting the stack touch down.',
+  },
+  {
+    id: 'machine-ab-crunch-feet-anchored',
+    name: 'Abdominal Crunch Machine (Feet Anchored)',
+    muscle: 'Core',
+    slot: 'flexion',
+    sets: 3,
+    kind: 'reps',
+    repMin: 8,
+    repMax: 12,
+    equipment: 'machine',
+    startWeightKg: 20,
+    perArm: false,
+    formCue:
+      'Same crunch machine, with your feet hooked behind the foot block. Curl your ribs down toward your hips and squeeze, then return slowly. Anchoring the feet lets the hip flexors join in and you’ll move more weight — keep the curl in the abs, not a pull from the legs.',
+  },
 
   // ----- Kettlebell core circuit (30 s each) -----
   kb(
@@ -873,6 +918,11 @@ export interface Slot {
   label: string
   /** Optional within its block (e.g. the Pair 3 push). */
   optional?: boolean
+  /**
+   * An add-on: not part of the block's default lineup — it only appears on a
+   * day you add it to (via "Add to …").
+   */
+  extra?: boolean
   /** The default exercise id (first option). */
   baseId: string
   /** All exercise ids that can fill this slot, base first. */
@@ -885,8 +935,9 @@ function slot(
   label: string,
   optionIds: string[],
   optional?: boolean,
+  extra?: boolean,
 ): Slot {
-  return { id, block, label, baseId: optionIds[0], optionIds, optional }
+  return { id, block, label, baseId: optionIds[0], optionIds, optional, extra }
 }
 
 export const SLOTS: readonly Slot[] = [
@@ -927,6 +978,7 @@ export const SLOTS: readonly Slot[] = [
     'close-grip-lat-pulldown',
     'wide-grip-lat-pulldown',
   ]),
+  slot('rear-delts', 'isolation', 'Rear delts', ['face-pull'], false, true),
   // Leg day extras
   slot('hamstring-curl', 'leg-day', 'Hamstring curl', ['hamstring-curl']),
   slot('leg-raise', 'leg-day', 'Leg raises', ['leg-extension', 'hanging-leg-raise']),
@@ -936,6 +988,14 @@ export const SLOTS: readonly Slot[] = [
   slot('anti-extension', 'core', 'Anti-extension', ['ab-wheel-rollout']),
   slot('anti-rotation', 'core', 'Anti-rotation', ['pallof-press']),
   slot('extension', 'core', 'Extension', ['back-extension']),
+  slot(
+    'flexion',
+    'core',
+    'Crunch',
+    ['machine-ab-crunch', 'machine-ab-crunch-feet-anchored'],
+    false,
+    true,
+  ),
   // Kettlebell core circuit
   slot('kb-plank-pull-through', 'kb-core', 'Kettlebell core', ['kb-plank-pull-through']),
   slot('kb-halo', 'kb-core', 'Kettlebell core', ['kb-halo']),

@@ -3,7 +3,8 @@
 // on Exercise) first, then ExRx.net, NASM and Catalyst Athletics where ACE has
 // no matching page. Kept apart from exercises.ts so the routine data stays
 // readable. Moves without a trusted page (the less common kettlebell circuit
-// moves, diamond push-up, Zottman curl) carry only the description.
+// moves, diamond push-up, Zottman curl, face pull, crunch machine) carry only
+// the description.
 
 export interface ExerciseGuide {
   /** One-line "what is it": the movement and what it trains. */
@@ -174,6 +175,9 @@ export const GUIDES: Record<string, ExerciseGuide> = {
     url: ace('158/seated-lat-pulldown'),
     source: ACE,
   },
+  'face-pull': {
+    about: 'Pull a rope on a high cable toward your face, elbows high. Rear delts, rotator cuff and upper back — the counterweight to all the pressing.',
+  },
 
   // ----- Leg day -----
   'hamstring-curl': {
@@ -217,6 +221,12 @@ export const GUIDES: Record<string, ExerciseGuide> = {
     about: 'On a hyperextension bench, lower your torso and rise back to a straight line. Lower back, glutes, hamstrings.',
     url: exrx('ErectorSpinae/Wt45Hyperextension'),
     source: EXRX,
+  },
+  'machine-ab-crunch': {
+    about: 'Seated crunch machine: curl your ribs down toward your hips against the stack. Loaded ab flexion.',
+  },
+  'machine-ab-crunch-feet-anchored': {
+    about: 'The crunch machine with your feet hooked behind the block. Lets you move more weight; the hip flexors help.',
   },
 
   // ----- Kettlebell core -----

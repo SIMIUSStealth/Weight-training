@@ -688,6 +688,7 @@ export const useStore = create<StoreState>((set, get) => ({
     // un-omitting; anything else rides along as an extra (without switching
     // on the rest of its block).
     const unOmit =
+      !slot.extra &&
       day.blocks.includes(slot.block) &&
       (day.omit ?? []).includes(slot.id) &&
       selectedForSlot(slot.id, get().settings.program) === exerciseId
@@ -717,6 +718,7 @@ export const useStore = create<StoreState>((set, get) => ({
     const slot = getSlot(exerciseId)
     if (
       slot &&
+      !slot.extra &&
       day.blocks.includes(slot.block) &&
       selectedForSlot(slot.id, get().settings.program) === exerciseId &&
       !(day.omit ?? []).includes(slot.id)

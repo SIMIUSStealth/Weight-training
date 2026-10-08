@@ -342,6 +342,20 @@ describe('store: weekly plan', () => {
     expect(again.add ?? []).not.toContain('cable-row')
   })
 
+  it('add-ons come and go cleanly: removing then re-adding a crunch brings it back', () => {
+    const s = useStore.getState()
+    s.addExerciseToDay(0, 'machine-ab-crunch')
+    s.removeExerciseFromDay(0, 'machine-ab-crunch')
+    let mon = useStore.getState().settings.weeklyPlan![0]
+    expect(mon.add ?? []).not.toContain('machine-ab-crunch')
+    expect(mon.omit ?? []).not.toContain('flexion')
+    s.addExerciseToDay(0, 'machine-ab-crunch')
+    s.startDay(0)
+    const ids = useStore.getState().activeSession!.exercises.map((e) => e.exerciseId)
+    expect(ids).toContain('machine-ab-crunch')
+    expect(ids).not.toContain('machine-ab-crunch-feet-anchored')
+  })
+
   it('turning a block off drops its omits and extras', () => {
     const s = useStore.getState()
     s.addExerciseToDay(0, 'goblet-squat')

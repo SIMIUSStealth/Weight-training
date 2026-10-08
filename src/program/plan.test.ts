@@ -81,6 +81,26 @@ describe('weekly plan', () => {
     expect(ids).not.toContain('bench-press') // another block
   })
 
+  it('add-ons (face pull, crunches) only appear when added', () => {
+    const day: DayPlan = { blocks: ['isolation', 'core'] }
+    const ids = dayExercises(day).map((e) => e.id)
+    expect(ids).not.toContain('face-pull')
+    expect(ids).not.toContain('machine-ab-crunch')
+    expect(addableForBlock('isolation', day).map((e) => e.id)).toContain('face-pull')
+    expect(addableForBlock('core', day).map((e) => e.id)).toEqual([
+      'machine-ab-crunch',
+      'machine-ab-crunch-feet-anchored',
+    ])
+    const added = dayExercises({ ...day, add: ['machine-ab-crunch-feet-anchored', 'face-pull'] })
+    expect(added.map((e) => e.id).slice(-5)).toEqual([
+      'face-pull', // after the lats slot
+      'ab-wheel-rollout',
+      'pallof-press',
+      'back-extension',
+      'machine-ab-crunch-feet-anchored', // after the core triplet
+    ])
+  })
+
   it('rest day has no exercises', () => {
     expect(dayExercises({ blocks: [] })).toEqual([])
     expect(dayLabel({ blocks: [] })).toBe('Rest day')

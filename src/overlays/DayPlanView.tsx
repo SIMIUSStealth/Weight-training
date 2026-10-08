@@ -165,7 +165,8 @@ export function DayPlanView({ weekday }: { weekday: number }) {
                           {slot?.optional ? ' · optional' : ''}
                         </div>
                       </div>
-                      {slot && slot.optionIds.length > 1 && (
+                      {/* An add-on rides along by id, so a global swap wouldn't move it. */}
+                      {slot && !slot.extra && slot.optionIds.length > 1 && (
                         <button className="btn btn-sm" onClick={() => setSwapFor(e)}>
                           Swap
                         </button>

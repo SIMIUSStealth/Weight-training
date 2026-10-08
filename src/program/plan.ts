@@ -1,7 +1,8 @@
 // The weekly plan: 7 days (Mon..Sun), each running a set of routine blocks.
 // A day's exercises are derived from those blocks' slots (using the global
 // per-slot choice), minus omitted slots, plus any added extras — always in
-// routine order. Pure logic.
+// routine order. Add-on slots (Slot.extra) only ever arrive as added extras.
+// Pure logic.
 
 import {
   BLOCKS,
@@ -100,7 +101,7 @@ export function dayExercises(
     }
   }
   for (const slot of SLOTS) {
-    if (day.blocks.includes(slot.block) && !day.omit?.includes(slot.id)) {
+    if (!slot.extra && day.blocks.includes(slot.block) && !day.omit?.includes(slot.id)) {
       push(selectedForSlot(slot.id, program))
     }
     // Extras sit next to their own slot, whether or not its block is on.
