@@ -4,6 +4,9 @@ Running list of shipped features and the backlog, so ideas aren't lost.
 
 ## Shipped
 
+- **Updates show on the next launch (2026-10)** — when a new deploy takes over
+  the installed app, it reloads itself once instead of waiting for a second
+  relaunch.
 - **A/B program on Monday & Wednesday (2026-10)** — Session A (single-leg leg
   press, assisted pull-up, DB bench, DB RDL, cable row, ab crunch) and Session B
   (leg press, lat pulldown, shoulder press, back extension, assisted dip, Pallof
@@ -115,7 +118,6 @@ Running list of shipped features and the backlog, so ideas aren't lost.
 ### Polish
 - **First-run calibration** wizard (bodyweight + dial in starting weights).
 - **Session notes** ("felt strong / shoulder twinge").
-- **In-app "new version — refresh" prompt** when a deploy lands.
 
 - Show RIR/effort in exercise history (per-set chips).
 
