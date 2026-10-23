@@ -40,7 +40,7 @@ blocks, always in this order:
 | **Pair 2** *(optional)* | Dip progression · Hinge progression | 3 × 5–8 each | Alternate |
 | **Pair 3** | Row progression · Push *(optional)* | 3 × 5–8 each | Alternate |
 | **Isolations** *(extra)* | Triceps extension · Biceps curl · Extra chest · Lats | 3 × 8–12 | Straight sets |
-| **Leg day** *(extra)* | Leg press · Hamstring curl · Leg raises · Bulgarian split squat · Calf raises | 3 × 8–12 (calves 12–20) | Straight sets |
+| **Leg day** *(extra)* | Leg press · Romanian deadlift · Hamstring curl · Leg raises · Bulgarian split squat · Calf raises | 3 × 8–12 (calves 12–20) | Straight sets |
 | **Core triplet** | Anti-extension · Anti-rotation · Extension | 3 × 8–12 each | Alternate the three |
 | **Kettlebell core** *(alternative)* | 8-move circuit | 30 s each, 2–3 rounds | Circuit |
 
@@ -86,7 +86,7 @@ as the place to perfect it.
 | Slot | Options | Equipment | Start |
 |---|---|---|---|
 | Dip progression | **Bench dip** · Machine dip · Dip (assisted → bodyweight → weighted) | bodyweight · machine · assisted | bodyweight · 30 kg · bodyweight |
-| Hinge progression | **Deadlift** (also a compound) · Barbell RDL · Barbell hip thrust | barbell | 50 · 40 · 40 kg |
+| Hinge progression | **Deadlift** (also a compound) · Barbell hip thrust | barbell | 50 · 40 kg |
 
 ### Pair 3 (3 × 5–8)
 
@@ -109,6 +109,7 @@ as the place to perfect it.
 | Slot | Options | Start |
 |---|---|---|
 | Leg press | **Leg press** (machine) | 130 kg |
+| Romanian deadlift | **Barbell RDL** | 40 kg (estimate) |
 | Hamstring curl | **Hamstring curl** (machine) | 25 kg |
 | Leg raises | **Leg extension** (machine) · Hanging leg raise | 30 kg · bodyweight |
 | Bulgarian split squat | **Bulgarian split squat** (per leg) | 10 kg dumbbell |

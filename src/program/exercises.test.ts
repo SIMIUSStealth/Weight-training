@@ -25,6 +25,8 @@ describe('slots & program selection', () => {
     expect(selectedForSlot('biceps', { biceps: 'hammer-curl' })).toBe('zottman-curl')
     // no selection → the base exercise
     expect(selectedForSlot('bench')).toBe('bench-press')
+    // the RDL moved to leg day, so an old Pair 2 swap to it falls back
+    expect(selectedForSlot('hinge', { hinge: 'barbell-rdl' })).toBe('deadlift')
   })
 
   it('formats the set scheme consistently', () => {

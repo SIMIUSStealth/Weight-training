@@ -101,10 +101,11 @@ describe('weekly plan', () => {
     ])
   })
 
-  it('leg day opens with the leg press', () => {
+  it('leg day opens with the leg press, then the RDL', () => {
     const ids = dayExercises({ blocks: ['leg-day'] }).map((e) => e.id)
     expect(ids).toEqual([
       'leg-press',
+      'barbell-rdl',
       'hamstring-curl',
       'leg-extension',
       'bulgarian-split-squat',

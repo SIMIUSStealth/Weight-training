@@ -352,21 +352,6 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
       'Bar over mid-foot, hip-width stance. Hinge down and grip just outside the legs, back flat, lats tight. Push the floor away and stand tall by driving the hips through, then lower the bar back down the same path. Reset each rep.',
   },
   {
-    id: 'barbell-rdl',
-    name: 'Barbell RDL',
-    muscle: 'Legs',
-    slot: 'hinge',
-    sets: 3,
-    kind: 'reps',
-    repMin: 5,
-    repMax: 8,
-    equipment: 'barbell',
-    startWeightKg: 40,
-    perArm: false,
-    formCue:
-      'Start standing with the bar. Soft knees, push the hips back and slide the bar down your thighs until the hamstrings are stretched (around mid-shin), back flat. Drive the hips forward to stand. Hinge, don’t squat.',
-  },
-  {
     id: 'hip-thrust',
     name: 'Barbell Hip Thrust',
     muscle: 'Legs',
@@ -681,6 +666,21 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
       'Back and hips flat against the pad, feet about shoulder width in the middle of the platform. Unlock the sled, then lower it until your knees reach about 90° without your lower back peeling off the pad, knees tracking over the toes. Press back up through the whole foot — stop just short of locking the knees.',
   },
   {
+    id: 'barbell-rdl',
+    name: 'Barbell RDL',
+    muscle: 'Legs',
+    slot: 'rdl',
+    sets: 3,
+    kind: 'reps',
+    repMin: 8,
+    repMax: 12,
+    equipment: 'barbell',
+    startWeightKg: 40,
+    perArm: false,
+    formCue:
+      'Start standing with the bar. Soft knees, push the hips back and slide the bar down your thighs until the hamstrings are stretched (around mid-shin), back flat. Drive the hips forward to stand. Hinge, don’t squat. First time: warm up with the empty bar, then add weight until 10 clean reps leave ~2 in the tank — log that.',
+  },
+  {
     id: 'hamstring-curl',
     name: 'Hamstring Curl',
     muscle: 'Legs',
@@ -968,7 +968,7 @@ export const SLOTS: readonly Slot[] = [
   ]),
   // Pair 2 — optional
   slot('dip', 'pair-2', 'Dip progression', ['bench-dip', 'machine-dip', 'dip']),
-  slot('hinge', 'pair-2', 'Hinge progression', ['deadlift', 'barbell-rdl', 'hip-thrust']),
+  slot('hinge', 'pair-2', 'Hinge progression', ['deadlift', 'hip-thrust']),
   // Pair 3
   slot('row', 'pair-3', 'Row progression', ['cable-row', 'machine-row', 't-bar-row']),
   slot(
@@ -997,6 +997,7 @@ export const SLOTS: readonly Slot[] = [
   slot('rear-delts', 'isolation', 'Rear delts', ['face-pull'], false, true),
   // Leg day extras
   slot('leg-press', 'leg-day', 'Leg press', ['leg-press']),
+  slot('rdl', 'leg-day', 'Romanian deadlift', ['barbell-rdl']),
   slot('hamstring-curl', 'leg-day', 'Hamstring curl', ['hamstring-curl']),
   slot('leg-raise', 'leg-day', 'Leg raises', ['leg-extension', 'hanging-leg-raise']),
   slot('split-squat', 'leg-day', 'Bulgarian split squat', ['bulgarian-split-squat']),

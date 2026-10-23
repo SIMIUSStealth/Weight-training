@@ -80,11 +80,6 @@ export const GUIDES: Record<string, ExerciseGuide> = {
     url: ace('6/deadlift'),
     source: ACE,
   },
-  'barbell-rdl': {
-    about: 'Romanian deadlift: from standing, hinge the bar down your thighs and back up. Hamstrings and glutes.',
-    url: ace('317/romanian-deadlift'),
-    source: ACE,
-  },
   'hip-thrust': {
     about: 'Upper back on a bench, drive a barbell up with your hips. The most direct glute exercise.',
     url: exrx('GluteusMaximus/BBHipThrust.html'),
@@ -182,6 +177,11 @@ export const GUIDES: Record<string, ExerciseGuide> = {
   // ----- Leg day -----
   'leg-press': {
     about: 'Seated on a machine, press a weighted sled away with your feet. Quads and glutes, heavy, without loading your back.',
+  },
+  'barbell-rdl': {
+    about: 'Romanian deadlift: from standing, hinge the bar down your thighs and back up. Hamstrings and glutes.',
+    url: ace('317/romanian-deadlift'),
+    source: ACE,
   },
   'hamstring-curl': {
     about: 'Machine curl of your heels toward your glutes. Isolates the hamstrings.',
