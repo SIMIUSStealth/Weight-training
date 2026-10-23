@@ -41,6 +41,7 @@ export function Settings() {
     { key: 'dumbbell', label: 'Dumbbell rack', hint: 'Gap between dumbbells.' },
     { key: 'barbell', label: 'Barbell', hint: 'Smallest jump (plates on both sides).' },
     { key: 'machine', label: 'Machines & cables', hint: 'One pin hole on the stack.' },
+    { key: 'assist', label: 'Assisted machine', hint: 'Help taken off per level-up (pull-up, dip).' },
   ]
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -71,7 +72,7 @@ export function Settings() {
         <div className="row between">
           <div>
             <div style={{ fontWeight: 700 }}>Between sets</div>
-            <div className="tiny faint">~90 s between alternating sets.</div>
+            <div className="tiny faint">Sessions A &amp; B set their own (60–90 s).</div>
           </div>
           <Stepper
             value={settings.restSeconds}

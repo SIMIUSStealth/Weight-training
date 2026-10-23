@@ -38,6 +38,12 @@ export interface SetLog {
 export interface ExerciseLog {
   exerciseId: string
   /**
+   * The routine slot it filled in this session — sets its block (straight or
+   * alternating sets), its swaps and its scheme. Missing (older sessions, or
+   * an exercise from outside the plan) = the exercise's home slot.
+   */
+  slot?: string
+  /**
    * Load used this session, in kg. 0 = bodyweight / unloaded; for assisted
    * bodyweight lifts, negative = machine assistance.
    */
@@ -131,9 +137,10 @@ export interface Settings {
 
 /**
  * Settings schema version. 2 = the gym routine (block-based weekly plan); a
- * v1 plan (muscle-group days, home program) is replaced on load.
+ * v1 plan (muscle-group days, home program) is replaced on load. 3 = the A/B
+ * program: Monday runs Session A and Wednesday Session B.
  */
-export const SETTINGS_VERSION = 2
+export const SETTINGS_VERSION = 3
 
 export const DEFAULT_SETTINGS: Settings = {
   restSeconds: 90,

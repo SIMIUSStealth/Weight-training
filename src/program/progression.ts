@@ -10,6 +10,7 @@
 import {
   SLOTS,
   getExercise,
+  repTarget,
   type ExerciseDef,
   type ExerciseKind,
 } from './exercises'
@@ -71,7 +72,7 @@ export function defaultProgress(def: ExerciseDef): ExerciseProgress {
 
 /** Fresh per-exercise progression state: every routine slot's default exercise. */
 export function initialProgress(): ExerciseProgress[] {
-  return SLOTS.map((s) => defaultProgress(getExercise(s.baseId)))
+  return [...new Set(SLOTS.map((s) => s.baseId))].map((id) => defaultProgress(getExercise(id)))
 }
 
 /** True when the exercise carries a load that climbs a ladder. */
@@ -250,7 +251,7 @@ export function computeRecommendation(
       headline:
         def.kind === 'time'
           ? `Hold ${targetSeconds}s × ${def.sets}`
-          : `${def.repMin}–${def.repMax} reps × ${def.sets}`,
+          : `${repTarget(def)} reps × ${def.sets}`,
       coach: loaded
         ? 'First time on this one — the starting load is an estimate. If it’s clearly too light or heavy, adjust it; the system self-corrects within a session or two.'
         : 'First time on this one — find a range of motion you can control and log what you get.',
@@ -356,22 +357,22 @@ export function computeRecommendation(
     headline = `${load} — build back to ${def.repMax}`
     coach = `Leveled up to ${load}. Reps will drop — that’s expected and correct. Work each set back to ${def.repMax}, then jump again.`
   } else if (stalled) {
-    headline = beat ? `Beat ${beat}` : `${def.repMin}–${def.repMax} reps`
+    headline = beat ? `Beat ${beat}` : `${repTarget(def)} reps`
     coach = loaded
       ? `Stalled at ${load}. Check protein, sleep, and rest days first. You can bridge — push past ${def.repMax} reps (up to ${
           def.repMax + 3
         }) to build the strength for the next rung.`
       : 'Stalled for 3 sessions. Check protein, sleep, and rest days first; if it sticks, shorten the range or use an easier variation and build back up.'
   } else if (!loaded) {
-    headline = beat ? `Beat ${beat}` : `${def.repMin}–${def.repMax} reps × ${def.sets}`
+    headline = beat ? `Beat ${beat}` : `${repTarget(def)} reps × ${def.sets}`
     if (allSetsAtLeast(last, def, def.repMax)) {
       coach = `You own ${def.sets} × ${def.repMax}. Bodyweight only — make it harder: a tougher variation, more range, or a slower lowering.`
     }
   } else if (atTopRung) {
-    headline = beat ? `Beat ${beat}` : `${def.repMin}–${def.repMax} reps`
+    headline = beat ? `Beat ${beat}` : `${repTarget(def)} reps`
     coach = `Top of the ladder for this lift. Keep adding reps for now, then reassess — swap the variation, shift the rep range, or add a 4th set.`
   } else {
-    headline = beat ? `Beat ${beat}` : `${def.repMin}–${def.repMax} reps × ${def.sets}`
+    headline = beat ? `Beat ${beat}` : `${repTarget(def)} reps × ${def.sets}`
   }
 
   return {

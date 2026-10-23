@@ -103,3 +103,26 @@ describe('nextExerciseIndex', () => {
     expect(groupRound(sessionWith({ 'pull-up': 3, 'back-squat': 3, 'bench-press': 3 }), [0, 2])).toBe(3)
   })
 })
+
+describe('Session A / B', () => {
+  it('runs straight sets, even for lifts whose home is a pair', () => {
+    // Pull-up and bench are Pair 1 lifts, but here they fill Session A's slots.
+    const a: ExerciseLog[] = [
+      ['single-leg-leg-press', 'a-legs'],
+      ['pull-up', 'a-pull'],
+      ['db-bench-press', 'a-press'],
+    ].map(([exerciseId, slot]) => ({
+      exerciseId,
+      slot,
+      weightKg: 0,
+      sets: [0, 1, 2].map((i) => ({ done: i < 1 })),
+    }))
+    expect(alternatingGroup(a, 1)).toBeNull()
+    expect(nextExerciseIndex(a, 1)).toBe(2) // on to the bench, not back round
+    expect(nextExerciseIndex(a, 2)).toBeNull()
+    // The same two logs without a slot fall back to Pair 1 and alternate.
+    const pair = a.slice(1).map(({ slot: _, ...log }) => log)
+    expect(alternatingGroup(pair, 0)).toEqual([0, 1])
+  })
+})
+

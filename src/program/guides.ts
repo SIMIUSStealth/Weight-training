@@ -3,7 +3,8 @@
 // on Exercise) first, then ExRx.net, NASM and Catalyst Athletics where ACE has
 // no matching page. Kept apart from exercises.ts so the routine data stays
 // readable. Moves without a trusted page (the less common kettlebell circuit
-// moves, diamond push-up, Zottman curl, face pull, crunch machine, leg press)
+// moves, diamond push-up, Zottman curl, face pull, crunch machine, leg press,
+// and the A/B program's dumbbell / single-leg / cable-crunch variations)
 // carry only the description.
 
 export interface ExerciseGuide {
@@ -22,6 +23,23 @@ const EXRX = 'ExRx.net'
 const exrx = (path: string) => `https://exrx.net/WeightExercises/${path}`
 
 export const GUIDES: Record<string, ExerciseGuide> = {
+  // ----- Session A / B -----
+  'single-leg-leg-press': {
+    about: 'The leg press one leg at a time. Quads and glutes, and it evens out a weaker side.',
+  },
+  'db-rdl': {
+    about: 'Romanian deadlift with a dumbbell in each hand: hinge down your thighs and back up. Hamstrings and glutes.',
+  },
+  'one-arm-db-row': {
+    about: 'Hand and knee on a bench, row a dumbbell to your hip. Lats and upper back, one side at a time.',
+  },
+  'cable-crunch': {
+    about: 'Kneeling at a high cable, curl your ribs down toward your hips. Loaded abs work.',
+  },
+  'db-shoulder-press': {
+    about: 'Seated, press two dumbbells from your shoulders to overhead. Shoulders and triceps.',
+  },
+
   // ----- Pair 1 -----
   'pull-up': {
     about: 'Hang from a bar and pull your chin over it. The main vertical pull: lats, upper back and biceps.',

@@ -1,13 +1,13 @@
 // Insights: motivating aggregates and "falling behind" urgency signals.
 // Pure functions; date-dependent ones accept `now` so tests are deterministic.
 
-import { getExercise, MUSCLE_ORDER, type Muscle } from './exercises'
+import { effectiveDef, getExercise, MUSCLE_ORDER, type Muscle } from './exercises'
 import {
   completedWeekdaysInWeek,
   groupKey,
   startOfWeek,
 } from './analytics'
-import { mondayIndex, trainingDayCount, WEEKDAYS_LONG } from './plan'
+import { mondayIndex, planSlotFor, trainingDayCount, WEEKDAYS_LONG } from './plan'
 import { computeRecommendation } from './progression'
 import { epley1RM, tracksOneRM } from './records'
 import type {
@@ -266,6 +266,7 @@ export function urgencies(
   progress: Record<string, ExerciseProgress>,
   planExerciseIds: string[],
   now = new Date(),
+  program?: Record<string, string>,
 ): Urgency[] {
   const out: Urgency[] = []
   const completed = sessions.filter((s) => s.completedAt)
@@ -326,7 +327,8 @@ export function urgencies(
   for (const id of planExerciseIds) {
     const p = progress[id]
     if (!p) continue
-    const def = getExercise(id)
+    // Judged against the rep target the week runs it at.
+    const def = effectiveDef(getExercise(id), planSlotFor(id, plan, program)?.id)
     if (def.kind !== 'reps') continue
     if (computeRecommendation(def, p, sessions).stalled) {
       out.push({

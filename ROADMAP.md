@@ -4,6 +4,19 @@ Running list of shipped features and the backlog, so ideas aren't lost.
 
 ## Shipped
 
+- **A/B program on Monday & Wednesday (2026-10)** — Session A (single-leg leg
+  press, assisted pull-up, DB bench, DB RDL, cable row, ab crunch) and Session B
+  (leg press, lat pulldown, shoulder press, back extension, assisted dip, Pallof
+  press), each ~50 min of straight sets with its own reps and rest (60–90 s),
+  plus an optional 2-set curl + pushdown finisher. Every exercise has 2–5
+  similar swaps on other equipment; a swap keeps the session's sets, reps and
+  rest. Exercises can now sit in several slots (the pull-up opens Session A
+  and is Session B's swap), so history and loads carry over. The app counts
+  program weeks from the first A/B workout: weeks 1–2 say to leave ~3 reps in
+  the tank on leg work, week 6 offers the lighter week. Assisted-machine step
+  is its own gym setting (default 2 kg). Existing installs move once: Monday →
+  Session A, Wednesday → Session B, the program's stated loads set; other
+  days untouched.
 - **Form guides + easier navigation (2026-10)** — every exercise shows a
   one-line "what is it" and a "See the form" link to a reputable exercise
   library (ACE Fitness, ExRx.net, NASM, Catalyst Athletics; `guides.ts`). The

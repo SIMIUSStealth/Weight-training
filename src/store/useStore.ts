@@ -1,9 +1,10 @@
 import { create } from 'zustand'
 import {
   EXERCISES_BY_ID,
+  effectiveDef,
   getExercise,
-  getSlot,
   isBlockId,
+  slotFor,
   SLOTS,
   SLOTS_BY_ID,
   type BlockId,
@@ -11,12 +12,15 @@ import {
   type ExerciseKind,
 } from '../program/exercises'
 import {
+  dayEntries,
   dayExercises,
   defaultWeeklyPlan,
+  extraSlot,
   getWeeklyPlan,
   isCurrentPlan,
   planExercises,
   selectedForSlot,
+  type DayEntry,
 } from '../program/plan'
 import { formatLoad, resolveIncrements, type Increments } from '../program/ladder'
 import {
@@ -124,7 +128,8 @@ interface StoreState {
   setWorkingWeight: (exerciseId: string, weightKg: number) => void
   /** Mid-workout edits (this session only — the weekly plan is untouched). */
   swapInSession: (exerciseId: string, toId: string) => void
-  addToSession: (exerciseId: string) => void
+  /** Add an exercise, into `slotId` (one that offers it) or its home slot. */
+  addToSession: (exerciseId: string, slotId?: string) => void
   removeFromSession: (exerciseId: string) => void
   addSetToSession: (exerciseId: string) => void
   removeSetFromSession: (exerciseId: string) => void
@@ -137,7 +142,8 @@ interface StoreState {
 
   // weekly plan editing
   toggleDayBlock: (weekday: number, block: BlockId) => void
-  addExerciseToDay: (weekday: number, exerciseId: string) => void
+  /** Add an exercise to a day — for `slotId`, when picked from a block's list. */
+  addExerciseToDay: (weekday: number, exerciseId: string, slotId?: string) => void
   removeExerciseFromDay: (weekday: number, exerciseId: string) => void
 
   // manual progression overrides
@@ -159,8 +165,25 @@ interface StoreState {
   resetEverything: () => Promise<void>
 }
 
-function sessionFromExercises(
-  defs: ExerciseDef[],
+/** A fresh log for one exercise in a slot: the slot's set count, the current load. */
+function newLog(
+  def: ExerciseDef,
+  slotId: string,
+  progress: Record<string, ExerciseProgress>,
+): ExerciseLog {
+  return {
+    exerciseId: def.id,
+    slot: slotId,
+    weightKg: progress[def.id]?.currentWeightKg ?? def.startWeightKg,
+    sets: Array.from(
+      { length: effectiveDef(def, slotId).sets },
+      () => ({ done: false }) as SetLog,
+    ),
+  }
+}
+
+function sessionFromEntries(
+  entries: DayEntry[],
   progress: Record<string, ExerciseProgress>,
   weekday: number,
 ): SessionLog {
@@ -169,11 +192,7 @@ function sessionFromExercises(
     startedAt: new Date().toISOString(),
     part: 1,
     weekday,
-    exercises: defs.map((def) => ({
-      exerciseId: def.id,
-      weightKg: progress[def.id]?.currentWeightKg ?? def.startWeightKg,
-      sets: Array.from({ length: def.sets }, () => ({ done: false }) as SetLog),
-    })),
+    exercises: entries.map((e) => newLog(e.def, e.slotId, progress)),
   }
 }
 
@@ -194,8 +213,10 @@ function blockSlotIds(block: BlockId): Set<string> {
 /**
  * Bring stored settings up to the current schema. v1 was the single-dumbbell
  * home program with muscle-group days: its weekly plan (and slot swaps, which
- * name home slots) can't carry over, so the gym week replaces them. History,
- * progress and every other setting are kept.
+ * name home slots) can't carry over, so the gym week replaces them. v2 → v3:
+ * the A/B program takes over Monday (Session A) and Wednesday (Session B);
+ * the other days stay as they were. History, progress and every other
+ * setting are kept.
  */
 export function migrateSettings(settings: Settings): Settings {
   let next = settings
@@ -207,9 +228,38 @@ export function migrateSettings(settings: Settings): Settings {
       )
       next = { ...next, program }
     }
+  } else if ((next.version ?? 1) < 3) {
+    const plan = clonePlan(next.weeklyPlan)
+    plan[0] = { blocks: ['session-a'] }
+    plan[2] = { blocks: ['session-b'] }
+    next = { ...next, weeklyPlan: plan }
   }
   if ((next.version ?? 1) < SETTINGS_VERSION) next = { ...next, version: SETTINGS_VERSION }
   return next
+}
+
+/**
+ * The A/B program names the loads to start from (14 kg assist on the pull-up,
+ * 18 kg dumbbells on the bench, …) — they are these exercises' start loads.
+ * Moving an install onto the program sets them once; progression takes over
+ * from there.
+ */
+const AB_STATED_LOADS = [
+  'pull-up',
+  'db-bench-press',
+  'cable-row',
+  'machine-ab-crunch',
+  'lat-pulldown',
+  'shoulder-press',
+  'dip',
+]
+
+/** Progress rows for the A/B program's stated loads (see AB_STATED_LOADS). */
+function abStartLoads(progress: Record<string, ExerciseProgress>): ExerciseProgress[] {
+  return AB_STATED_LOADS.map((id) => {
+    const def = getExercise(id)
+    return { ...(progress[id] ?? defaultProgress(def)), currentWeightKg: def.startWeightKg }
+  })
 }
 
 /** Ensure every exercise in `defs` has a progression row, seeding any missing. */
@@ -263,7 +313,8 @@ function commitActive(
     setsLogged += doneCount
     failureSets += log.sets.filter((s) => s.done && s.rir === 0).length
 
-    const def = getExercise(log.exerciseId)
+    // Judged by the scheme of the slot it ran in (Session A's 3 × 8, …).
+    const def = effectiveDef(getExercise(log.exerciseId), log.slot)
     const hadPrior = sessions.some(
       (s) =>
         s.completedAt &&
@@ -342,6 +393,11 @@ export const useStore = create<StoreState>((set, get) => ({
     if (settings !== data.settings) void putSettings(settings)
     const loaded: Record<string, ExerciseProgress> = {}
     for (const p of data.progress) loaded[p.exerciseId] = p
+    if ((data.settings.version ?? 1) < 3) {
+      const restarted = abStartLoads(loaded)
+      for (const p of restarted) loaded[p.exerciseId] = p
+      void putProgress(restarted)
+    }
     // Make sure every exercise the plan can use has a progression row.
     const plan = getWeeklyPlan(settings.weeklyPlan)
     const { progress, seeded } = withSeededProgress(
@@ -370,11 +426,14 @@ export const useStore = create<StoreState>((set, get) => ({
     const plan = getWeeklyPlan(settings.weeklyPlan)
     const day = plan[weekday]
     if (!day || !day.blocks.length) return
-    const defs = dayExercises(day, settings.program)
-    if (!defs.length) return
-    const res = withSeededProgress(defs, progress)
+    const entries = dayEntries(day, settings.program)
+    if (!entries.length) return
+    const res = withSeededProgress(
+      entries.map((e) => e.def),
+      progress,
+    )
     if (res.seeded.length) void putProgress(res.seeded)
-    const session = sessionFromExercises(defs, res.progress, weekday)
+    const session = sessionFromEntries(entries, res.progress, weekday)
     void putActiveSession(session)
     set({
       progress: res.progress,
@@ -437,10 +496,12 @@ export const useStore = create<StoreState>((set, get) => ({
     if (!from || from.sets.some((s) => s.done)) return
     const res = withSeededProgress([to], get().progress)
     if (res.seeded.length) void putProgress(res.seeded)
+    // The swap takes over the slot, so it keeps the session's block and scheme.
     const exercises = active.exercises.map((ex) =>
       ex.exerciseId === exerciseId
         ? {
             exerciseId: toId,
+            slot: ex.slot,
             weightKg: res.progress[toId]?.currentWeightKg ?? to.startWeightKg,
             sets: Array.from({ length: Math.max(ex.sets.length, 1) }, () => ({ done: false }) as SetLog),
           }
@@ -451,25 +512,23 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ activeSession: next, progress: res.progress })
   },
 
-  addToSession: (exerciseId) => {
+  addToSession: (exerciseId, slotId) => {
     const active = get().activeSession
     const def = EXERCISES_BY_ID[exerciseId]
-    if (!active || !def || def.retired) return
+    const slot = slotFor(exerciseId, slotId)
+    if (!active || !def || def.retired || !slot) return
     if (active.exercises.some((e) => e.exerciseId === exerciseId)) return
     const res = withSeededProgress([def], get().progress)
     if (res.seeded.length) void putProgress(res.seeded)
-    const log: ExerciseLog = {
-      exerciseId,
-      weightKg: res.progress[exerciseId]?.currentWeightKg ?? def.startWeightKg,
-      sets: Array.from({ length: def.sets }, () => ({ done: false }) as SetLog),
-    }
+    const log = newLog(def, slot.id, res.progress)
     // Slot it in at its place in the routine order.
-    const order = (id: string) => {
-      const i = SLOTS.findIndex((s) => s.id === EXERCISES_BY_ID[id]?.slot)
+    const order = (e: ExerciseLog) => {
+      const s = slotFor(e.exerciseId, e.slot)
+      const i = s ? SLOTS.indexOf(s) : -1
       return i === -1 ? SLOTS.length : i
     }
     const exercises = [...active.exercises]
-    let at = exercises.findIndex((e) => order(e.exerciseId) > order(exerciseId))
+    let at = exercises.findIndex((e) => order(e) > order(log))
     if (at === -1) at = exercises.length
     exercises.splice(at, 0, log)
     const next = { ...active, exercises }
@@ -604,6 +663,7 @@ export const useStore = create<StoreState>((set, get) => ({
       weekday: activeSession.weekday,
       exercises: remaining.map((e) => ({
         exerciseId: e.exerciseId,
+        slot: e.slot,
         weightKg: e.weightKg,
         sets: e.sets.map(() => ({ done: false }) as SetLog),
       })),
@@ -638,7 +698,8 @@ export const useStore = create<StoreState>((set, get) => ({
 
   swapExercise: (slotId, exerciseId) => {
     const def = getExercise(exerciseId)
-    if (def.retired || def.slot !== slotId) return // only swap within the same slot
+    // Only to an option the slot offers.
+    if (def.retired || !SLOTS_BY_ID[slotId]?.optionIds.includes(exerciseId)) return
     const program = { ...(get().settings.program ?? {}), [slotId]: exerciseId }
     get().updateSettings({ program })
     const res = withSeededProgress([def], get().progress)
@@ -655,14 +716,15 @@ export const useStore = create<StoreState>((set, get) => ({
     if (!day) return
     if (day.blocks.includes(block)) {
       const slots = blockSlotIds(block)
+      // The extras sitting in this block go with it. An id this build doesn't
+      // know (a plan imported from another device/version) has no slot: dropped.
+      const add = day.add?.filter((id) => {
+        const s = extraSlot(id, day)
+        return !!s && s.block !== block
+      })
       day.blocks = day.blocks.filter((b) => b !== block)
       day.omit = day.omit?.filter((id) => !slots.has(id))
-      // Lookup defensively — a plan imported from another device/version may
-      // reference exercise ids this build doesn't know.
-      day.add = day.add?.filter((id) => {
-        const def = EXERCISES_BY_ID[id]
-        return !!def && !slots.has(def.slot)
-      })
+      day.add = add
     } else {
       day.blocks = [...day.blocks, block]
     }
@@ -677,23 +739,26 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 
-  addExerciseToDay: (weekday, exerciseId) => {
+  addExerciseToDay: (weekday, exerciseId, slotId) => {
     const def = getExercise(exerciseId)
-    const slot = getSlot(exerciseId)
-    if (!slot) return // retired exercises can't be scheduled
+    if (def.retired) return // retired exercises can't be scheduled
     const plan = clonePlan(getWeeklyPlan(get().settings.weeklyPlan))
     const day = plan[weekday]
     if (!day) return
-    // The slot's current pick in a block that's already on just needs
-    // un-omitting; anything else rides along as an extra (without switching
-    // on the rest of its block).
-    const unOmit =
-      !slot.extra &&
-      day.blocks.includes(slot.block) &&
-      (day.omit ?? []).includes(slot.id) &&
-      selectedForSlot(slot.id, get().settings.program) === exerciseId
+    // The current pick of a slot that's on but omitted just needs un-omitting;
+    // anything else rides along as an extra (without switching on the rest of
+    // its block).
+    const program = get().settings.program
+    const unOmit = (slotId ? [SLOTS_BY_ID[slotId]] : SLOTS).find(
+      (s) =>
+        !!s &&
+        !s.extra &&
+        day.blocks.includes(s.block) &&
+        (day.omit ?? []).includes(s.id) &&
+        selectedForSlot(s.id, program) === exerciseId,
+    )
     if (unOmit) {
-      day.omit = day.omit?.filter((id) => id !== slot.id)
+      day.omit = day.omit?.filter((id) => id !== unOmit.id)
     } else if (!(day.add ?? []).includes(exerciseId)) {
       day.add = [...(day.add ?? []), exerciseId]
     }
@@ -709,33 +774,35 @@ export const useStore = create<StoreState>((set, get) => ({
     const plan = clonePlan(getWeeklyPlan(get().settings.weeklyPlan))
     const day = plan[weekday]
     if (!day) return
+    const program = get().settings.program
+    const touched = new Set<BlockId>()
     if ((day.add ?? []).includes(exerciseId)) {
+      const extra = extraSlot(exerciseId, day)
+      if (extra) touched.add(extra.block)
       day.add = (day.add ?? []).filter((id) => id !== exerciseId)
     }
-    // If the exercise is (also) the slot's current selection in a block that's
-    // on, omit the slot — an exercise can be both added and slot-selected
-    // (added first, swapped in later), and removing it must clear both.
-    const slot = getSlot(exerciseId)
-    if (
-      slot &&
-      !slot.extra &&
-      day.blocks.includes(slot.block) &&
-      selectedForSlot(slot.id, get().settings.program) === exerciseId &&
-      !(day.omit ?? []).includes(slot.id)
-    ) {
-      day.omit = [...(day.omit ?? []), slot.id]
-    }
-    // Switch the block off entirely if it has no exercises left.
-    if (slot && day.blocks.includes(slot.block)) {
-      const left = dayExercises(
-        { ...day, blocks: [slot.block] },
-        get().settings.program,
-      ).filter((e) => blockSlotIds(slot.block).has(e.slot)).length
-      if (left === 0) {
-        const slots = blockSlotIds(slot.block)
-        day.blocks = day.blocks.filter((b) => b !== slot.block)
-        day.omit = day.omit?.filter((id) => !slots.has(id))
+    // Omit every slot on this day that currently picks it — an exercise can be
+    // both added and slot-selected (added first, swapped in later), or picked
+    // by two blocks that are both on, and removing it must clear all of them.
+    for (const s of SLOTS) {
+      if (
+        !s.extra &&
+        day.blocks.includes(s.block) &&
+        selectedForSlot(s.id, program) === exerciseId &&
+        !(day.omit ?? []).includes(s.id)
+      ) {
+        day.omit = [...(day.omit ?? []), s.id]
+        touched.add(s.block)
       }
+    }
+    // Switch a block off entirely if it has no exercises left.
+    const left = dayEntries(day, program)
+    for (const block of touched) {
+      if (!day.blocks.includes(block)) continue
+      if (left.some((e) => SLOTS_BY_ID[e.slotId].block === block)) continue
+      const slots = blockSlotIds(block)
+      day.blocks = day.blocks.filter((b) => b !== block)
+      day.omit = day.omit?.filter((id) => !slots.has(id))
     }
     get().updateSettings({ weeklyPlan: plan })
   },

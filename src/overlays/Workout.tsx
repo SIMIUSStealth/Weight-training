@@ -1,13 +1,18 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  AB_BLOCKS,
   BLOCKS,
-  GYM_EXERCISES,
-  getBlock,
+  SLOTS_BY_ID,
+  blockFor,
+  blockOptions,
+  effectiveDef,
   getExercise,
-  getSlot,
+  repTarget,
   setScheme,
+  slotFor,
   slotOptions,
 } from '../program/exercises'
+import { abProgramWeek } from '../program/plan'
 import { computeRecommendation, defaultProgress, isLoaded } from '../program/progression'
 import {
   formatLoad,
@@ -110,7 +115,8 @@ export function Workout() {
 
   const exercises = activeSession?.exercises ?? []
   const exLog = exercises[index]
-  const def = exLog ? getExercise(exLog.exerciseId) : null
+  // As its slot runs it — Session A's chest press is 3 × 8, rest 90 s.
+  const def = exLog ? effectiveDef(getExercise(exLog.exerciseId), exLog.slot) : null
   const increments = useMemo(
     () => resolveIncrements(settings.increments),
     [settings.increments],
@@ -128,6 +134,7 @@ export function Workout() {
     [def, progress, sessions, increments],
   )
   const target = rec?.targetSeconds ?? def?.startSeconds ?? 30
+  const abWeek = useMemo(() => abProgramWeek(sessions), [sessions])
 
   useEffect(() => {
     const pill = stripRef.current?.querySelector<HTMLElement>('.ex-pill.on')
@@ -209,10 +216,11 @@ export function Workout() {
   const untouched = exercises.filter((e) => !e.sets.some((s) => s.done))
   const part = activeSession.part ?? 1
 
+  const restSeconds = def.restSeconds ?? settings.restSeconds
   const startRest = () => {
     alerted.current = false
-    restEndRef.current = Date.now() + settings.restSeconds * 1000
-    setRest(settings.restSeconds)
+    restEndRef.current = Date.now() + restSeconds * 1000
+    setRest(restSeconds)
   }
 
   const bumpRest = (seconds: number) => {
@@ -296,8 +304,11 @@ export function Workout() {
 
   const nextIndex = nextExerciseIndex(exercises, index)
   const group = alternatingGroup(exercises, index)
-  const block = getBlock(def.id)
-  const slot = getSlot(def.id)
+  const block = blockFor(def.id, exLog.slot)
+  const slot = slotFor(def.id, exLog.slot)
+  // The A/B program's run-in: an easy start on leg work, a lighter week 6.
+  const inAB = !!block && AB_BLOCKS.includes(block.id)
+  const legsEasy = inAB && abWeek <= 2 && def.muscle === 'Legs'
   const weight = exLog.weightKg
   const loaded = isLoaded(def)
   const ladder = ladderFor(def.equipment, increments)
@@ -412,9 +423,10 @@ export function Workout() {
                   ? `${def.sets} sets · hold steady`
                   : def.kind === 'time'
                     ? `${def.sets} rounds × ${formatSeconds(target)}`
-                    : `${def.sets} × ${def.repMin}–${def.repMax} reps${
+                    : `${def.sets} × ${repTarget(def)} reps${
                         def.perArm ? ' · each side' : ''
                       }`}
+                {def.restSeconds ? ` · rest ${formatSeconds(def.restSeconds)}` : ''}
               </div>
             </div>
             {loaded && (
@@ -448,12 +460,26 @@ export function Workout() {
 
         {/* coaching */}
         <div style={{ marginBottom: 12 }}>
+          {inAB && part === 1 && doneSets === 0 && (
+            <Coach tone="info">Warm up for about 5 minutes before your first set.</Coach>
+          )}
+          {legsEasy && (
+            <Coach tone="info">
+              Week {abWeek} of the program: leave ~3 reps in the tank on leg work.
+            </Coach>
+          )}
+          {inAB && abWeek === 6 && (
+            <Coach tone="info">
+              Week 6 — an optional lighter week: 2 sets each is plenty (Remove set below).
+            </Coach>
+          )}
           {rec.justLeveledUp && <Coach tone="up">{rec.coach}</Coach>}
           {rec.stalled && <Coach tone="stall">{rec.coach}</Coach>}
           {!rec.justLeveledUp && !rec.stalled && rec.coach && (
             <Coach tone="info">{rec.coach}</Coach>
           )}
-          {rec.effortNote && <Coach tone="info">{rec.effortNote}</Coach>}
+          {/* "too easy" would contradict the deliberate run-in on legs */}
+          {rec.effortNote && !legsEasy && <Coach tone="info">{rec.effortNote}</Coach>}
         </div>
 
         {/* timed set live countdown */}
@@ -666,9 +692,10 @@ export function Workout() {
           <div style={{ maxHeight: '58vh', overflowY: 'auto', margin: '0 -4px', padding: '0 4px' }}>
             {exercises.map((e, i) => {
               const d = getExercise(e.exerciseId)
-              const b = getBlock(e.exerciseId)
+              const b = blockFor(e.exerciseId, e.slot)
               const done = e.sets.filter((s) => s.done).length
-              const prevBlock = i > 0 ? getBlock(exercises[i - 1].exerciseId) : undefined
+              const prev = exercises[i - 1]
+              const prevBlock = prev ? blockFor(prev.exerciseId, prev.slot) : undefined
               return (
                 <Fragment key={e.exerciseId}>
                   {b && b.id !== prevBlock?.id && (
@@ -740,27 +767,25 @@ export function Workout() {
           <div style={{ maxHeight: '62vh', overflowY: 'auto' }}>
             {BLOCKS.map((b) => {
               const inSession = new Set(exercises.map((e) => e.exerciseId))
-              const opts = GYM_EXERCISES.filter(
-                (d) => getSlot(d.id)?.block === b.id && !inSession.has(d.id),
-              )
+              const opts = blockOptions(b.id).filter((o) => !inSession.has(o.def.id))
               if (!opts.length) return null
               return (
                 <div key={b.id}>
                   <div className="eyebrow" style={{ margin: '10px 2px 6px' }}>{b.name}</div>
-                  {opts.map((d) => (
+                  {opts.map(({ def: d, slotId }) => (
                     <button
                       key={d.id}
                       className="list-row"
                       style={{ width: '100%', background: 'none', border: 0, color: 'inherit', textAlign: 'left' }}
                       onClick={() => {
-                        addToSession(d.id)
+                        addToSession(d.id, slotId)
                         setSheet('overview')
                       }}
                     >
                       <div className="grow">
                         <div style={{ fontWeight: 700 }}>{d.name}</div>
                         <div className="tiny faint">
-                          {setScheme(d)} · {getSlot(d.id)?.label}
+                          {setScheme(effectiveDef(d, slotId))} · {SLOTS_BY_ID[slotId].label}
                         </div>
                       </div>
                       <Plus size={16} className="faint" />
@@ -809,7 +834,7 @@ export function Workout() {
                     {current && <span className="chip" style={{ marginLeft: 8 }}>current</span>}
                     {taken && <span className="chip" style={{ marginLeft: 8 }}>in workout</span>}
                   </div>
-                  <div className="tiny faint">{setScheme(opt)}</div>
+                  <div className="tiny faint">{setScheme(effectiveDef(opt, slot.id))}</div>
                 </div>
               </button>
             )

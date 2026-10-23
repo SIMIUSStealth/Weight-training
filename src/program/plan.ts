@@ -5,18 +5,22 @@
 // Pure logic.
 
 import {
+  AB_BLOCKS,
   BLOCKS,
   EXERCISES_BY_ID,
   GYM_EXERCISES,
   MUSCLE_ORDER,
   SLOTS,
   SLOTS_BY_ID,
+  blockOptions,
+  getSlot,
   isBlockId,
   type BlockId,
   type ExerciseDef,
   type Muscle,
+  type Slot,
 } from './exercises'
-import type { DayPlan } from '../storage/types'
+import type { DayPlan, SessionLog } from '../storage/types'
 
 export const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const
 export const WEEKDAYS_LONG = [
@@ -43,13 +47,20 @@ export function todayIndex(): number {
 export const ROUTINE: BlockId[] = ['pair-1', 'pair-2', 'pair-3', 'core']
 
 /**
- * Default plan: the full routine on Mon / Wed / Fri — Wednesday doubles as the
- * leg day, Friday adds the isolations — rest otherwise.
+ * Default plan: Session A on Monday, Session B on Wednesday, the full routine +
+ * isolations on Friday — rest otherwise.
  */
 export function defaultWeeklyPlan(): DayPlan[] {
-  const day = (...extra: BlockId[]): DayPlan => ({ blocks: [...ROUTINE, ...extra] })
   const rest = (): DayPlan => ({ blocks: [] })
-  return [day(), rest(), day('leg-day'), rest(), day('isolation'), rest(), rest()]
+  return [
+    { blocks: ['session-a'] },
+    rest(),
+    { blocks: ['session-b'] },
+    rest(),
+    { blocks: [...ROUTINE, 'isolation'] },
+    rest(),
+    rest(),
+  ]
 }
 
 /** True for a 7-day, block-based plan (the current schema). */
@@ -83,7 +94,52 @@ export function selectedForSlot(
   if (!slot) return ''
   const chosen = program?.[slotId]
   const def = chosen ? EXERCISES_BY_ID[chosen] : undefined
-  return def && !def.retired && def.slot === slotId ? def.id : slot.baseId
+  return def && !def.retired && slot.optionIds.includes(def.id) ? def.id : slot.baseId
+}
+
+/**
+ * Where an added extra sits in a day: its home slot when that block is on,
+ * else the first slot offering it in a block that is (an extra Zottman curl on
+ * a Session A day lands beside Session A's curl), else its home slot anyway.
+ * Undefined for an unknown or retired id.
+ */
+export function extraSlot(exerciseId: string, day: DayPlan): Slot | undefined {
+  const home = getSlot(exerciseId)
+  if (home && day.blocks.includes(home.block)) return home
+  return (
+    SLOTS.find((s) => day.blocks.includes(s.block) && s.optionIds.includes(exerciseId)) ??
+    home
+  )
+}
+
+/** One exercise of a day and the slot it fills there. */
+export interface DayEntry {
+  def: ExerciseDef
+  slotId: string
+  /** Added to the day as an extra, rather than a slot's pick. */
+  added: boolean
+}
+
+/** Ordered entries for one day (block slots − omits + extras, routine order). */
+export function dayEntries(day: DayPlan, program?: Record<string, string>): DayEntry[] {
+  const out: DayEntry[] = []
+  const seen = new Set<string>()
+  const push = (id: string, slotId: string, added: boolean) => {
+    const def = EXERCISES_BY_ID[id]
+    if (def && !def.retired && !seen.has(id)) {
+      seen.add(id)
+      out.push({ def, slotId, added })
+    }
+  }
+  const extras = (day.add ?? []).map((id) => ({ id, slotId: extraSlot(id, day)?.id }))
+  for (const slot of SLOTS) {
+    if (!slot.extra && day.blocks.includes(slot.block) && !day.omit?.includes(slot.id)) {
+      push(selectedForSlot(slot.id, program), slot.id, false)
+    }
+    // Extras sit next to their slot, whether or not its block is on.
+    for (const x of extras) if (x.slotId === slot.id) push(x.id, slot.id, true)
+  }
+  return out
 }
 
 /** Ordered exercises for one day (block slots − omits + extras, routine order). */
@@ -91,36 +147,57 @@ export function dayExercises(
   day: DayPlan,
   program?: Record<string, string>,
 ): ExerciseDef[] {
-  const out: ExerciseDef[] = []
-  const seen = new Set<string>()
-  const push = (id: string) => {
-    const def = EXERCISES_BY_ID[id]
-    if (def && !def.retired && !seen.has(id)) {
-      seen.add(id)
-      out.push(def)
-    }
-  }
-  for (const slot of SLOTS) {
-    if (!slot.extra && day.blocks.includes(slot.block) && !day.omit?.includes(slot.id)) {
-      push(selectedForSlot(slot.id, program))
-    }
-    // Extras sit next to their own slot, whether or not its block is on.
-    for (const id of day.add ?? []) {
-      if (EXERCISES_BY_ID[id]?.slot === slot.id) push(id)
-    }
-  }
-  return out
+  return dayEntries(day, program).map((e) => e.def)
 }
 
-/** Exercises of a block's slots not already in the day — candidates to add. */
+/** Exercises a block's slots offer that aren't already in the day — candidates to add. */
 export function addableForBlock(
   block: BlockId,
   day: DayPlan,
   program?: Record<string, string>,
-): ExerciseDef[] {
+): { def: ExerciseDef; slotId: string }[] {
   const present = new Set(dayExercises(day, program).map((e) => e.id))
-  const slotIds = new Set(SLOTS.filter((s) => s.block === block).map((s) => s.id))
-  return GYM_EXERCISES.filter((e) => slotIds.has(e.slot) && !present.has(e.id))
+  return blockOptions(block).filter((o) => !present.has(o.def.id))
+}
+
+/**
+ * The slot an exercise fills in the week (the first day that has it), or its
+ * home slot when the plan doesn't use it — the context for its page.
+ */
+export function planSlotFor(
+  exerciseId: string,
+  plan: DayPlan[],
+  program?: Record<string, string>,
+): Slot | undefined {
+  for (const day of plan) {
+    const e = dayEntries(day, program).find((x) => x.def.id === exerciseId)
+    if (e) return SLOTS_BY_ID[e.slotId]
+  }
+  return getSlot(exerciseId)
+}
+
+/**
+ * Week of the A/B program, 1-based: counted from the day of the first workout
+ * that ran Session A or B (week 1 until there is one).
+ */
+export function abProgramWeek(sessions: SessionLog[], now: Date = new Date()): number {
+  let first: number | undefined
+  for (const s of sessions) {
+    const ab = s.exercises.some((e) => {
+      const block = e.slot ? SLOTS_BY_ID[e.slot]?.block : undefined
+      return !!block && AB_BLOCKS.includes(block)
+    })
+    const t = Date.parse(s.startedAt)
+    if (ab && (first === undefined || t < first)) first = t
+  }
+  if (first === undefined) return 1
+  const start = new Date(first)
+  start.setHours(0, 0, 0, 0)
+  const today = new Date(now)
+  today.setHours(0, 0, 0, 0)
+  // Whole days first, so a DST shift never lands a day in the wrong week.
+  const days = Math.round((today.getTime() - start.getTime()) / 86_400_000)
+  return Math.max(1, Math.floor(days / 7) + 1)
 }
 
 /** Every distinct exercise the plan can use across the week, in routine order. */

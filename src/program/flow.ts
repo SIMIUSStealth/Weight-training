@@ -2,9 +2,11 @@
 // the kettlebell circuit are run alternating (one set of each member, rest,
 // round again) rather than as straight sets, so "Next" rotates through the
 // group while its members still have sets left, then moves on in routine
-// order. Pure logic.
+// order. A session's Session A / B exercises are straight sets, even the ones
+// whose home is a pair — each log's slot says which block it ran in. Pure
+// logic.
 
-import { getBlock } from './exercises'
+import { blockFor } from './exercises'
 import type { ExerciseLog } from '../storage/types'
 
 /**
@@ -16,10 +18,10 @@ export function alternatingGroup(
   exercises: ExerciseLog[],
   index: number,
 ): [number, number] | null {
-  const id = exercises[index]?.exerciseId
-  const block = id ? getBlock(id) : undefined
+  const blockOf = (i: number) => blockFor(exercises[i].exerciseId, exercises[i].slot)
+  const block = exercises[index] ? blockOf(index) : undefined
   if (!block?.alternate) return null
-  const same = (i: number) => getBlock(exercises[i].exerciseId)?.id === block.id
+  const same = (i: number) => blockOf(i)?.id === block.id
   let start = index
   let end = index
   while (start > 0 && same(start - 1)) start--

@@ -1,9 +1,15 @@
 // The gym routine (Training Spec §3). A session is built from routine BLOCKS —
-// the three pairs, the optional isolations, the leg-day extras and the core
-// triplet (or the kettlebell core circuit) — in a fixed order. Each block is a
-// list of SLOTS, and each slot is filled by one exercise from its options, the
-// first being the default. Swaps stay within a slot; every exercise keeps its
-// own weight and history.
+// Session A and Session B (the twice-a-week A/B program), the three pairs, the
+// optional isolations, the leg-day extras and the core triplet (or the
+// kettlebell core circuit) — in a fixed order. Each block is a list of SLOTS,
+// and each slot is filled by one exercise from its options, the first being
+// the default. Swaps stay within a slot; every exercise keeps its own weight
+// and history.
+//
+// An exercise has one HOME slot (ExerciseDef.slot), but other slots may offer
+// it too — Session A's pull is the pull-up with the lat pulldown as its swap,
+// Session B's the other way round. A slot can also set its own scheme (sets,
+// reps, rest), so whichever option fills it runs the session's 3 × 8.
 //
 // The single-dumbbell home program the app started with is retired to
 // ./home-exercises.ts: still registered (so old sessions resolve), never offered.
@@ -36,6 +42,8 @@ export interface ExerciseDef {
   perArm: boolean
   /** Starting work time in seconds (time exercises only). */
   startSeconds?: number
+  /** Rest after each set, when the slot sets one (else the Settings default). */
+  restSeconds?: number
   /**
    * Seconds added to the target each time all sets hit it (unloaded holds).
    * Loaded time work (the kettlebell circuit) keeps its time and climbs the
@@ -57,6 +65,8 @@ const ASSIST_NOTE =
 // ---------- routine blocks ----------
 
 export type BlockId =
+  | 'session-a'
+  | 'session-b'
   | 'pair-1'
   | 'pair-2'
   | 'pair-3'
@@ -82,7 +92,26 @@ export interface Block {
   note: string
 }
 
+const AB_NOTE =
+  '~50 min. Warm up 5 min first. Straight sets — finish all sets of one exercise before moving on.'
+
 export const BLOCKS: readonly Block[] = [
+  {
+    id: 'session-a',
+    name: 'Session A',
+    short: 'Session A',
+    alternate: false,
+    optional: false,
+    note: AB_NOTE,
+  },
+  {
+    id: 'session-b',
+    name: 'Session B',
+    short: 'Session B',
+    alternate: false,
+    optional: false,
+    note: AB_NOTE,
+  },
   {
     id: 'pair-1',
     name: 'Pair 1 · Compounds',
@@ -145,6 +174,9 @@ export const BLOCKS_BY_ID: Record<BlockId, Block> = Object.fromEntries(
   BLOCKS.map((b) => [b.id, b]),
 ) as Record<BlockId, Block>
 
+/** The A/B program's two sessions (alternate them, about twice a week). */
+export const AB_BLOCKS: readonly BlockId[] = ['session-a', 'session-b']
+
 export function isBlockId(v: unknown): v is BlockId {
   return typeof v === 'string' && v in BLOCKS_BY_ID
 }
@@ -176,6 +208,86 @@ function kb(
 }
 
 export const GYM_EXERCISES: readonly ExerciseDef[] = [
+  // ----- Session A / B (their other lifts live with the pairs and extras) -----
+  {
+    id: 'single-leg-leg-press',
+    name: 'Single-Leg Leg Press',
+    muscle: 'Legs',
+    slot: 'a-legs',
+    sets: 3,
+    kind: 'reps',
+    repMin: 10,
+    repMax: 10,
+    equipment: 'machine',
+    startWeightKg: 50,
+    perArm: true,
+    holdNote: 'Plate-loaded? Log the plates you load (not the sled).',
+    formCue:
+      'One foot in the middle of the platform, the other on the floor. Lower the sled until the working knee reaches about 90° without your hips peeling off the pad, knee tracking over the toes, then press back up through the whole foot. Full count on one leg, then switch. First time: start at about 40% of your two-leg press and add plates until 10 clean reps leave ~3 in the tank — log that.',
+  },
+  {
+    id: 'db-rdl',
+    name: 'Dumbbell RDL',
+    muscle: 'Legs',
+    slot: 'a-hinge',
+    sets: 3,
+    kind: 'reps',
+    repMin: 10,
+    repMax: 10,
+    equipment: 'dumbbell',
+    startWeightKg: 16,
+    perArm: false,
+    holdNote: ONE_DUMBBELL,
+    formCue:
+      'Stand tall, a dumbbell in each hand in front of your thighs. Soft knees, push the hips back and slide the bells down your legs until the hamstrings are stretched (around mid-shin), back flat. Drive the hips forward to stand. Hinge, don’t squat.',
+  },
+  {
+    id: 'one-arm-db-row',
+    name: 'One-Arm Dumbbell Row',
+    muscle: 'Back',
+    slot: 'a-row',
+    sets: 3,
+    kind: 'reps',
+    repMin: 10,
+    repMax: 10,
+    equipment: 'dumbbell',
+    startWeightKg: 18,
+    perArm: true,
+    formCue:
+      'One hand and knee on a flat bench, back flat. Row the dumbbell to your hip with the elbow close to your side, squeeze the shoulder blade back, then lower to a full stretch. No twisting. Full count on one arm, then switch.',
+  },
+  {
+    id: 'cable-crunch',
+    name: 'Kneeling Cable Crunch',
+    muscle: 'Core',
+    slot: 'a-abs',
+    sets: 3,
+    kind: 'reps',
+    repMin: 10,
+    repMax: 12,
+    equipment: 'cable',
+    startWeightKg: 25,
+    perArm: false,
+    formCue:
+      'Kneel facing a high cable, rope held beside your head. Keep the hips still and curl your ribs down toward your hips — round the spine, don’t sit back onto your heels. Squeeze, then return slowly.',
+  },
+  {
+    id: 'db-shoulder-press',
+    name: 'Dumbbell Shoulder Press',
+    muscle: 'Shoulders',
+    slot: 'b-press',
+    sets: 3,
+    kind: 'reps',
+    repMin: 8,
+    repMax: 8,
+    equipment: 'dumbbell',
+    startWeightKg: 10,
+    perArm: false,
+    holdNote: ONE_DUMBBELL,
+    formCue:
+      'Sit on an upright bench, dumbbells at shoulder height, palms forward. Press overhead to straight arms, then lower under control back to the shoulders. Ribs down, back against the pad.',
+  },
+
   // ----- Pair 1 · compounds -----
   {
     id: 'pull-up',
@@ -187,7 +299,7 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
     repMin: 5,
     repMax: 8,
     equipment: 'assisted',
-    startWeightKg: 0,
+    startWeightKg: -14,
     perArm: false,
     holdNote: ASSIST_NOTE,
     formCue:
@@ -249,7 +361,7 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
     repMin: 5,
     repMax: 8,
     equipment: 'dumbbell',
-    startWeightKg: 12,
+    startWeightKg: 18,
     perArm: false,
     holdNote: ONE_DUMBBELL,
     formCue:
@@ -330,7 +442,7 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
     repMin: 5,
     repMax: 8,
     equipment: 'assisted',
-    startWeightKg: 0,
+    startWeightKg: -14,
     perArm: false,
     holdNote: ASSIST_NOTE,
     formCue:
@@ -597,7 +709,7 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
     repMin: 8,
     repMax: 12,
     equipment: 'cable',
-    startWeightKg: 30,
+    startWeightKg: 40,
     perArm: false,
     formCue:
       'Thighs locked under the pad, hands just outside shoulder width. Start each rep by pulling the shoulder blades DOWN (no shrug), then drive the elbows toward your back pockets and bring the bar to your collarbone — chest up, only a slight lean back (10–15°). Pause, then let it rise over 2–3 s to a full stretch, shoulders still down. Swinging your torso means it’s too heavy. First time: warm up light, then settle on the weight you can do 10 clean reps with ~2 to spare. Also the pull-up replacement.',
@@ -814,7 +926,7 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
     repMin: 8,
     repMax: 12,
     equipment: 'machine',
-    startWeightKg: 20,
+    startWeightKg: 50,
     perArm: false,
     formCue:
       'Seated (selectorised) crunch machine, pads or handles at your chest. Breathe out and curl your ribs down toward your hips — round the spine, don’t just hinge at the hips or pull with the arms. Squeeze at the bottom, then return slowly without letting the stack touch down.',
@@ -927,6 +1039,16 @@ export const MUSCLE_ORDER: Muscle[] = [
 
 // ---------- slots (swap groups), in routine order ----------
 
+/** How a slot runs whichever exercise fills it (unset = the exercise's own). */
+export interface SlotScheme {
+  sets?: number
+  /** Rep range (reps exercises only); min = max for a fixed target like 3 × 8. */
+  repMin?: number
+  repMax?: number
+  /** Rest after each set, in seconds. */
+  restSeconds?: number
+}
+
 export interface Slot {
   id: string
   block: BlockId
@@ -939,6 +1061,8 @@ export interface Slot {
    * day you add it to (via "Add to …").
    */
   extra?: boolean
+  /** The slot's own sets / reps / rest, kept through a swap. */
+  scheme?: SlotScheme
   /** The default exercise id (first option). */
   baseId: string
   /** All exercise ids that can fill this slot, base first. */
@@ -950,13 +1074,81 @@ function slot(
   block: BlockId,
   label: string,
   optionIds: string[],
-  optional?: boolean,
-  extra?: boolean,
+  opts: Pick<Slot, 'optional' | 'extra' | 'scheme'> = {},
 ): Slot {
-  return { id, block, label, baseId: optionIds[0], optionIds, optional, extra }
+  return { id, block, label, baseId: optionIds[0], optionIds, ...opts }
 }
 
+/** A session slot's scheme: sets × reps (a range, or one fixed target), rest. */
+function scheme(sets: number, reps: number | [number, number], restSeconds: number): SlotScheme {
+  const [repMin, repMax] = typeof reps === 'number' ? [reps, reps] : reps
+  return { sets, repMin, repMax, restSeconds }
+}
+
+/** The optional arm finisher both sessions end on: 2 sets each. */
+const ARMS = { optional: true, scheme: { sets: 2 } }
+const BICEPS = ['biceps-curl', 'zottman-curl']
+const TRICEPS = ['cable-pushdown', 'bar-pushdown', 'overhead-cable-extension']
+
 export const SLOTS: readonly Slot[] = [
+  // Session A — every slot offers swaps on other equipment, in case it's taken
+  slot(
+    'a-legs',
+    'session-a',
+    'Legs · single-leg',
+    ['single-leg-leg-press', 'bulgarian-split-squat', 'leg-press', 'goblet-squat'],
+    { scheme: scheme(3, 10, 90) },
+  ),
+  slot('a-pull', 'session-a', 'Vertical pull', ['pull-up', 'lat-pulldown', 'close-grip-lat-pulldown'], {
+    scheme: scheme(3, [6, 8], 90),
+  }),
+  slot(
+    'a-press',
+    'session-a',
+    'Chest press',
+    ['db-bench-press', 'machine-chest-press', 'incline-db-press', 'bench-press', 'push-up'],
+    { scheme: scheme(3, 8, 90) },
+  ),
+  slot('a-hinge', 'session-a', 'Hip hinge', ['db-rdl', 'barbell-rdl', 'hip-thrust'], {
+    scheme: scheme(3, 10, 90),
+  }),
+  slot('a-row', 'session-a', 'Row', ['cable-row', 'machine-row', 'one-arm-db-row', 't-bar-row'], {
+    scheme: scheme(3, 10, 75),
+  }),
+  slot(
+    'a-abs',
+    'session-a',
+    'Abs',
+    ['machine-ab-crunch', 'cable-crunch', 'machine-ab-crunch-feet-anchored', 'hanging-leg-raise'],
+    { scheme: scheme(3, [10, 12], 60) },
+  ),
+  slot('a-biceps', 'session-a', 'Arms · biceps', BICEPS, ARMS),
+  slot('a-triceps', 'session-a', 'Arms · triceps', TRICEPS, ARMS),
+  // Session B
+  slot('b-legs', 'session-b', 'Legs', ['leg-press', 'goblet-squat', 'back-squat'], {
+    scheme: scheme(3, 10, 90),
+  }),
+  slot(
+    'b-pull',
+    'session-b',
+    'Vertical pull',
+    ['lat-pulldown', 'close-grip-lat-pulldown', 'wide-grip-lat-pulldown', 'pull-up'],
+    { scheme: scheme(3, [8, 10], 90) },
+  ),
+  slot('b-press', 'session-b', 'Overhead press', ['shoulder-press', 'db-shoulder-press'], {
+    scheme: scheme(3, 8, 90),
+  }),
+  slot('b-hinge', 'session-b', 'Hip extension', ['back-extension', 'db-rdl', 'hip-thrust'], {
+    scheme: scheme(3, 12, 75),
+  }),
+  slot('b-dip', 'session-b', 'Dips', ['dip', 'machine-dip', 'bench-dip'], {
+    scheme: scheme(3, 8, 75),
+  }),
+  slot('b-core', 'session-b', 'Anti-rotation', ['pallof-press', 'ab-wheel-rollout'], {
+    scheme: scheme(3, 10, 60),
+  }),
+  slot('b-biceps', 'session-b', 'Arms · biceps', BICEPS, ARMS),
+  slot('b-triceps', 'session-b', 'Arms · triceps', TRICEPS, ARMS),
   // Pair 1 — compounds
   slot('pull', 'pair-1', 'Pull-up progression', ['pull-up']),
   slot('squat', 'pair-1', 'Squat progression', ['back-squat', 'goblet-squat']),
@@ -976,7 +1168,7 @@ export const SLOTS: readonly Slot[] = [
     'pair-3',
     'Push',
     ['machine-chest-press', 'shoulder-press', 'push-up', 'diamond-push-up'],
-    true,
+    { optional: true },
   ),
   // Isolations
   slot('triceps', 'isolation', 'Triceps extension', [
@@ -994,7 +1186,7 @@ export const SLOTS: readonly Slot[] = [
     'close-grip-lat-pulldown',
     'wide-grip-lat-pulldown',
   ]),
-  slot('rear-delts', 'isolation', 'Rear delts', ['face-pull'], false, true),
+  slot('rear-delts', 'isolation', 'Rear delts', ['face-pull'], { extra: true }),
   // Leg day extras
   slot('leg-press', 'leg-day', 'Leg press', ['leg-press']),
   slot('rdl', 'leg-day', 'Romanian deadlift', ['barbell-rdl']),
@@ -1006,14 +1198,9 @@ export const SLOTS: readonly Slot[] = [
   slot('anti-extension', 'core', 'Anti-extension', ['ab-wheel-rollout']),
   slot('anti-rotation', 'core', 'Anti-rotation', ['pallof-press']),
   slot('extension', 'core', 'Extension', ['back-extension']),
-  slot(
-    'flexion',
-    'core',
-    'Crunch',
-    ['machine-ab-crunch', 'machine-ab-crunch-feet-anchored'],
-    false,
-    true,
-  ),
+  slot('flexion', 'core', 'Crunch', ['machine-ab-crunch', 'machine-ab-crunch-feet-anchored'], {
+    extra: true,
+  }),
   // Kettlebell core circuit
   slot('kb-plank-pull-through', 'kb-core', 'Kettlebell core', ['kb-plank-pull-through']),
   slot('kb-halo', 'kb-core', 'Kettlebell core', ['kb-halo']),
@@ -1029,15 +1216,30 @@ export const SLOTS_BY_ID: Record<string, Slot> = Object.fromEntries(
   SLOTS.map((s) => [s.id, s]),
 )
 
-/** Which slot an exercise belongs to (undefined for retired exercises). */
+/** An exercise's home slot (undefined for retired exercises). */
 export function getSlot(exerciseId: string): Slot | undefined {
   const def = EXERCISES_BY_ID[exerciseId]
   return def && !def.retired ? SLOTS_BY_ID[def.slot] : undefined
 }
 
-/** Which routine block an exercise belongs to (undefined for retired ones). */
+/** An exercise's home routine block (undefined for retired ones). */
 export function getBlock(exerciseId: string): Block | undefined {
   const s = getSlot(exerciseId)
+  return s ? BLOCKS_BY_ID[s.block] : undefined
+}
+
+/**
+ * The slot an exercise fills where it's done: `slotId` when that slot offers
+ * it (a session's logs and a day's entries know theirs), else its home slot.
+ */
+export function slotFor(exerciseId: string, slotId?: string): Slot | undefined {
+  const s = slotId ? SLOTS_BY_ID[slotId] : undefined
+  return s?.optionIds.includes(exerciseId) ? s : getSlot(exerciseId)
+}
+
+/** The block of the slot an exercise fills (see slotFor). */
+export function blockFor(exerciseId: string, slotId?: string): Block | undefined {
+  const s = slotFor(exerciseId, slotId)
   return s ? BLOCKS_BY_ID[s.block] : undefined
 }
 
@@ -1047,12 +1249,58 @@ export function slotOptions(slotId: string): ExerciseDef[] {
   return s ? s.optionIds.map((id) => EXERCISES_BY_ID[id]) : []
 }
 
-/** Compact set-scheme label, e.g. "3 × 5–8", "3 × 8–12 · ea" or "3 × 30s". */
+/** Every exercise a block's slots offer, once each, in slot order. */
+export function blockOptions(block: BlockId): { def: ExerciseDef; slotId: string }[] {
+  const out: { def: ExerciseDef; slotId: string }[] = []
+  const seen = new Set<string>()
+  for (const s of SLOTS) {
+    if (s.block !== block) continue
+    for (const id of s.optionIds) {
+      if (seen.has(id)) continue
+      seen.add(id)
+      out.push({ def: EXERCISES_BY_ID[id], slotId: s.id })
+    }
+  }
+  return out
+}
+
+const effectiveCache = new Map<string, ExerciseDef>()
+
+/**
+ * An exercise as a slot runs it — the slot's sets, reps and rest over the
+ * exercise's own, so a swap keeps the session's shape. Cached, so the same
+ * pair always yields the same object (safe as a memo dependency).
+ */
+export function effectiveDef(def: ExerciseDef, slotId?: string): ExerciseDef {
+  const s = slotId ? SLOTS_BY_ID[slotId] : undefined
+  if (!s?.scheme || !s.optionIds.includes(def.id)) return def
+  const key = `${s.id}|${def.id}`
+  let out = effectiveCache.get(key)
+  if (!out) {
+    const { sets, repMin, repMax, restSeconds } = s.scheme
+    out = {
+      ...def,
+      sets: sets ?? def.sets,
+      repMin: def.kind === 'reps' ? repMin ?? def.repMin : def.repMin,
+      repMax: def.kind === 'reps' ? repMax ?? def.repMax : def.repMax,
+      restSeconds: restSeconds ?? def.restSeconds,
+    }
+    effectiveCache.set(key, out)
+  }
+  return out
+}
+
+/** The rep target: a range ("8–12") or a fixed count ("8"). */
+export function repTarget(def: ExerciseDef): string {
+  return def.repMin === def.repMax ? `${def.repMax}` : `${def.repMin}–${def.repMax}`
+}
+
+/** Compact set-scheme label, e.g. "3 × 5–8", "3 × 10 · ea" or "3 × 30s". */
 export function setScheme(def: ExerciseDef): string {
   if (def.kind === 'time') {
     return def.equipment === 'none'
       ? `${def.sets} × hold`
       : `${def.sets} × ${def.startSeconds ?? 30}s`
   }
-  return `${def.sets} × ${def.repMin}–${def.repMax}${def.perArm ? ' · ea' : ''}`
+  return `${def.sets} × ${repTarget(def)}${def.perArm ? ' · ea' : ''}`
 }

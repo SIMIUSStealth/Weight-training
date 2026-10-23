@@ -290,6 +290,7 @@ function InsightsPane({
 }) {
   const sessions = useStore((s) => s.sessions)
   const progress = useStore((s) => s.progress)
+  const program = useStore((s) => s.settings.program)
   const openOverlay = useStore((s) => s.openOverlay)
 
   const planIds = useMemo(
@@ -297,8 +298,8 @@ function InsightsPane({
     [byMuscle],
   )
   const alerts = useMemo(
-    () => urgencies(plan, sessions, progress, planIds),
-    [plan, sessions, progress, planIds],
+    () => urgencies(plan, sessions, progress, planIds, new Date(), program),
+    [plan, sessions, progress, planIds, program],
   )
   const life = useMemo(() => lifetimeStats(sessions), [sessions])
   const streakNow = useMemo(() => weekStreak(plan, sessions), [plan, sessions])

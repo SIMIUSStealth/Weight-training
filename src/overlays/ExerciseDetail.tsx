@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react'
 import {
+  effectiveDef,
   getExercise,
-  getSlot,
+  repTarget,
   setScheme,
   slotOptions,
   type ExerciseDef,
 } from '../program/exercises'
+import { getWeeklyPlan, planSlotFor } from '../program/plan'
 import { computeRecommendation, defaultProgress, isLoaded } from '../program/progression'
 import { getGuide } from '../program/guides'
 import { collectBests, tracksOneRM } from '../program/records'
@@ -25,7 +27,6 @@ import { Coach, GuideLink, Modal, MuscleChip, muscleColor, WeightPad } from '../
 import { Calculator, ChevronLeft, ChevronRight, Minus, Plus, Trophy } from '../ui/icons'
 
 export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
-  const def = getExercise(exerciseId)
   const sessions = useStore((s) => s.sessions)
   const progress = useStore((s) => s.progress)
   const settings = useStore((s) => s.settings)
@@ -38,8 +39,11 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
   const [swapTo, setSwapTo] = useState<ExerciseDef | null>(null)
   const [typing, setTyping] = useState(false)
 
+  // Shown, coached and swapped as the week runs it: the slot of the first day
+  // that has it (Session A's 3 × 8 chest press), else its home slot.
+  const slot = planSlotFor(exerciseId, getWeeklyPlan(settings.weeklyPlan), settings.program)
+  const def = effectiveDef(getExercise(exerciseId), slot?.id)
   const p = progress[exerciseId] ?? defaultProgress(def)
-  const slot = getSlot(exerciseId)
   const options = slot ? slotOptions(slot.id) : []
   const color = muscleColor(def.muscle)
   const increments = useMemo(
@@ -119,7 +123,7 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
                   ? 'hold'
                   : isTime
                     ? formatSeconds(p.targetSeconds ?? def.startSeconds ?? 30)
-                    : `${def.repMin}–${def.repMax}`}
+                    : repTarget(def)}
                 {def.perArm ? ' · each side' : ''}
               </div>
             </div>
@@ -238,7 +242,7 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
                         )}
                       </div>
                       <div className="tiny faint">
-                        {setScheme(opt)}
+                        {setScheme(slot ? effectiveDef(opt, slot.id) : opt)}
                         {seen && !isCurrent ? ' · has history' : ''}
                       </div>
                     </div>

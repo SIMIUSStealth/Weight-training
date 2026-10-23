@@ -30,15 +30,23 @@ export interface Increments {
   barbell: number
   /** Machines and cables. */
   machine: number
+  /** The assisted pull-up / dip machine's help, removed one step per level-up. */
+  assist: number
 }
 
-export const DEFAULT_INCREMENTS: Increments = { dumbbell: 2, barbell: 2.5, machine: 5 }
+export const DEFAULT_INCREMENTS: Increments = {
+  dumbbell: 2,
+  barbell: 2.5,
+  machine: 5,
+  assist: 2,
+}
 
 /** The choices offered in Settings. */
 export const INCREMENT_OPTIONS: Record<keyof Increments, number[]> = {
   dumbbell: [1, 2, 2.5],
   barbell: [2.5, 5],
   machine: [2.5, 5],
+  assist: [2, 2.5, 5],
 }
 
 /** Stored (possibly partial / stale) increments → a complete, valid set. */
@@ -47,7 +55,12 @@ export function resolveIncrements(stored?: Partial<Increments>): Increments {
     const v = stored?.[k]
     return typeof v === 'number' && INCREMENT_OPTIONS[k].includes(v) ? v : DEFAULT_INCREMENTS[k]
   }
-  return { dumbbell: pick('dumbbell'), barbell: pick('barbell'), machine: pick('machine') }
+  return {
+    dumbbell: pick('dumbbell'),
+    barbell: pick('barbell'),
+    machine: pick('machine'),
+    assist: pick('assist'),
+  }
 }
 
 // The adjustable home dumbbell's settings (the retired home program).
@@ -95,7 +108,7 @@ export function ladderFor(
       return steps(0, ADDED_MAX_KG, ADDED_STEP_KG)
     case 'assisted':
       return [
-        ...steps(increments.machine, ASSIST_MAX_KG, increments.machine)
+        ...steps(increments.assist, ASSIST_MAX_KG, increments.assist)
           .map((w) => -w)
           .reverse(),
         ...steps(0, ADDED_MAX_KG, ADDED_STEP_KG),

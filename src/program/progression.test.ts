@@ -75,11 +75,15 @@ describe('load ladders', () => {
   })
 
   it('runs assisted lifts from assistance through bodyweight to added weight', () => {
-    const L = ladderFor('assisted')
-    expect(prevRung(0, L)).toBe(-5)
-    expect(nextRung(-5, L)).toBe(0)
+    const L = ladderFor('assisted') // default: 2 kg less help per level-up
+    expect(nextRung(-14, L)).toBe(-12)
+    expect(prevRung(0, L)).toBe(-2)
+    expect(nextRung(-2, L)).toBe(0)
     expect(nextRung(0, L)).toBe(2.5)
     expect(L[0]).toBeLessThan(0)
+    // The machine's step is its own setting, apart from the stacks'.
+    const five = ladderFor('assisted', resolveIncrements({ assist: 5, machine: 2.5 }))
+    expect(nextRung(-10, five)).toBe(-5)
     // Plain bodyweight lifts only go up (added weight), never "assisted".
     expect(prevRung(0, ladderFor('bodyweight'))).toBe(0)
   })
@@ -89,6 +93,7 @@ describe('load ladders', () => {
       dumbbell: 2,
       barbell: 2.5,
       machine: 2.5,
+      assist: 2,
     })
   })
 
@@ -113,9 +118,12 @@ describe('load ladders', () => {
 describe('initialProgress', () => {
   it('seeds every routine slot’s default exercise at its start load', () => {
     const rows = initialProgress()
-    expect(rows).toHaveLength(SLOTS.length)
+    // One row each, even for an exercise two slots open with (the pull-up).
+    expect(rows).toHaveLength(new Set(SLOTS.map((s) => s.baseId)).size)
+    expect(new Set(rows.map((r) => r.exerciseId)).size).toBe(rows.length)
     expect(rows.find((r) => r.exerciseId === 'bench-press')?.currentWeightKg).toBe(30)
-    expect(rows.find((r) => r.exerciseId === 'pull-up')?.currentWeightKg).toBe(0)
+    expect(rows.find((r) => r.exerciseId === 'pull-up')?.currentWeightKg).toBe(-14) // 14 kg assist
+    expect(rows.find((r) => r.exerciseId === 'single-leg-leg-press')).toBeDefined()
     expect(rows.find((r) => r.exerciseId === 'plank')?.targetSeconds).toBe(30)
   })
 })
@@ -180,8 +188,10 @@ describe('applyProgression — reps', () => {
 
   it('walks an assisted pull-up toward bodyweight, then adds weight', () => {
     const pull = getExercise('pull-up')
-    const assisted: ExerciseProgress = { exerciseId: 'pull-up', currentWeightKg: -5 }
-    const a = applyProgression(pull, assisted, repLog('pull-up', -5, reps(8, 8, 8)))
+    const start = applyProgression(pull, progressFor('pull-up'), repLog('pull-up', -14, reps(8, 8, 8)))
+    expect(start.newWeightKg).toBe(-12) // 14 → 12 kg assist
+    const assisted: ExerciseProgress = { exerciseId: 'pull-up', currentWeightKg: -2 }
+    const a = applyProgression(pull, assisted, repLog('pull-up', -2, reps(8, 8, 8)))
     expect(a.newWeightKg).toBe(0)
     const b = applyProgression(pull, a.progress, repLog('pull-up', 0, reps(8, 8, 8)))
     expect(b.newWeightKg).toBe(2.5)

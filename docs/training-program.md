@@ -9,8 +9,8 @@ The structure follows the r/bodyweightfitness Recommended Routine (pairs + a cor
 triplet), moved to a gym: barbells, dumbbells, machines, cables and kettlebells
 replace the bodyweight-only steps where the gym does them better.
 
-**Who it's for:** an adult training for strength and muscle, 3 sessions per week,
-with a commercial gym's equipment. (The single-dumbbell home program this
+**Who it's for:** an adult training for strength and muscle, with a commercial
+gym's equipment — the A/B program twice a week, the pairs routine on other days. (The single-dumbbell home program this
 replaced is kept in [`home-dumbbell-program.md`](home-dumbbell-program.md).)
 
 ---
@@ -31,8 +31,52 @@ Unchanged from the home program, and still the point of the app:
 
 ## 2. The routine
 
-**Strength work: 40–60 minutes**, three times a week. A session is built from
-blocks, always in this order:
+### The A/B program (Monday and Wednesday)
+
+Two full-body sessions of **~50 minutes**, alternated about twice a week.
+**Straight sets** — finish all sets of one exercise before moving on.
+
+**Session A**
+
+| # | Exercise | Sets × reps | Rest | Swaps (similar, other kit) |
+|---|---|---|---|---|
+| 1 | Single-leg leg press | 3 × 10 / side | 90 s | Bulgarian split squat · Leg press · Goblet squat |
+| 2 | Assisted pull-up (14 kg assist) | 3 × 6–8 | 90 s | Lat pulldown · Close-grip pulldown |
+| 3 | DB bench press (18 kg) | 3 × 8 | 90 s | Machine chest press · Incline DB press · Barbell bench · Push-up |
+| 4 | DB Romanian deadlift | 3 × 10 | 90 s | Barbell RDL · Barbell hip thrust |
+| 5 | Close-grip cable row (35 kg) | 3 × 10 | 75 s | Machine row · One-arm DB row · T-bar row |
+| 6 | Ab crunch machine (50 kg) | 3 × 10–12 | 60 s | Kneeling cable crunch · Crunch machine (feet anchored) · Hanging leg raise |
+| — | *Optional:* biceps curl + triceps pushdown | 2 sets each | — | Zottman curl · Bar pushdown · Overhead cable extension |
+
+**Session B**
+
+| # | Exercise | Sets × reps | Rest | Swaps (similar, other kit) |
+|---|---|---|---|---|
+| 1 | Leg press | 3 × 10 | 90 s | Goblet squat · Barbell back squat |
+| 2 | Lat pulldown (40 kg) | 3 × 8–10 | 90 s | Close-grip / wide-grip pulldown · Assisted pull-up |
+| 3 | Shoulder press (25 kg) | 3 × 8 | 90 s | DB shoulder press |
+| 4 | Back extension | 3 × 12 | 75 s | DB Romanian deadlift · Barbell hip thrust |
+| 5 | Assisted dip (14 kg assist) | 3 × 8 | 75 s | Machine dip · Bench dip |
+| 6 | Pallof press | 3 × 10 / side | 60 s | Ab wheel rollout |
+| — | *Optional:* biceps curl + triceps pushdown | 2 sets each | — | as Session A |
+
+**How to run it**
+
+- Alternate A and B, about 2× per week. Warm up 5 min before starting.
+- Weeks 1–2: leave ~3 reps in the tank on leg work.
+- Hit the top of the rep range on all sets → add load next time (+2 kg per
+  dumbbell, +1 plate / pin, or −2 kg assist).
+- Week 6: optional lighter week (2 sets each).
+
+A swap takes over the slot's sets, reps and rest — swap the DB bench for the
+machine chest press and it's still 3 × 8, 90 s — and keeps its own load and
+history. The app counts the program's weeks from the first A or B workout and
+says when it's a run-in week (1–2) or the lighter week (6).
+
+### The pairs routine
+
+**Strength work: 40–60 minutes.** A session is built from blocks, always in
+this order:
 
 | Block | What | Sets × reps | How |
 |---|---|---|---|
@@ -56,7 +100,7 @@ the core triplet (keep the back extension).
 
 | Mon | Tue | Wed | Thu | Fri | Sat | Sun |
 |---|---|---|---|---|---|---|
-| Full routine | rest | Full routine + Leg day | rest | Full routine + Isolations | rest | rest |
+| Session A | rest | Session B | rest | Full routine + Isolations | rest | rest |
 
 "Full routine" = Pairs 1–3 + the core triplet. Every day is editable: switch
 blocks on/off, swap a slot's exercise, remove one, or add an extra from any block.
@@ -65,17 +109,21 @@ blocks on/off, swap a slot's exercise, remove one, or add an extra from any bloc
 
 ## 3. The exercises
 
-Every exercise is **3 working sets**. The first option in each slot is the
-default; the others are swaps (each keeps its own load and history). Start loads
-are estimates — the app flags a clearly-wrong start after the first session.
+Every exercise is **3 working sets** (the A/B program's arm finisher: 2). The
+first option in each slot is the default; the others are swaps (each keeps its
+own load and history). Start loads are the A/B program's stated loads where it
+gives one, estimates otherwise — the app flags a clearly-wrong start after the
+first session. The A/B program's own new lifts: single-leg leg press (50 kg),
+DB Romanian deadlift (16 kg), one-arm DB row (18 kg), kneeling cable crunch
+(25 kg), DB shoulder press (10 kg) — all estimates.
 
 ### Pair 1 · Compounds (3 × 5–8)
 
 | Slot | Options | Equipment | Start |
 |---|---|---|---|
-| Pull-up progression | **Pull-up** | assisted / bodyweight / belt | bodyweight |
+| Pull-up progression | **Pull-up** | assisted / bodyweight / belt | 14 kg assist |
 | Squat progression | **Barbell back squat** · Goblet squat | barbell · dumbbell | 40 kg · 14 kg |
-| Compound bench press | **Barbell bench press** · Dumbbell bench · Incline dumbbell press (upper chest, front delts) · Decline dumbbell press (lower chest) | barbell · dumbbells | 30 kg · 12 / 10 / 12 kg |
+| Compound bench press | **Barbell bench press** · Dumbbell bench · Incline dumbbell press (upper chest, front delts) · Decline dumbbell press (lower chest) | barbell · dumbbells | 30 kg · 18 / 10 / 12 kg |
 
 With barbells available, the barbell squat (and deadlift) replace the bodyweight
 squat/hinge progressions once the basic pattern is solid; the goblet squat stays
@@ -85,7 +133,7 @@ as the place to perfect it.
 
 | Slot | Options | Equipment | Start |
 |---|---|---|---|
-| Dip progression | **Bench dip** · Machine dip · Dip (assisted → bodyweight → weighted) | bodyweight · machine · assisted | bodyweight · 30 kg · bodyweight |
+| Dip progression | **Bench dip** · Machine dip · Dip (assisted → bodyweight → weighted) | bodyweight · machine · assisted | bodyweight · 30 kg · 14 kg assist |
 | Hinge progression | **Deadlift** (also a compound) · Barbell hip thrust | barbell | 50 · 40 kg |
 
 ### Pair 3 (3 × 5–8)
@@ -102,7 +150,7 @@ as the place to perfect it.
 | Triceps extension | **Cable triceps pushdown** (rope) · Triceps bar pushdown · Overhead cable extension | 15 · 20 · 10 kg |
 | Biceps curl | **Zottman curl** · Biceps curl | 8 kg dumbbells |
 | Extra chest | **Low-to-high cable fly** (upper chest) · High-to-low cable fly (lower chest) | 5 kg per stack |
-| Lats (also the pull-up replacement) | **Lat pulldown** · Close-grip · Wide-grip | 30 · 30 · 25 kg |
+| Lats (also the pull-up replacement) | **Lat pulldown** · Close-grip · Wide-grip | 40 · 30 · 25 kg |
 
 ### Leg day extras (3 × 8–12)
 
@@ -122,6 +170,7 @@ as the place to perfect it.
 | Anti-extension | **Ab wheel rollout** | bodyweight only |
 | Anti-rotation | **Pallof press** (each side) | cable, 10 kg |
 | Extension | **Back extension** (hyperextension bench) | bodyweight, + plate |
+| Crunch *(add-on)* | **Ab crunch machine** · Feet anchored | 50 · 20 kg |
 
 ### Kettlebell core circuit (30 s each, 2–3 rounds)
 
@@ -147,10 +196,10 @@ and progression only ever moves to the **adjacent rung**:
 | Machines & cables | the stack (cable flies: one stack); T-bar row: plates loaded | one pin hole (2,5 or 5 kg) |
 | Kettlebells | the bell | 4, 6, 8 … 24, 28, 32, 36, 40, 48 kg |
 | Bodyweight lifts (push-ups, bench dips, back extension) | weight **added** — 0 = bodyweight | +2,5 kg steps |
-| Assisted lifts (pull-up, dip) | **minus** = assisted-machine help, 0 = bodyweight, **plus** = belt | assistance in pin steps → 0 → +2,5 kg steps |
+| Assisted lifts (pull-up, dip) | **minus** = assisted-machine help, 0 = bodyweight, **plus** = belt | the machine's step (2, 2,5 or 5 kg) → 0 → +2,5 kg steps |
 | Unloaded (ab wheel, hanging leg raise, plank) | nothing | — |
 
-The three gym-specific step sizes are set once in **Settings → Gym equipment**.
+The four gym-specific step sizes are set once in **Settings → Gym equipment**.
 
 ---
 
@@ -158,11 +207,12 @@ The three gym-specific step sizes are set once in **Settings → Gym equipment**
 
 **Double progression, per exercise, independently:**
 
-1. Work in the rep range (5–8 for the compounds, 8–12 for isolations and core).
+1. Work in the rep range (the A/B sessions' own; 5–8 for the compounds, 8–12 for
+   isolations and core). A fixed target like 3 × 8 is a range whose top is 8.
 2. Each session, add reps toward the top of the range on every set.
-3. All three sets at the top → **next rung** next session: the next plate,
+3. All sets at the top → **next rung** next session: the next plate,
    dumbbell, pin or bell — or, on an assisted lift, **less assistance**
-   (−10 → −5 → bodyweight → +2,5 kg on a belt).
+   (14 → 12 → … → 2 kg assist → bodyweight → +2,5 kg on a belt).
 4. Reps drop after a jump — expected. Build back to the top, jump again.
 
 Special cases:

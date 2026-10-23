@@ -1,15 +1,17 @@
 import { useState } from 'react'
 import {
   BLOCKS,
-  getSlot,
+  SLOTS_BY_ID,
+  effectiveDef,
   setScheme,
   slotOptions,
   type BlockId,
   type ExerciseDef,
+  type Slot,
 } from '../program/exercises'
 import {
   addableForBlock,
-  dayExercises,
+  dayEntries,
   dayMuscles,
   getWeeklyPlan,
   muscleFrequency,
@@ -34,12 +36,12 @@ export function DayPlanView({ weekday }: { weekday: number }) {
   const openOverlay = useStore((s) => s.openOverlay)
   const closeOverlay = useStore((s) => s.closeOverlay)
 
-  const [swapFor, setSwapFor] = useState<ExerciseDef | null>(null)
+  const [swapFor, setSwapFor] = useState<{ exercise: ExerciseDef; slot: Slot } | null>(null)
   const [addFor, setAddFor] = useState<BlockId | null>(null)
 
   const plan = getWeeklyPlan(settings.weeklyPlan)
   const day = plan[weekday]
-  const exs = dayExercises(day, settings.program)
+  const entries = dayEntries(day, settings.program)
   const freq = muscleFrequency(plan, settings.program)
   const muscles = dayMuscles(day, settings.program)
   const status = weekStatuses(plan, sessions, activeSession)[weekday].status
@@ -49,7 +51,7 @@ export function DayPlanView({ weekday }: { weekday: number }) {
   const sections = BLOCKS.map((b) => ({
     block: b,
     on: day.blocks.includes(b.id),
-    items: exs.filter((e) => getSlot(e.id)?.block === b.id),
+    items: entries.filter((e) => SLOTS_BY_ID[e.slotId].block === b.id),
   })).filter((s) => s.on || s.items.length > 0)
 
   const doneSession =
@@ -69,7 +71,7 @@ export function DayPlanView({ weekday }: { weekday: number }) {
           <div className="grow">
             <div style={{ fontWeight: 800, fontSize: 17 }}>{WEEKDAYS_LONG[weekday]}</div>
             <div className="tiny faint">
-              {day.blocks.length ? `${exs.length} exercises` : 'Rest day'}
+              {day.blocks.length ? `${entries.length} exercises` : 'Rest day'}
             </div>
           </div>
           {status === 'done' && (
@@ -149,8 +151,8 @@ export function DayPlanView({ weekday }: { weekday: number }) {
                 {block.note}
               </div>
               <div className="card" style={{ padding: '4px 16px' }}>
-                {items.map((e) => {
-                  const slot = getSlot(e.id)
+                {items.map(({ def: e, slotId, added }) => {
+                  const slot = SLOTS_BY_ID[slotId]
                   return (
                     <div className="list-row" key={e.id}>
                       <span
@@ -160,14 +162,14 @@ export function DayPlanView({ weekday }: { weekday: number }) {
                       <div className="grow">
                         <div style={{ fontWeight: 700 }}>{e.name}</div>
                         <div className="tiny faint">
-                          {setScheme(e)}
-                          {slot ? ` · ${slot.label}` : ''}
-                          {slot?.optional ? ' · optional' : ''}
+                          {setScheme(effectiveDef(e, slotId))}
+                          {` · ${slot.label}`}
+                          {slot.optional ? ' · optional' : ''}
                         </div>
                       </div>
-                      {/* An add-on rides along by id, so a global swap wouldn't move it. */}
-                      {slot && !slot.extra && slot.optionIds.length > 1 && (
-                        <button className="btn btn-sm" onClick={() => setSwapFor(e)}>
+                      {/* An extra rides along by id, so a slot swap wouldn't move it. */}
+                      {!added && slot.optionIds.length > 1 && (
+                        <button className="btn btn-sm" onClick={() => setSwapFor({ exercise: e, slot })}>
                           Swap
                         </button>
                       )}
@@ -235,7 +237,7 @@ export function DayPlanView({ weekday }: { weekday: number }) {
             )}
             <button
               className="btn btn-primary btn-lg grow"
-              disabled={exs.length === 0}
+              disabled={entries.length === 0}
               onClick={() => startDay(weekday)}
             >
               Train again
@@ -244,7 +246,7 @@ export function DayPlanView({ weekday }: { weekday: number }) {
         ) : (
           <button
             className="btn btn-primary btn-lg btn-block"
-            disabled={exs.length === 0}
+            disabled={entries.length === 0}
             onClick={() => startDay(weekday)}
           >
             <Play size={20} /> Start workout
@@ -254,7 +256,8 @@ export function DayPlanView({ weekday }: { weekday: number }) {
 
       {swapFor && (
         <SwapModal
-          exercise={swapFor}
+          exercise={swapFor.exercise}
+          slot={swapFor.slot}
           onClose={() => setSwapFor(null)}
           onSwap={(slotId, id) => {
             swapExercise(slotId, id)
@@ -271,8 +274,8 @@ export function DayPlanView({ weekday }: { weekday: number }) {
             block={addFor}
             day={day}
             program={settings.program}
-            onPick={(id) => {
-              addExerciseToDay(weekday, id)
+            onPick={(id, slotId) => {
+              addExerciseToDay(weekday, id, slotId)
               setAddFor(null)
             }}
           />
@@ -284,19 +287,20 @@ export function DayPlanView({ weekday }: { weekday: number }) {
 
 function SwapModal({
   exercise,
+  slot,
   onClose,
   onSwap,
 }: {
   exercise: ExerciseDef
+  slot: Slot
   onClose: () => void
   onSwap: (slotId: string, exerciseId: string) => void
 }) {
-  const slot = getSlot(exercise.id)
-  const options = slot ? slotOptions(slot.id) : []
+  const options = slotOptions(slot.id)
   return (
     <Modal title={`Swap ${exercise.name}`} onClose={onClose}>
       <p className="small muted" style={{ marginTop: 0 }}>
-        Same spot in the routine ({slot?.label}). Applies wherever this slot appears
+        Same spot in the routine ({slot.label}). Applies wherever this slot appears
         in your week; each variation keeps its own weight &amp; history.
       </p>
       <div className="card" style={{ padding: '4px 16px', marginBottom: 0 }}>
@@ -308,7 +312,7 @@ function SwapModal({
               className="list-row"
               style={{ width: '100%', background: 'none', border: 0, color: 'inherit', textAlign: 'left' }}
               disabled={current}
-              onClick={() => slot && onSwap(slot.id, opt.id)}
+              onClick={() => onSwap(slot.id, opt.id)}
             >
               <div className="grow">
                 <div style={{ fontWeight: 700 }}>
@@ -319,7 +323,7 @@ function SwapModal({
                     </span>
                   )}
                 </div>
-                <div className="tiny faint">{setScheme(opt)}</div>
+                <div className="tiny faint">{setScheme(effectiveDef(opt, slot.id))}</div>
               </div>
             </button>
           )
@@ -338,7 +342,7 @@ function AddList({
   block: BlockId
   day: DayPlan
   program?: Record<string, string>
-  onPick: (id: string) => void
+  onPick: (id: string, slotId: string) => void
 }) {
   const options = addableForBlock(block, day, program)
   if (options.length === 0) {
@@ -346,17 +350,17 @@ function AddList({
   }
   return (
     <div className="card" style={{ padding: '4px 16px', marginBottom: 0, maxHeight: '60vh', overflowY: 'auto' }}>
-      {options.map((opt) => (
+      {options.map(({ def: opt, slotId }) => (
         <button
           key={opt.id}
           className="list-row"
           style={{ width: '100%', background: 'none', border: 0, color: 'inherit', textAlign: 'left' }}
-          onClick={() => onPick(opt.id)}
+          onClick={() => onPick(opt.id, slotId)}
         >
           <div className="grow">
             <div style={{ fontWeight: 700 }}>{opt.name}</div>
             <div className="tiny faint">
-              {setScheme(opt)} · {getSlot(opt.id)?.label}
+              {setScheme(effectiveDef(opt, slotId))} · {SLOTS_BY_ID[slotId].label}
             </div>
           </div>
           <Plus size={16} className="faint" />
