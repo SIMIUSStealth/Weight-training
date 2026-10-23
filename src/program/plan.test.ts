@@ -101,6 +101,18 @@ describe('weekly plan', () => {
     ])
   })
 
+  it('leg day opens with the leg press', () => {
+    const ids = dayExercises({ blocks: ['leg-day'] }).map((e) => e.id)
+    expect(ids).toEqual([
+      'leg-press',
+      'hamstring-curl',
+      'leg-extension',
+      'bulgarian-split-squat',
+      'machine-calf-raise',
+    ])
+    expect(dayExercises(defaultWeeklyPlan()[2]).map((e) => e.id)).toContain('leg-press')
+  })
+
   it('rest day has no exercises', () => {
     expect(dayExercises({ blocks: [] })).toEqual([])
     expect(dayLabel({ blocks: [] })).toBe('Rest day')

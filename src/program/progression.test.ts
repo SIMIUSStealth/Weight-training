@@ -125,6 +125,16 @@ describe('initialProgress', () => {
 describe('applyProgression — reps', () => {
   const bench = getExercise('bench-press') // 5-8, start 30kg, barbell
 
+  it('starts the leg press at 130 kg and keeps climbing past a stack’s 200 kg', () => {
+    const press = getExercise('leg-press') // 8-12, machine
+    const p = progressFor('leg-press')
+    expect(p.currentWeightKg).toBe(130)
+    expect(applyProgression(press, p, repLog('leg-press', 130, reps(10, 10, 10))).leveledUp).toBe(false)
+    expect(applyProgression(press, p, repLog('leg-press', 130, reps(12, 12, 12))).newWeightKg).toBe(135)
+    const heavy = { ...p, currentWeightKg: 200 }
+    expect(applyProgression(press, heavy, repLog('leg-press', 200, reps(12, 12, 12))).newWeightKg).toBe(205)
+  })
+
   it('levels up one rung when all three sets hit the top of the range', () => {
     const res = applyProgression(bench, progressFor('bench-press'), repLog('bench-press', 30, reps(8, 8, 8)))
     expect(res.leveledUp).toBe(true)

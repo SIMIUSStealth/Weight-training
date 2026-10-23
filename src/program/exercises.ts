@@ -121,7 +121,7 @@ export const BLOCKS: readonly Block[] = [
     short: 'Leg day',
     alternate: false,
     optional: true,
-    note: 'Extra leg isolations for leg days — straight sets.',
+    note: 'Extra leg work for leg days — straight sets.',
   },
   {
     id: 'core',
@@ -665,6 +665,22 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
 
   // ----- Leg day extras -----
   {
+    id: 'leg-press',
+    name: 'Leg Press',
+    muscle: 'Legs',
+    slot: 'leg-press',
+    sets: 3,
+    kind: 'reps',
+    repMin: 8,
+    repMax: 12,
+    equipment: 'machine',
+    startWeightKg: 130,
+    perArm: false,
+    holdNote: 'Plate-loaded? Log the plates you load (not the sled).',
+    formCue:
+      'Back and hips flat against the pad, feet about shoulder width in the middle of the platform. Unlock the sled, then lower it until your knees reach about 90° without your lower back peeling off the pad, knees tracking over the toes. Press back up through the whole foot — stop just short of locking the knees.',
+  },
+  {
     id: 'hamstring-curl',
     name: 'Hamstring Curl',
     muscle: 'Legs',
@@ -980,6 +996,7 @@ export const SLOTS: readonly Slot[] = [
   ]),
   slot('rear-delts', 'isolation', 'Rear delts', ['face-pull'], false, true),
   // Leg day extras
+  slot('leg-press', 'leg-day', 'Leg press', ['leg-press']),
   slot('hamstring-curl', 'leg-day', 'Hamstring curl', ['hamstring-curl']),
   slot('leg-raise', 'leg-day', 'Leg raises', ['leg-extension', 'hanging-leg-raise']),
   slot('split-squat', 'leg-day', 'Bulgarian split squat', ['bulgarian-split-squat']),

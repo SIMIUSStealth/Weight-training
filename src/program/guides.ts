@@ -3,8 +3,8 @@
 // on Exercise) first, then ExRx.net, NASM and Catalyst Athletics where ACE has
 // no matching page. Kept apart from exercises.ts so the routine data stays
 // readable. Moves without a trusted page (the less common kettlebell circuit
-// moves, diamond push-up, Zottman curl, face pull, crunch machine) carry only
-// the description.
+// moves, diamond push-up, Zottman curl, face pull, crunch machine, leg press)
+// carry only the description.
 
 export interface ExerciseGuide {
   /** One-line "what is it": the movement and what it trains. */
@@ -180,6 +180,9 @@ export const GUIDES: Record<string, ExerciseGuide> = {
   },
 
   // ----- Leg day -----
+  'leg-press': {
+    about: 'Seated on a machine, press a weighted sled away with your feet. Quads and glutes, heavy, without loading your back.',
+  },
   'hamstring-curl': {
     about: 'Machine curl of your heels toward your glutes. Isolates the hamstrings.',
     url: ace('153/lying-hamstrings-curl'),

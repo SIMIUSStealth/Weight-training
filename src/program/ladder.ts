@@ -87,7 +87,8 @@ export function ladderFor(
       return steps(increments.dumbbell, 60, increments.dumbbell)
     case 'machine':
     case 'cable':
-      return steps(increments.machine, 200, increments.machine)
+      // Plate-loaded machines (leg press) climb well past a stack's 200 kg.
+      return steps(increments.machine, 400, increments.machine)
     case 'kettlebell':
       return KETTLEBELL_LADDER_KG
     case 'bodyweight':
