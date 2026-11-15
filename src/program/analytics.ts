@@ -270,3 +270,42 @@ export function relativeDay(iso: string): string {
     month: 'short',
   })
 }
+
+// ---------- a workout left open ----------
+
+export interface StaleWorkout {
+  setsDone: number
+  /** Every set of the workout is ticked. */
+  allDone: boolean
+  /** When the last set was ticked (unknown for sets logged before stamps). */
+  lastSetAt?: string
+}
+
+/** How long after its last set an open workout counts as left behind. */
+const STALE_MS = 45 * 60_000
+
+/**
+ * An open workout that looks finished: sets were logged and either all of
+ * them are ticked, or nothing has been logged for a good while (or, with no
+ * time stamps to go by, it was started hours ago). Null when it's still live.
+ */
+export function staleWorkout(active: SessionLog | null, now = Date.now()): StaleWorkout | null {
+  if (!active) return null
+  let setsDone = 0
+  let total = 0
+  let last = 0
+  for (const e of active.exercises) {
+    for (const s of e.sets) {
+      total += 1
+      if (!s.done) continue
+      setsDone += 1
+      const t = s.at ? Date.parse(s.at) : NaN
+      if (t > last) last = t
+    }
+  }
+  if (!setsDone) return null
+  const allDone = setsDone === total
+  const idle = last ? now - last > STALE_MS : now - Date.parse(active.startedAt) > 4 * 3_600_000
+  if (!allDone && !idle) return null
+  return { setsDone, allDone, lastSetAt: last ? new Date(last).toISOString() : undefined }
+}

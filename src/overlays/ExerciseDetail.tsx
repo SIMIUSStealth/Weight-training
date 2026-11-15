@@ -14,6 +14,7 @@ import { collectBests, tracksOneRM } from '../program/records'
 import {
   formatKg,
   formatLoad,
+  formatLoadShort,
   isTopRung,
   ladderFor,
   nextRung,
@@ -59,12 +60,15 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
     () => computeRecommendation(def, p, sessions, increments),
     [def, p, sessions, increments],
   )
-  const { series, loadPoints, topPoints } = useMemo(() => {
+  const { series, loadPoints, topPoints, rmPoints } = useMemo(() => {
     const series = exerciseSeries(exerciseId, sessions)
     return {
       series,
       loadPoints: series.map((s) => ({ label: relativeDay(s.date), y: s.load })),
       topPoints: series.map((s) => ({ label: relativeDay(s.date), y: s.best })),
+      rmPoints: series
+        .filter((s) => s.oneRM > 0)
+        .map((s) => ({ label: relativeDay(s.date), y: s.oneRM })),
     }
   }, [exerciseId, sessions])
 
@@ -257,6 +261,18 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
         {/* charts */}
         {series.length >= 2 ? (
           <>
+            {rmPoints.length >= 2 && (
+              <>
+                <div className="eyebrow">Estimated 1RM (kg)</div>
+                <div className="card">
+                  <LineChart points={rmPoints} color={color} formatY={(v) => String(Math.round(v))} />
+                  <div className="tiny faint" style={{ marginTop: 6 }}>
+                    Strength, whatever the load and reps: each session&rsquo;s best set as a
+                    one-rep max (Epley).
+                  </div>
+                </div>
+              </>
+            )}
             <div className="eyebrow">
               {isTime ? 'Total time' : tracksOneRM(def) ? 'Work per session' : 'Total reps'}
             </div>
@@ -306,9 +322,17 @@ export function ExerciseDetail({ exerciseId }: { exerciseId: string }) {
                           style={{ background: 'var(--surface-3)', fontWeight: 700 }}
                         >
                           {isTime ? formatSeconds(v) : `${v}${def.perArm ? '/side' : ''}`}
+                          {loaded && Math.abs(s.loads[j] - s.weightKg) > 1e-9
+                            ? ` × ${formatLoadShort(def.equipment, s.loads[j])}`
+                            : ''}
                         </span>
                       ))}
                     </div>
+                    {s.note && (
+                      <div className="tiny muted" style={{ marginTop: 6, fontStyle: 'italic' }}>
+                        {s.note}
+                      </div>
+                    )}
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontWeight: 800 }}>

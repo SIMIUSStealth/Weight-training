@@ -26,8 +26,12 @@ single-dumbbell home program is retired but its history is kept:
   flags a starting load that was too light or heavy on day one, climbs the plank
   by +10 s, and tells you when an unloaded movement (ab wheel) needs a harder
   variation.
-- **Tracking** — per-exercise charts (work and top set), session history, and
-  bodyweight / protein / sleep logging (the "raw materials").
+- **Fast logging** — every set has its own load (top sets, drop sets), an
+  effort chip logs a set in one tap, and added sets and changed loads carry
+  over to next time. Notes per exercise, a warm-up ramp, plates per side.
+- **Tracking** — per-exercise charts (work, top set, estimated 1RM), a month
+  calendar with a recap, editable session history, and bodyweight / protein /
+  sleep logging (the "raw materials").
 - **Yours, offline, portable** — IndexedDB storage, no account, plus one-tap
   JSON **export/import** so a new phone never means lost history.
 
@@ -81,7 +85,7 @@ src/
   storage/      IndexedDB layer, data model, backup/restore
   store/        Zustand store (workout flow, progression commit, settings, data)
   screens/      Today · Progress · History · Settings
-  overlays/     Workout · ExerciseDetail · SessionDetail · Summary
+  overlays/     Workout (+ workout/ parts) · ExerciseDetail · SessionDetail · Summary
   ui/           icons, charts, shared components
 ```
 

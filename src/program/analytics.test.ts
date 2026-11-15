@@ -5,6 +5,7 @@ import {
   weekStatuses,
   doneDaysThisWeek,
   weekStreak,
+  staleWorkout,
 } from './analytics'
 import { defaultWeeklyPlan } from './plan'
 import type { DayPlan, SessionLog, SetLog } from '../storage/types'
@@ -175,5 +176,39 @@ describe('weeklyVolume frequency', () => {
     const chest = vol.find((v) => v.muscle === 'Chest')!
     expect(chest.sets).toBe(6) // volume adds up
     expect(chest.days).toBe(1) // but it's one logical workout
+  })
+})
+
+describe('staleWorkout', () => {
+  const NOW = Date.parse('2026-11-11T20:00:00Z')
+  const open = (sets: { done: boolean; at?: string }[], startedAt = '2026-11-11T19:00:00Z') => ({
+    id: 'w',
+    startedAt,
+    exercises: [{ exerciseId: 'bench-press', weightKg: 40, sets }],
+  })
+
+  it('is not stale while training is under way', () => {
+    expect(staleWorkout(null, NOW)).toBeNull()
+    expect(staleWorkout(open([{ done: false }]), NOW)).toBeNull() // nothing logged yet
+    const live = open([{ done: true, at: '2026-11-11T19:50:00Z' }, { done: false }])
+    expect(staleWorkout(live, NOW)).toBeNull()
+  })
+
+  it('is stale once every set is ticked', () => {
+    const done = open([{ done: true, at: '2026-11-11T19:58:00Z' }])
+    expect(staleWorkout(done, NOW)).toEqual({
+      setsDone: 1,
+      allDone: true,
+      lastSetAt: '2026-11-11T19:58:00.000Z',
+    })
+  })
+
+  it('is stale when nothing has been logged for a good while', () => {
+    const left = open([{ done: true, at: '2026-11-09T18:40:00Z' }, { done: false }], '2026-11-09T18:00:00Z')
+    expect(staleWorkout(left, NOW)).toMatchObject({ allDone: false, lastSetAt: '2026-11-09T18:40:00.000Z' })
+    // Sets from before time stamps: go by when the workout was started.
+    const unstamped = [{ done: true }, { done: false }]
+    expect(staleWorkout(open(unstamped, '2026-11-11T19:00:00Z'), NOW)).toBeNull()
+    expect(staleWorkout(open(unstamped, '2026-11-11T09:00:00Z'), NOW)).toMatchObject({ setsDone: 1 })
   })
 })

@@ -9,7 +9,8 @@ import { ExerciseDetail } from './overlays/ExerciseDetail'
 import { SessionDetail } from './overlays/SessionDetail'
 import { Summary } from './overlays/Summary'
 import { DayPlanView } from './overlays/DayPlanView'
-import { Chart, Gear, History as HistoryIcon, Home } from './ui/icons'
+import { performBackup } from './ui/backup'
+import { Alert, Chart, Gear, History as HistoryIcon, Home, X } from './ui/icons'
 
 const TABS: { id: Tab; label: string; Icon: typeof Home }[] = [
   { id: 'today', label: 'Today', Icon: Home },
@@ -24,6 +25,10 @@ export default function App() {
   const tab = useStore((s) => s.tab)
   const setTab = useStore((s) => s.setTab)
   const overlay = useStore((s) => s.overlay)
+  const saveError = useStore((s) => s.saveError)
+  const dismissSaveError = useStore((s) => s.dismissSaveError)
+  const getBackup = useStore((s) => s.getBackup)
+  const recordBackup = useStore((s) => s.recordBackup)
 
   useEffect(() => {
     void init()
@@ -64,6 +69,29 @@ export default function App() {
       {overlay?.name === 'session' && <SessionDetail sessionId={overlay.sessionId} />}
       {overlay?.name === 'summary' && <Summary summary={overlay.summary} />}
       {overlay?.name === 'day' && <DayPlanView weekday={overlay.weekday} />}
+
+      {/* a write to the device failed — the log is still in memory: get it out */}
+      {saveError && (
+        <div className="save-error" role="alert">
+          <Alert size={18} />
+          <span className="grow">{saveError}</span>
+          <button
+            className="btn btn-sm"
+            onClick={async () => {
+              const res = await performBackup(getBackup())
+              if (res !== 'cancelled') {
+                recordBackup()
+                dismissSaveError()
+              }
+            }}
+          >
+            Back up
+          </button>
+          <button className="icon-btn" onClick={dismissSaveError} aria-label="dismiss">
+            <X size={16} />
+          </button>
+        </div>
+      )}
     </div>
   )
 }

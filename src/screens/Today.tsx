@@ -12,6 +12,7 @@ import {
   doneDaysThisWeek,
   overview,
   relativeDay,
+  staleWorkout,
   weekStatuses,
   weekStreak,
 } from '../program/analytics'
@@ -27,6 +28,7 @@ export function Today() {
   const openOverlay = useStore((s) => s.openOverlay)
   const resumeSession = useStore((s) => s.resumeSession)
   const startDay = useStore((s) => s.startDay)
+  const finishSession = useStore((s) => s.finishSession)
   const getBackup = useStore((s) => s.getBackup)
   const recordBackup = useStore((s) => s.recordBackup)
 
@@ -75,6 +77,9 @@ export function Today() {
   const activeLeft = activeSession
     ? activeSession.exercises.filter((e) => !e.sets.some((s) => s.done)).length
     : 0
+  // A workout still open that looks over — every set ticked, or nothing
+  // logged for a good while: say so, with Finish one tap away.
+  const stale = useMemo(() => staleWorkout(activeSession), [activeSession])
   const activeLabel =
     activeSession && activeSession.weekday != null
       ? dayLabel(plan[activeSession.weekday])
@@ -119,7 +124,24 @@ export function Today() {
         </div>
       )}
 
-      {activeSession ? (
+      {activeSession && stale ? (
+        <div className="card" style={{ marginBottom: 0 }}>
+          <div style={{ fontWeight: 800 }}>{activeLabel} is still open</div>
+          <div className="small muted" style={{ margin: '2px 0 12px' }}>
+            {stale.allDone ? 'Every set is done' : `${stale.setsDone} sets logged`}
+            {stale.lastSetAt ? ` · last set ${relativeDay(stale.lastSetAt)}` : ''}. Finish it to
+            save it{stale.lastSetAt ? ' on the day you trained' : ''}.
+          </div>
+          <div className="row" style={{ gap: 8 }}>
+            <button className="btn btn-success grow" onClick={() => finishSession()}>
+              <Check size={18} /> Finish workout
+            </button>
+            <button className="btn" onClick={resumeSession}>
+              Resume
+            </button>
+          </div>
+        </div>
+      ) : activeSession ? (
         <button className="btn btn-primary btn-lg btn-block" onClick={resumeSession}>
           <Play size={20} />
           Resume · {activeLabel} · {activeLeft} left

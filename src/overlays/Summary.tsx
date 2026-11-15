@@ -1,9 +1,12 @@
 import { getExercise } from '../program/exercises'
 import { formatKg, formatLoad, ladderFor, prevRung, resolveIncrements } from '../program/ladder'
 import { formatSeconds } from '../program/analytics'
+import { useState } from 'react'
 import { useStore, type SessionSummary } from '../store/useStore'
+import { BodyModal, todayKey } from '../ui/BodyModal'
+import { daysSince, performBackup } from '../ui/backup'
 import { Coach } from '../ui/components'
-import { ArrowUp, Check, Info, Trophy } from '../ui/icons'
+import { ArrowUp, Body, Check, Download, Info, Trophy } from '../ui/icons'
 import type { PRRecord } from '../storage/types'
 
 function prLabel(pr: PRRecord): string {
@@ -25,8 +28,28 @@ export function Summary({ summary }: { summary: SessionSummary }) {
   const setTab = useStore((s) => s.setTab)
   const closeOverlay = useStore((s) => s.closeOverlay)
   const resumeSession = useStore((s) => s.resumeSession)
+  const session = useStore((s) => s.sessions.find((x) => x.id === summary.sessionId))
+  const updateSession = useStore((s) => s.updateSession)
+  const bodyToday = useStore((s) => s.bodyStats.find((b) => b.date === todayKey()))
+  const upsertBodyStat = useStore((s) => s.upsertBodyStat)
+  const lastBackupAt = useStore((s) => s.settings.lastBackupAt)
+  const getBackup = useStore((s) => s.getBackup)
+  const recordBackup = useStore((s) => s.recordBackup)
+  const [note, setNote] = useState(session?.notes ?? '')
+  const [editBody, setEditBody] = useState(false)
+
+  const sinceBackup = daysSince(lastBackupAt)
+  const backupDue = sinceBackup == null || sinceBackup >= 7
+  const backupNow = async () => {
+    const res = await performBackup(getBackup())
+    if (res !== 'cancelled') recordBackup()
+  }
+  const saveNote = () => {
+    if (session && note.trim() !== (session.notes ?? '')) updateSession({ ...session, notes: note })
+  }
 
   const done = () => {
+    saveNote()
     closeOverlay()
     setTab('today')
   }
@@ -53,7 +76,8 @@ export function Summary({ summary }: { summary: SessionSummary }) {
             {summary.split ? `Part ${summary.split.part - 1} logged` : 'Session logged'}
           </h1>
           <div className="muted small">
-            {summary.setsLogged} sets · {summary.durationMin} min
+            {summary.setsLogged} sets
+            {summary.durationMin > 0 ? ` · ${summary.durationMin} min` : ''}
           </div>
         </div>
 
@@ -191,11 +215,56 @@ export function Summary({ summary }: { summary: SessionSummary }) {
           </>
         )}
 
+        {/* while it's fresh: a note, today's body stats, a backup */}
+        <div className="eyebrow">Wrap up</div>
+        <input
+          className="input"
+          type="text"
+          maxLength={300}
+          value={note}
+          placeholder="Session note — how did it go?"
+          aria-label="session note"
+          onChange={(e) => setNote(e.target.value)}
+          onBlur={saveNote}
+        />
+        <div className="card" style={{ marginTop: 10, padding: '12px 16px' }}>
+          <div className="row between">
+            <span className="row" style={{ gap: 8 }}>
+              <Body size={18} className="muted" />
+              <span className="small" style={{ fontWeight: 700 }}>
+                {bodyToday?.bodyweightKg != null
+                  ? `Bodyweight ${bodyToday.bodyweightKg} kg`
+                  : 'Bodyweight, protein, sleep'}
+              </span>
+            </span>
+            <button className="btn btn-sm" onClick={() => setEditBody(true)}>
+              {bodyToday ? 'Edit' : 'Log today'}
+            </button>
+          </div>
+          {backupDue && (
+            <>
+              <div className="divider" style={{ margin: '12px 0' }} />
+              <div className="row between">
+                <span className="row" style={{ gap: 8 }}>
+                  <Download size={18} className="muted" />
+                  <span className="small" style={{ fontWeight: 700 }}>
+                    {sinceBackup == null ? 'Never backed up' : `Last backup ${sinceBackup} days ago`}
+                  </span>
+                </span>
+                <button className="btn btn-sm" onClick={backupNow}>
+                  Back up
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
         {summary.split ? (
           <div style={{ marginTop: 24 }}>
             <button
               className="btn btn-primary btn-block btn-lg"
               onClick={() => {
+                saveNote()
                 closeOverlay()
                 resumeSession()
               }}
@@ -212,6 +281,17 @@ export function Summary({ summary }: { summary: SessionSummary }) {
           </button>
         )}
       </div>
+
+      {editBody && (
+        <BodyModal
+          initial={bodyToday}
+          onClose={() => setEditBody(false)}
+          onSave={(stat) => {
+            upsertBodyStat(stat)
+            setEditBody(false)
+          }}
+        />
+      )}
     </div>
   )
 }

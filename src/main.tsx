@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import '@fontsource-variable/bricolage-grotesque'
 import App from './App'
+import { ErrorBoundary } from './ui/ErrorBoundary'
 import './index.css'
 
 // A new deploy installs in the background on launch and takes over this page
@@ -19,6 +20,8 @@ if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 )

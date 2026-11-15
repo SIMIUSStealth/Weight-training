@@ -99,6 +99,26 @@ export function Settings() {
         </div>
       </div>
 
+      <div className="eyebrow">During a workout</div>
+      <div className="card">
+        <div className="row between">
+          <div>
+            <div style={{ fontWeight: 700 }}>Keep the screen on</div>
+            <div className="tiny faint">So the rest timer stays in view between sets.</div>
+          </div>
+          <div style={{ width: 130, flexShrink: 0 }}>
+            <Segmented
+              value={settings.keepAwake === false ? 'off' : 'on'}
+              onChange={(v) => updateSettings({ keepAwake: v === 'on' })}
+              options={[
+                { value: 'on', label: 'On' },
+                { value: 'off', label: 'Off' },
+              ]}
+            />
+          </div>
+        </div>
+      </div>
+
       <div className="eyebrow">Gym equipment</div>
       <div className="card">
         <div className="tiny faint" style={{ marginBottom: 12 }}>
@@ -221,7 +241,7 @@ export function Settings() {
         <Trash size={18} /> Reset all data
       </button>
       <div className="tiny faint" style={{ textAlign: 'center', margin: '18px 0' }}>
-        Iron Ladder · {sessions.length} sessions · v2
+        Iron Ladder · {sessions.length} sessions · build {__BUILD__}
       </div>
 
       {confirmReset && (

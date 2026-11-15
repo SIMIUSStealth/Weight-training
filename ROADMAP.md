@@ -4,6 +4,31 @@ Running list of shipped features and the backlog, so ideas aren't lost.
 
 ## Shipped
 
+- **Logging polish, history you can fix, and a safety net (2026-11)** — the
+  whole review list below.
+  - *Workout screen:* the set table sits right under the load (description
+    and cue moved under "How to perform", coaching folds to one line). Every
+    set has its own load — a change applies to that set and the unlogged ones
+    after it, logged sets keep theirs — so top sets and drop sets are real,
+    and records, volume and the level-up rule read the per-set load. An
+    effort chip on the current set logs it in one tap. Per-exercise note
+    (shown next time), warm-up ramp snapped down to real weights (a
+    checklist, not logged), plates per side on barbell lifts, a clock since
+    the first set, screen kept awake (Settings), and a Finish prompt when the
+    last set is ticked. Minimise is a chevron, not a cross.
+  - *History:* month calendar (tap a day) with a recap — workouts, sets, kg,
+    records — and cards with the session's name, duration, volume and
+    exercises. A session can be edited: reps, loads, sets, notes and its day
+    (which repairs the ones saved on the wrong date); records are re-derived
+    across the log after an edit or a delete. Estimated-1RM chart per lift.
+  - *Around a workout:* Today shows "… is still open — Finish" for a workout
+    left behind; the summary takes a session note, today's body stats and a
+    backup when one is due.
+  - *Safety:* a crash shows a screen with "Save a backup" (read straight from
+    storage) instead of a blank page; a failed write to the device raises a
+    banner with a backup button. Settings shows the build time.
+  - `Workout.tsx` split into `overlays/workout/` (set rows, sheets, coach
+    strip, timers).
 - **The app remembers what you actually did (2026-11)** — three fixes from a
   review of real logs. (1) Sets added on top of the scheme carry over: a slot
   opens with as many sets as you did there last time (the 2-set arm finisher
@@ -118,17 +143,12 @@ Running list of shipped features and the backlog, so ideas aren't lost.
 ### Data safety
 - **Automatic weekly backup** — hands-off to email (3rd-party service) or Google
   Drive (your own cloud). One-tap reminder already shipped.
-- **Edit a past session** (fix a mis-logged rep) + an **error boundary** with a
-  one-tap export escape hatch.
 
 ### Gym follow-ups
-- **Plate calculator** for barbell lifts (which plates per side for the target).
 - **Per-machine step sizes** (one global machine/cable step today).
-- **Warm-up sets** for the barbell compounds (bar × 10, 50 % × 5, 75 % × 3).
 
 ### Polish
 - **First-run calibration** wizard (bodyweight + dial in starting weights).
-- **Session notes** ("felt strong / shoulder twinge").
 
 - Show RIR/effort in exercise history (per-set chips).
 
@@ -175,32 +195,12 @@ Adoptable (prioritized):
 ## App review + Hevy comparison (2026-11)
 
 From reading the code, running the app on a real backup (35 sessions) and
-comparing with Hevy's logging screen. Coaching is still the edge; the gaps are
-in logging polish. Prioritized:
+comparing with Hevy's logging screen. Coaching is still the edge; the gaps
+were in logging polish — per-set weight, set rows above the fold, a finish
+nudge, editing history, a workout clock, faster effort logging, notes,
+warm-ups, plates, richer history, a 1RM chart, a crash screen and failed-save
+warnings. **All shipped** (see the top of this file).
 
-- **Logging**
-  - Per-set weight (Hevy logs kg × reps per row; here the load is per
-    exercise, so a drop set or heavier top set can't be logged).
-  - Set rows above the fold: on a 390×844 screen the first row starts ~70 %
-    down, under the description, load card and up to three coach notes.
-    Collapse the notes to one line; move the description into "How to perform".
-  - Finish nudge: 11 of 35 sessions sat open for hours or days. Offer Finish
-    when the last set is ticked; on Today show "Finish <day>'s workout" rather
-    than "Resume · 0 left"; make the header ✕ (minimise) a chevron-down.
-  - Edit a past session (history feeds progression, so a typo sticks).
-  - Elapsed-time clock in the header; keep the screen awake (Wake Lock).
-  - Faster effort logging — RIR is on 45 % of sets and the coaching leans on it.
-  - Exercise / session notes, warm-up sets, plate calculator (all in backlog).
-- **History & progress**
-  - History cards: session name (Session A / B), duration, volume and a line
-    of exercises — two cards on one date are indistinguishable today.
-  - Estimated-1RM chart per exercise; calendar / monthly recap.
-  - Body & recovery has never been used (0 entries): surface it on Today
-    after a workout, or drop it.
-- **Robustness**
-  - Error boundary with a one-tap export (a render crash is a white screen
-    over on-device-only data).
-  - IndexedDB writes are fire-and-forget; surface a failed save.
-  - Backups lapse (23 days at review time): offer one on the summary screen.
-  - Split `Workout.tsx` (timers, sheets, set rows) before adding per-set weight.
-
+Still open from that comparison: custom exercises, body measurements beyond
+weight, logged warm-up / drop set *types* (a drop set is logged as a lighter
+set; warm-ups are a checklist), and a year-in-review.

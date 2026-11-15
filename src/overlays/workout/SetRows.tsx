@@ -106,7 +106,7 @@ export function RepRows({
             </div>
             {(s.done || i === current) && (
               <div className="rir-strip">
-                <span className="rir-label">{s.done ? 'reps left' : 'log · reps left'}</span>
+                <span className="rir-label">reps left</span>
                 {RIR_OPTIONS.filter((o) => !s.done || s.rir == null || s.rir === o.v).map((o) => (
                   <button
                     key={o.v}

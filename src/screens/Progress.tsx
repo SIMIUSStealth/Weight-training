@@ -27,18 +27,13 @@ import {
 import { formatKg, formatLoad } from '../program/ladder'
 import { epley1RM } from '../program/records'
 import { useStore } from '../store/useStore'
+import { compactNumber } from '../program/history'
 import { BarChart, Sparkline } from '../ui/charts'
 import { Coach, Segmented, muscleColor } from '../ui/components'
 import { ChevronRight, Flame, Trophy } from '../ui/icons'
 import type { DayPlan } from '../storage/types'
 
-/** Compact kg for big totals: 1,284 · 12.4k · 1.2M. */
-function compactKg(v: number): string {
-  const n = Math.round(v)
-  if (n >= 1_000_000) return `${+(n / 1_000_000).toFixed(1)}M`
-  if (n >= 10_000) return `${+(n / 1000).toFixed(1)}k`
-  return n.toLocaleString('en-US')
-}
+const compactKg = compactNumber
 
 /** Plain count with a thousands separator once it grows. */
 function formatCount(n: number): string {

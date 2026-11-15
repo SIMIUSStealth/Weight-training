@@ -9,6 +9,8 @@ const base = process.env.VITE_BASE ?? '/'
 
 export default defineConfig({
   base,
+  // Shown in Settings, to tell which deploy the installed app is running.
+  define: { __BUILD__: JSON.stringify(new Date().toISOString().slice(0, 16).replace('T', ' ')) },
   plugins: [
     react(),
     VitePWA({
