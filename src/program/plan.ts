@@ -49,7 +49,7 @@ export const ROUTINE: BlockId[] = ['pair-1', 'pair-2', 'pair-3', 'core']
 
 /**
  * Default plan: Session A on Monday, Session B on Wednesday, Session C on
- * Friday (no legs — the day before a Saturday long run) — rest otherwise.
+ * Friday (no legs — move it to the day before the long run) — rest otherwise.
  */
 export function defaultWeeklyPlan(): DayPlan[] {
   const rest = (): DayPlan => ({ blocks: [] })

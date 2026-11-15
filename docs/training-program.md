@@ -131,7 +131,7 @@ the core triplet (keep the back extension).
 
 | Mon | Tue | Wed | Thu | Fri | Sat | Sun |
 |---|---|---|---|---|---|---|
-| Session A | rest | Session B | rest | Session C | long run | rest |
+| Session A | rest | Session B | rest | Session C | rest | rest |
 
 Session C sits the day before the long run; move it if the long run moves.
 "Full routine" = Pairs 1–3 + the core triplet. Every day is editable: switch
