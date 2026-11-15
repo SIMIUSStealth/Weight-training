@@ -32,6 +32,8 @@ single-dumbbell home program is retired but its history is kept:
 - **Tracking** — per-exercise charts (work, top set, estimated 1RM), a month
   calendar with a recap, editable session history, and bodyweight / protein /
   sleep logging (the "raw materials").
+- **Stretch** — an untracked library of easy stretches and no-kit strength
+  moves (sore knee, hips, back and shoulders), each with a worked example.
 - **Yours, offline, portable** — IndexedDB storage, no account, plus one-tap
   JSON **export/import** so a new phone never means lost history.
 
@@ -84,7 +86,7 @@ src/
                 flow (pair alternation), progression (+ tests), analytics
   storage/      IndexedDB layer, data model, backup/restore
   store/        Zustand store (workout flow, progression commit, settings, data)
-  screens/      Today · Progress · History · Settings
+  screens/      Today · Progress · History · Stretch · Settings
   overlays/     Workout (+ workout/ parts) · ExerciseDetail · SessionDetail · Summary
   ui/           icons, charts, shared components
 ```

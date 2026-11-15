@@ -205,6 +205,14 @@ export const Play = (p: P) => (
   </Svg>
 )
 
+/** A figure reaching overhead — the Stretch tab. */
+export const Reach = (p: P) => (
+  <Svg {...p}>
+    <circle cx="12" cy="6.5" r="2.2" />
+    <path d="M12 9v6.5M6.5 3.5L12 10l5.5-6.5M9.5 21.5l2.5-6 2.5 6" />
+  </Svg>
+)
+
 export const Body = (p: P) => (
   <Svg {...p}>
     <circle cx="12" cy="5" r="2.5" />

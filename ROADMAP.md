@@ -4,6 +4,12 @@ Running list of shipped features and the backlog, so ideas aren't lost.
 
 ## Shipped
 
+- **Stretch tab (2026-11)** — a separate, untracked section of easy moves to
+  pick from: a gentle routine for a sore back of the knee (calf and hamstring
+  length, a nerve glide, heel slides — with a when-to-see-a-physio note), a
+  10-minute no-kit easy-strength routine, hips & legs, and back & shoulders.
+  Each move shows what it reaches, how much, how, what it should feel like,
+  and a "Watch examples" video search. Content lives in `program/mobility.ts`.
 - **Searchable exercise picker (2026-11)** — "Add exercise" in a workout lists
   every exercise once, grouped by muscle (sticky headers, A–Z within), with a
   search box (name, muscle, kit, "db") and a muscle filter. An exercise joins

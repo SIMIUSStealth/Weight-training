@@ -81,7 +81,7 @@ function uid(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
 }
 
-export type Tab = 'today' | 'progress' | 'history' | 'settings'
+export type Tab = 'today' | 'progress' | 'history' | 'stretch' | 'settings'
 
 export interface LevelUp {
   exerciseId: string

@@ -4,18 +4,20 @@ import { Today } from './screens/Today'
 import { Progress } from './screens/Progress'
 import { History } from './screens/History'
 import { Settings } from './screens/Settings'
+import { Stretch } from './screens/Stretch'
 import { Workout } from './overlays/Workout'
 import { ExerciseDetail } from './overlays/ExerciseDetail'
 import { SessionDetail } from './overlays/SessionDetail'
 import { Summary } from './overlays/Summary'
 import { DayPlanView } from './overlays/DayPlanView'
 import { performBackup } from './ui/backup'
-import { Alert, Chart, Gear, History as HistoryIcon, Home, X } from './ui/icons'
+import { Alert, Chart, Gear, History as HistoryIcon, Home, Reach, X } from './ui/icons'
 
 const TABS: { id: Tab; label: string; Icon: typeof Home }[] = [
   { id: 'today', label: 'Today', Icon: Home },
   { id: 'progress', label: 'Progress', Icon: Chart },
   { id: 'history', label: 'History', Icon: HistoryIcon },
+  { id: 'stretch', label: 'Stretch', Icon: Reach },
   { id: 'settings', label: 'Settings', Icon: Gear },
 ]
 
@@ -47,6 +49,7 @@ export default function App() {
       {tab === 'today' && <Today />}
       {tab === 'progress' && <Progress />}
       {tab === 'history' && <History />}
+      {tab === 'stretch' && <Stretch />}
       {tab === 'settings' && <Settings />}
 
       <nav className="bottom-nav">
