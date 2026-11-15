@@ -57,6 +57,7 @@ export function Stepper({
   max = 999,
   step = 1,
   unit,
+  compact,
 }: {
   value: number
   onChange: (v: number) => void
@@ -64,11 +65,13 @@ export function Stepper({
   max?: number
   step?: number
   unit?: string
+  /** Narrower, for a row that also holds other controls. */
+  compact?: boolean
 }) {
   const clamp = (v: number) => Math.min(max, Math.max(min, v))
   const round = (v: number) => Math.round(v * 100) / 100
   return (
-    <div className="stepper">
+    <div className={'stepper' + (compact ? ' compact' : '')}>
       <button type="button" aria-label="decrease" onClick={() => onChange(round(clamp(value - step)))}>
         <Minus size={20} />
       </button>
@@ -206,11 +209,16 @@ export function WeightPad({
   weightKg,
   onSet,
   onClose,
+  title = 'Type a weight',
+  hint,
 }: {
   equipment: Equipment
   weightKg: number
   onSet: (weightKg: number) => void
   onClose: () => void
+  title?: string
+  /** One line under the display on what the weight applies to. */
+  hint?: string
 }) {
   const [entry, setEntry] = useState(() => padEntry(weightKg))
   const [fresh, setFresh] = useState(true)
@@ -221,7 +229,7 @@ export function WeightPad({
   const value = padValue(entry, equipment)
   const assisted = equipment === 'assisted'
   return (
-    <Modal title="Type a weight" onClose={onClose}>
+    <Modal title={title} onClose={onClose}>
       <div className={`pad-display${fresh ? ' fresh' : ''}`}>
         {entry || '0'}
         <span className="unit">kg</span>
@@ -230,6 +238,7 @@ export function WeightPad({
         {[
           value !== null ? formatLoad(equipment, value) : '',
           assisted ? 'minus = assist, plus = added' : '',
+          hint ?? '',
         ]
           .filter(Boolean)
           .join(' · ')}

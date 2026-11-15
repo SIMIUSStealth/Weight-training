@@ -184,6 +184,14 @@ describe('applyProgression — reps', () => {
     expect(res.progress).toBe(untouched)
   })
 
+  it('a lighter drop set never counts toward the level-up; a heavier set does', () => {
+    const at30 = (sets: SetLog[]) =>
+      applyProgression(bench, progressFor('bench-press'), repLog('bench-press', 30, sets))
+    // Two sets at the top, then a drop set to 20 kg for 12: not three at the load.
+    expect(at30([...reps(8, 8), { reps: 12, done: true, weightKg: 20 }]).leveledUp).toBe(false)
+    expect(at30([...reps(8, 8), { reps: 8, done: true, weightKg: 35 }]).leveledUp).toBe(true)
+  })
+
   it('reps beyond the top still trigger the jump', () => {
     const res = applyProgression(bench, progressFor('bench-press'), repLog('bench-press', 30, reps(10, 9, 8)))
     expect(res.leveledUp).toBe(true)
@@ -313,6 +321,7 @@ describe('computeRecommendation', () => {
     expect(rec.justLeveledUp).toBe(false)
     expect(rec.lastSets).toEqual([10, 9, 9])
     expect(rec.lastWeightKg).toBe(8)
+    expect(rec.lastLoads).toEqual([8, 8, 8])
   })
 
   it('fills a set you did not finish with your last completed value (never null)', () => {
@@ -348,6 +357,19 @@ describe('computeRecommendation', () => {
     ])
     const rec = computeRecommendation(floor, progressFor('floor-press'), [older, recent])
     expect(rec.lastSets).toEqual([12, 10, 11]) // set 3 falls back to the older session
+  })
+
+  it('shows each set of last time at the load it was done at', () => {
+    const top = session('s1', '2026-01-03T10:00:00Z', [
+      {
+        exerciseId: 'floor-press',
+        weightKg: 8,
+        sets: [{ reps: 6, done: true, weightKg: 10 }, ...reps(10, 9)],
+      },
+    ])
+    const rec = computeRecommendation(floor, progressFor('floor-press'), [top])
+    expect(rec.lastSets).toEqual([6, 10, 9])
+    expect(rec.lastLoads).toEqual([10, 8, 8])
   })
 
   it('shows a number to beat for a set added on top of the scheme', () => {

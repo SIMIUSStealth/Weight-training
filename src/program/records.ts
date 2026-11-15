@@ -14,6 +14,7 @@
 
 import { getExercise, type ExerciseDef } from './exercises'
 import { isRelativeLoad } from './ladder'
+import { setKg } from './sets'
 import type { PRRecord, SessionLog } from '../storage/types'
 
 /** Epley estimate: weight × (1 + reps/30). */
@@ -63,21 +64,22 @@ export function collectBests(
         if (def.kind === 'time') {
           bests.longestHold = Math.max(bests.longestHold, set.seconds ?? 0)
         } else if ((set.reps ?? 0) > 0) {
-          const key = weightKey(log.weightKg)
+          const kg = setKg(log, set)
+          const key = weightKey(kg)
           const prev = bests.repsAtWeight.get(key) ?? 0
           if (set.reps! > prev) bests.repsAtWeight.set(key, set.reps!)
           const top = bests.topSet
           if (
             !top ||
-            log.weightKg > top.weightKg + 1e-9 ||
-            (Math.abs(log.weightKg - top.weightKg) < 1e-9 && set.reps! > top.reps)
+            kg > top.weightKg + 1e-9 ||
+            (Math.abs(kg - top.weightKg) < 1e-9 && set.reps! > top.reps)
           ) {
-            bests.topSet = { weightKg: log.weightKg, reps: set.reps! }
+            bests.topSet = { weightKg: kg, reps: set.reps! }
           }
-          const est = oneRM ? epley1RM(log.weightKg, set.reps!) : 0
+          const est = oneRM ? epley1RM(kg, set.reps!) : 0
           if (est > bests.best1RM) {
             bests.best1RM = est
-            bests.best1RMWeightKg = log.weightKg
+            bests.best1RMWeightKg = kg
             bests.best1RMReps = set.reps!
           }
         }
@@ -107,27 +109,61 @@ export function detectPRs(
       continue
     }
 
-    const bestReps = Math.max(...done.map((s) => s.reps ?? 0))
-    if (bestReps <= 0) continue
-    const priorAtWeight = bests.repsAtWeight.get(weightKey(log.weightKg))
-    if (priorAtWeight != null && bestReps > priorAtWeight) {
-      out.push({
-        exerciseId: log.exerciseId,
-        kind: 'reps',
-        weightKg: log.weightKg,
-        value: bestReps,
-      })
+    // Most reps at each load used this session (a top set and its back-off
+    // sets are different loads), in the order the loads were first used.
+    const bestAt = new Map<string, { kg: number; reps: number }>()
+    for (const s of done) {
+      const reps = s.reps ?? 0
+      if (reps <= 0) continue
+      const kg = setKg(log, s)
+      const cur = bestAt.get(weightKey(kg))
+      if (!cur || reps > cur.reps) bestAt.set(weightKey(kg), { kg, reps })
     }
-    const est = tracksOneRM(def) ? epley1RM(log.weightKg, bestReps) : 0
-    if (bests.best1RM > 0 && est > bests.best1RM + 1e-9) {
-      out.push({
-        exerciseId: log.exerciseId,
-        kind: 'onerm',
-        weightKg: log.weightKg,
-        reps: bestReps,
-        value: est,
-      })
+    if (!bestAt.size) continue
+    for (const [key, { kg, reps }] of bestAt) {
+      const priorAtWeight = bests.repsAtWeight.get(key)
+      if (priorAtWeight != null && reps > priorAtWeight) {
+        out.push({ exerciseId: log.exerciseId, kind: 'reps', weightKg: kg, value: reps })
+      }
+    }
+    if (tracksOneRM(def)) {
+      let top = { kg: 0, reps: 0, est: 0 }
+      for (const { kg, reps } of bestAt.values()) {
+        const est = epley1RM(kg, reps)
+        if (est > top.est) top = { kg, reps, est }
+      }
+      if (bests.best1RM > 0 && top.est > bests.best1RM + 1e-9) {
+        out.push({
+          exerciseId: log.exerciseId,
+          kind: 'onerm',
+          weightKg: top.kg,
+          reps: top.reps,
+          value: top.est,
+        })
+      }
     }
   }
   return out
+}
+
+/**
+ * Re-derive every session's PR stamps from the log as it stands — after a
+ * past session is edited, re-dated or deleted, what counted as a record at
+ * the time may no longer be one (and a later session may now hold it).
+ * Returns only the sessions whose stamps changed.
+ */
+export function restampPRs(sessions: SessionLog[]): SessionLog[] {
+  const completed = sessions
+    .filter((s) => s.completedAt)
+    .sort((a, b) => (a.completedAt! < b.completedAt! ? -1 : 1))
+  const changed: SessionLog[] = []
+  const prior: SessionLog[] = []
+  for (const s of completed) {
+    const prs = detectPRs(s, prior)
+    prior.push(s)
+    if (JSON.stringify(prs) === JSON.stringify(s.prs ?? [])) continue
+    const { prs: _old, ...rest } = s
+    changed.push(prs.length ? { ...rest, prs } : rest)
+  }
+  return changed
 }

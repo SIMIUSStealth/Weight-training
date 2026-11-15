@@ -849,3 +849,132 @@ a {
 .hidden-input {
   display: none;
 }
+
+/* ---------- set table (workout) ---------- */
+
+.set-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 0 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--faint);
+  text-align: center;
+}
+.set-head .c-meta {
+  width: 50px;
+  flex-shrink: 0;
+}
+.set-head .c-kg {
+  width: 68px;
+  flex-shrink: 0;
+}
+.set-head .c-check {
+  width: 46px;
+  flex-shrink: 0;
+}
+.set-head + .set-row {
+  border-top: 1px solid var(--border);
+}
+.set-meta {
+  width: 50px;
+  flex-shrink: 0;
+  text-align: center;
+}
+.set-meta .set-no {
+  margin: 0 auto;
+}
+.set-last {
+  margin-top: 5px;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.card > .set-row {
+  gap: 8px;
+}
+/* a set's own load — tap to type one */
+.set-kg {
+  appearance: none;
+  width: 68px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  padding: 0 2px;
+}
+.set-kg:active {
+  background: var(--surface-3);
+}
+.set-kg .unit {
+  font-family: -apple-system, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-left: 1px;
+  letter-spacing: 0;
+}
+/* differs from the working load (a top set, a drop set) */
+.set-kg.own {
+  border-color: var(--accent-ink);
+  color: var(--accent-ink);
+  background: var(--surface);
+}
+.stepper.compact button {
+  width: 40px;
+}
+.stepper.compact .val {
+  min-width: 42px;
+}
+.card > .rir-strip {
+  padding-left: 58px;
+  flex-wrap: wrap;
+}
+
+/* ---------- one-line coaching ---------- */
+
+.coach-line {
+  appearance: none;
+  width: 100%;
+  align-items: center;
+  text-align: left;
+  font-family: inherit;
+  margin-bottom: 12px;
+  padding: 9px 12px;
+}
+.coach-line .ico {
+  margin-top: 0;
+  display: flex;
+}
+.coach-line .clip {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.coach-line .more {
+  font-weight: 800;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.coach-line svg {
+  flex-shrink: 0;
+}
+.coach + .coach {
+  margin-top: 6px;
+}
+
+.note-input {
+  font-size: 16px; /* below 16px iOS zooms the page on focus */
+  padding: 10px 12px;
+}

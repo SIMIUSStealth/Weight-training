@@ -628,6 +628,97 @@ describe('store: the A/B program', () => {
   })
 })
 
+describe('store: per-set loads, notes and editing history', () => {
+  beforeEach(async () => {
+    await useStore.getState().resetEverything()
+  })
+
+  const active = () => useStore.getState().activeSession!
+  const log = (id: string) => active().exercises.find((e) => e.exerciseId === id)!
+  const saved = (i: number, id: string) =>
+    useStore.getState().sessions[i].exercises.find((e) => e.exerciseId === id)!
+
+  it('a load raised mid-exercise leaves the sets already logged where they were', () => {
+    const s = useStore.getState()
+    s.startDay(0)
+    logSet('cable-row', 0, 10) // at 35
+    s.setWorkingWeight('cable-row', 40) // too light — up for the rest
+    logSet('cable-row', 1, 8)
+    logSet('cable-row', 2, 7)
+    expect(log('cable-row').sets.map((x) => x.weightKg)).toEqual([35, undefined, undefined])
+    useStore.getState().finishSession()
+    const row = saved(0, 'cable-row')
+    expect(row.weightKg).toBe(40)
+    expect(row.sets.map((x) => [x.reps, x.weightKg])).toEqual([[10, 35], [8, undefined], [7, undefined]])
+    expect(useStore.getState().progress['cable-row'].currentWeightKg).toBe(40)
+  })
+
+  it('a set’s own load carries to the unlogged sets after it, and is tidied at finish', () => {
+    const s = useStore.getState()
+    s.startDay(0)
+    s.setSetWeight('db-bench-press', 0, 22) // heavier top set…
+    logSet('db-bench-press', 0, 5)
+    s.setSetWeight('db-bench-press', 1, 18) // …then back to 18 for the rest
+    expect(log('db-bench-press').sets.map((x) => x.weightKg)).toEqual([22, 18, 18])
+    logSet('db-bench-press', 1, 8)
+    logSet('db-bench-press', 2, 8)
+    s.setSetWeight('db-bench-press', 1, 19) // correcting a logged set touches only it
+    expect(log('db-bench-press').sets.map((x) => x.weightKg)).toEqual([22, 19, 18])
+    s.setSetWeight('db-bench-press', 1, 18)
+    s.setExerciseNote('db-bench-press', '  bench 3, left shoulder fine ')
+    useStore.getState().finishSession()
+    const row = saved(0, 'db-bench-press')
+    expect(row.weightKg).toBe(18)
+    expect(row.sets.map((x) => x.weightKg)).toEqual([22, undefined, undefined])
+    expect(row.note).toBe('bench 3, left shoulder fine')
+    expect(saved(0, 'db-bench-press')).not.toHaveProperty('leveledUp') // 5 @ 22 isn't 3 × 8
+  })
+
+  it('editing a past session saves it, re-derives records and leaves current loads alone', () => {
+    const s = useStore.getState()
+    s.startDay(0)
+    logAll('cable-row', 8, 8, 8)
+    useStore.getState().finishSession()
+    useStore.getState().startDay(0)
+    logAll('cable-row', 10, 9, 8)
+    useStore.getState().finishSession()
+    const [first, second] = useStore.getState().sessions
+    expect(second.prs?.map((p) => p.kind)).toEqual(['reps', 'onerm'])
+    const before = useStore.getState().progress['cable-row'].currentWeightKg
+
+    // The first session was really 11 reps, on another day, with a note.
+    useStore.getState().updateSession({
+      ...first,
+      completedAt: '2026-01-05T18:00:00.000Z',
+      notes: ' slept badly ',
+      exercises: first.exercises.map((e) => ({
+        ...e,
+        sets: e.sets.map((x, i) => (i === 0 ? { ...x, reps: 11 } : x)),
+      })),
+    })
+    const after = useStore.getState().sessions
+    expect(after[0].exercises[0].sets[0].reps).toBe(11)
+    expect(after[0].completedAt).toBe('2026-01-05T18:00:00.000Z')
+    expect(after[0].notes).toBe('slept badly')
+    expect(after[1].prs).toBeUndefined() // 10 no longer beats 11
+    expect(useStore.getState().progress['cable-row'].currentWeightKg).toBe(before)
+  })
+
+  it('deleting a session hands its records to the next one that earned them', () => {
+    const s = useStore.getState()
+    for (const repsDone of [8, 10, 10]) {
+      s.startDay(0)
+      logAll('cable-row', repsDone, 8, 8)
+      useStore.getState().finishSession()
+    }
+    const [, second, third] = useStore.getState().sessions
+    expect(second.prs).toBeDefined()
+    expect(third.prs).toBeUndefined()
+    useStore.getState().deleteSession(second.id)
+    expect(useStore.getState().sessions[1].prs?.map((p) => p.kind)).toEqual(['reps', 'onerm'])
+  })
+})
+
 describe('store: a workout left open', () => {
   beforeEach(async () => {
     await useStore.getState().resetEverything()

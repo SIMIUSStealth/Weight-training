@@ -12,6 +12,7 @@ import {
   MUSCLE_ORDER,
   SLOTS,
   SLOTS_BY_ID,
+  blockFor,
   blockOptions,
   getSlot,
   isBlockId,
@@ -241,4 +242,20 @@ export function dayLabel(day: DayPlan): string {
     return ['Full routine', ...extras].join(' · ')
   }
   return on.map((b) => b.short).join(' · ')
+}
+
+/**
+ * What a logged session was, by the blocks its exercises ran in: "Session A",
+ * "Pair 1 · Pair 3", "Full routine · Isolations". Home-era sessions (retired
+ * exercises, no block) are a "Home workout". A later part of a split says so.
+ */
+export function sessionTitle(session: SessionLog): string {
+  const ids = new Set<BlockId>()
+  for (const e of session.exercises) {
+    if (!e.sets.some((s) => s.done)) continue
+    const block = blockFor(e.exerciseId, e.slot)
+    if (block) ids.add(block.id)
+  }
+  const base = ids.size ? dayLabel({ blocks: [...ids] }) : 'Home workout'
+  return (session.part ?? 1) > 1 ? `${base} · Part ${session.part}` : base
 }

@@ -3,6 +3,8 @@
 import { getExercise, MUSCLE_ORDER, type BlockId, type Muscle } from './exercises'
 import { isRelativeLoad } from './ladder'
 import { mondayIndex } from './plan'
+import { epley1RM, tracksOneRM } from './records'
+import { setKg } from './sets'
 import type { DayPlan, SessionLog } from '../storage/types'
 
 export interface ExercisePoint {
@@ -20,6 +22,12 @@ export interface ExercisePoint {
   load: number
   /** Per-set values (reps, or seconds for the plank). */
   sets: number[]
+  /** The load each of those sets was done at (kg). */
+  loads: number[]
+  /** Best estimated 1RM of the session (kg) — 0 where it isn't tracked. */
+  oneRM: number
+  /** The note left on the exercise that day. */
+  note?: string
   isTime: boolean
 }
 
@@ -31,17 +39,21 @@ export function exerciseSeries(
   const def = getExercise(exerciseId)
   const isTime = def.kind === 'time'
   const repsOnly = def.equipment === 'none' || isRelativeLoad(def.equipment)
+  const oneRM = tracksOneRM(def)
   return sessions
     .filter((s) => s.completedAt)
     .sort((a, b) => (a.completedAt! < b.completedAt! ? -1 : 1))
-    .map((s) => {
+    .map((s): ExercisePoint | null => {
       const log = s.exercises.find((e) => e.exerciseId === exerciseId)
       if (!log) return null
       const done = log.sets.filter((x) => x.done)
+      if (!done.length) return null
       const vals = done.map((x) => (isTime ? x.seconds ?? 0 : x.reps ?? 0))
+      const loads = done.map((x) => setKg(log, x))
       const total = vals.reduce((a, b) => a + b, 0)
-      const best = vals.length ? Math.max(...vals) : 0
-      const load = isTime || repsOnly ? total : log.weightKg * total
+      const best = Math.max(...vals)
+      const load =
+        isTime || repsOnly ? total : vals.reduce((sum, v, i) => sum + v * loads[i], 0)
       return {
         date: s.completedAt!,
         weightKg: log.weightKg,
@@ -49,8 +61,11 @@ export function exerciseSeries(
         total,
         load,
         sets: vals,
+        loads,
+        oneRM: oneRM ? Math.max(...vals.map((v, i) => epley1RM(loads[i], v))) : 0,
+        note: log.note?.trim() || undefined,
         isTime,
-      } satisfies ExercisePoint
+      }
     })
     .filter((p): p is ExercisePoint => p !== null)
 }

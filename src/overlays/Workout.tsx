@@ -1,16 +1,11 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AB_BLOCKS,
-  BLOCKS,
-  SLOTS_BY_ID,
   blockFor,
-  blockOptions,
   effectiveDef,
   getExercise,
   repTarget,
-  setScheme,
   slotFor,
-  slotOptions,
 } from '../program/exercises'
 import { abProgramWeek } from '../program/plan'
 import {
@@ -20,69 +15,50 @@ import {
   isLoaded,
 } from '../program/progression'
 import {
+  formatKg,
   formatLoad,
-  formatLoadShort,
   isTopRung,
   ladderFor,
   nextRung,
+  platesPerSide,
   prevRung,
   resolveIncrements,
+  warmupSets,
 } from '../program/ladder'
 import { formatSeconds } from '../program/analytics'
 import { alternatingGroup, groupRound, nextExerciseIndex } from '../program/flow'
 import { getGuide } from '../program/guides'
+import { lastNote, setKg } from '../program/sets'
 import { useStore } from '../store/useStore'
-import { Coach, GuideLink, Modal, MuscleChip, Stepper, WeightPad } from '../ui/components'
-import { Calculator, Check, ChevronLeft, List, Minus, Plus, Timer, X } from '../ui/icons'
+import { GuideLink, MuscleChip, WeightPad } from '../ui/components'
+import { Calculator, Check, ChevronDown, ChevronLeft, List, Minus, Plus, Timer } from '../ui/icons'
+import { CoachStrip, type CoachNote } from './workout/CoachStrip'
+import { RepRows, TimeRows } from './workout/SetRows'
+import { AddSheet, FinishSheet, OverviewSheet, SwapSheet } from './workout/Sheets'
+import {
+  formatClock,
+  useElapsed,
+  useHoldTimer,
+  useRestTimer,
+  useWakeLock,
+} from './workout/timers'
 
-// One shared AudioContext for the app's lifetime — iOS Safari caps live
-// contexts (~4), so creating one per beep permanently kills audio mid-workout.
-let sharedAudioCtx: AudioContext | null = null
+/** A workout opened this long before its first set has no running clock yet. */
+const IDLE_MS = 30 * 60_000
+/** Past this, the clock is a workout left open, not time spent training. */
+const CLOCK_MAX_S = 6 * 3600
 
-function beep(freq = 880, dur = 0.45) {
-  try {
-    const Ctx =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext: typeof AudioContext })
-        .webkitAudioContext
-    sharedAudioCtx ??= new Ctx()
-    const ctx = sharedAudioCtx
-    void ctx.resume() // iOS auto-suspends idle contexts
-    const o = ctx.createOscillator()
-    const g = ctx.createGain()
-    o.connect(g)
-    g.connect(ctx.destination)
-    o.type = 'sine'
-    o.frequency.value = freq
-    g.gain.setValueAtTime(0.0001, ctx.currentTime)
-    g.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.02)
-    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur)
-    o.start()
-    o.stop(ctx.currentTime + dur + 0.02)
-  } catch {
-    /* ignore */
-  }
+/** Time since the workout began — its own component so only it re-renders each second. */
+function Clock({ since }: { since: string | null }) {
+  const elapsed = useElapsed(since)
+  if (elapsed == null || elapsed > CLOCK_MAX_S) return null
+  return <> · {formatClock(elapsed)}</>
 }
 
-function vibrate(ms: number) {
-  try {
-    navigator.vibrate?.(ms)
-  } catch {
-    /* ignore */
-  }
-}
-
-const READY_SECONDS = 3
-
-// Reps-in-reserve options, shown most-in-reserve → to-failure.
-const RIR_OPTIONS = [
-  { v: 3, label: '3+' },
-  { v: 2, label: '2' },
-  { v: 1, label: '1' },
-  { v: 0, label: 'Fail' },
-]
-
-type Hold = { setIndex: number; phase: 'ready' | 'hold'; display: number }
+type Sheet =
+  | null
+  | { name: 'overview' | 'add' | 'swap' | 'finish' }
+  | { name: 'weight'; setIndex: number | null }
 
 export function Workout() {
   const activeSession = useStore((s) => s.activeSession)
@@ -91,30 +67,20 @@ export function Workout() {
   const settings = useStore((s) => s.settings)
   const updateSet = useStore((s) => s.updateSet)
   const setWorkingWeight = useStore((s) => s.setWorkingWeight)
+  const setSetWeight = useStore((s) => s.setSetWeight)
+  const setExerciseNote = useStore((s) => s.setExerciseNote)
   const finishSession = useStore((s) => s.finishSession)
-  const splitSession = useStore((s) => s.splitSession)
   const cancelSession = useStore((s) => s.cancelSession)
-  const swapInSession = useStore((s) => s.swapInSession)
-  const addToSession = useStore((s) => s.addToSession)
-  const removeFromSession = useStore((s) => s.removeFromSession)
   const addSetToSession = useStore((s) => s.addSetToSession)
   const removeSetFromSession = useStore((s) => s.removeSetFromSession)
   const closeOverlay = useStore((s) => s.closeOverlay)
 
   const [index, setIndex] = useState(0)
   const [showForm, setShowForm] = useState(false)
-  // Both timers are driven by wall-clock deadlines (refs), not tick counting —
-  // chained per-second timeouts drift and get throttled on iOS, which would
-  // stretch rests and mis-measure logged plank holds. State holds only the
-  // displayed seconds; the interval bails out of re-renders between changes.
-  const [rest, setRest] = useState<number | null>(null)
-  const restEndRef = useRef<number | null>(null)
-  const [hold, setHold] = useState<Hold | null>(null)
-  const holdPhaseStartRef = useRef(0)
-  const [finishPrompt, setFinishPrompt] = useState(false)
-  // Mid-workout editing sheets: the session overview, adding, swapping.
-  const [sheet, setSheet] = useState<null | 'overview' | 'add' | 'swap' | 'weight'>(null)
-  const alerted = useRef(false)
+  const [showWarmup, setShowWarmup] = useState(false)
+  // Warm-up sets ticked off — a checklist for now, never part of the log.
+  const [warmDone, setWarmDone] = useState<ReadonlySet<string>>(new Set())
+  const [sheet, setSheet] = useState<Sheet>(null)
   // The exercise strip in the header — keeps the current pill in view.
   const stripRef = useRef<HTMLDivElement>(null)
 
@@ -140,144 +106,71 @@ export function Workout() {
   )
   const target = rec?.targetSeconds ?? def?.startSeconds ?? 30
   const abWeek = useMemo(() => abProgramWeek(sessions), [sessions])
+  const noteBefore = useMemo(
+    () => (def ? lastNote(def.id, sessions) : undefined),
+    [def, sessions],
+  )
+
+  const totalSets = exercises.reduce((n, e) => n + e.sets.length, 0)
+  const doneSets = exercises.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0)
+
+  const restSeconds = def?.restSeconds ?? settings.restSeconds
+  const timer = useRestTimer(settings.restAlert)
+  const startRest = () => timer.start(restSeconds)
+  const holdTimer = useHoldTimer(target, settings.restAlert, (setIndex, seconds) => {
+    if (!def) return
+    updateSet(def.id, setIndex, { seconds, done: true })
+    startRest()
+  })
+  const hold = holdTimer.hold
+  useWakeLock(settings.keepAwake !== false)
 
   useEffect(() => {
     const pill = stripRef.current?.querySelector<HTMLElement>('.ex-pill.on')
     pill?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
   }, [index, exercises.length])
 
-  // Rest countdown — derived from the deadline every 250ms.
-  const restActive = rest !== null
+  // The last set of the workout just got ticked (or the workout was reopened
+  // with nothing left to do): offer to finish, rather than leave it open.
+  const allDone = totalSets > 0 && doneSets === totalSets
+  const wasAllDone = useRef(false)
   useEffect(() => {
-    if (!restActive) return
-    const iv = setInterval(() => {
-      const end = restEndRef.current
-      if (end == null) return
-      const left = Math.ceil((end - Date.now()) / 1000)
-      if (left > 0) {
-        setRest((r) => (r === left ? r : left))
-        return
-      }
-      if (!alerted.current) {
-        alerted.current = true
-        if (settings.restAlert) {
-          vibrate(220)
-          beep()
-        }
-      }
-      // show "Go!" briefly, then hide
-      if (Date.now() - end > 900) {
-        restEndRef.current = null
-        setRest(null)
-      } else {
-        setRest((r) => (r === 0 ? r : 0))
-      }
-    }, 250)
-    return () => clearInterval(iv)
-  }, [restActive, settings.restAlert])
-
-  // Plank: 3-2-1 get-ready, then count DOWN from the target; both phases
-  // measured from the wall clock so the logged seconds are real seconds.
-  useEffect(() => {
-    if (!hold) return
-    const { setIndex, phase } = hold
-    const iv = setInterval(() => {
-      const elapsed = (Date.now() - holdPhaseStartRef.current) / 1000
-      if (phase === 'ready') {
-        const left = READY_SECONDS - Math.floor(elapsed)
-        if (left <= 0) {
-          holdPhaseStartRef.current = Date.now()
-          if (settings.restAlert) {
-            vibrate(90)
-            beep(660, 0.18)
-          }
-          setHold({ setIndex, phase: 'hold', display: target })
-        } else {
-          setHold((h) => (h && h.display !== left ? { ...h, display: left } : h))
-        }
-      } else {
-        const remaining = target - Math.floor(elapsed)
-        if (remaining <= 0) {
-          logHold(setIndex, target, true)
-        } else {
-          setHold((h) =>
-            h && h.display !== remaining ? { ...h, display: remaining } : h,
-          )
-        }
-      }
-    }, 200)
-    return () => clearInterval(iv)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hold?.phase, hold?.setIndex, target, settings.restAlert])
+    if (allDone && !wasAllDone.current) setSheet({ name: 'finish' })
+    wasAllDone.current = allDone
+  }, [allDone])
 
   if (!activeSession || !exLog || !def || !rec) return null
 
-  const totalSets = exercises.reduce((n, e) => n + e.sets.length, 0)
-  const doneSets = exercises.reduce(
-    (n, e) => n + e.sets.filter((s) => s.done).length,
-    0,
-  )
   const performed = exercises.filter((e) => e.sets.some((s) => s.done))
   const untouched = exercises.filter((e) => !e.sets.some((s) => s.done))
   const part = activeSession.part ?? 1
+  // The clock runs from the start — once training has begun, or while the
+  // workout is freshly opened (the start moves to the first set otherwise).
+  const clockSince =
+    doneSets > 0 || Date.now() - Date.parse(activeSession.startedAt) < IDLE_MS
+      ? activeSession.startedAt
+      : null
 
-  const restSeconds = def.restSeconds ?? settings.restSeconds
-  const startRest = () => {
-    alerted.current = false
-    restEndRef.current = Date.now() + restSeconds * 1000
-    setRest(restSeconds)
-  }
-
-  const bumpRest = (seconds: number) => {
-    if (restEndRef.current == null) return
-    alerted.current = false
-    restEndRef.current = Math.max(restEndRef.current, Date.now()) + seconds * 1000
-    setRest(Math.max(0, Math.ceil((restEndRef.current - Date.now()) / 1000)))
-  }
-
-  const stopRest = () => {
-    restEndRef.current = null
-    setRest(null)
-  }
-
-  const toggleRepDone = (setIndex: number, fallback: number) => {
-    const cur = exLog.sets[setIndex]
-    if (cur.done) {
+  const toggleRepDone = (setIndex: number, reps: number) => {
+    if (exLog.sets[setIndex].done) {
       updateSet(def.id, setIndex, { done: false })
     } else {
-      updateSet(def.id, setIndex, { reps: cur.reps ?? fallback, done: true })
+      updateSet(def.id, setIndex, { reps, done: true })
       startRest()
     }
   }
 
-  function logHold(setIndex: number, seconds: number, alert: boolean) {
-    if (!def) return
-    updateSet(def.id, setIndex, { seconds, done: true })
-    setHold(null)
-    if (alert && settings.restAlert) {
-      vibrate(220)
-      beep()
+  // An effort chip on the set you're on logs it in the same tap.
+  const logEffort = (setIndex: number, reps: number, rir: number | undefined) => {
+    if (exLog.sets[setIndex].done) {
+      updateSet(def.id, setIndex, { rir })
+    } else {
+      updateSet(def.id, setIndex, { reps, rir, done: true })
+      startRest()
     }
-    startRest()
   }
 
-  const startHold = (setIndex: number) => {
-    holdPhaseStartRef.current = Date.now()
-    setHold({ setIndex, phase: 'ready', display: READY_SECONDS })
-  }
-
-  const stopHold = () => {
-    if (!hold) return
-    if (hold.phase === 'ready') {
-      setHold(null)
-      return
-    }
-    const elapsed = Math.round((Date.now() - holdPhaseStartRef.current) / 1000)
-    const held = Math.max(1, Math.min(target, elapsed))
-    logHold(hold.setIndex, held, false)
-  }
-
-  const togglePlankDone = (setIndex: number) => {
+  const toggleTimeDone = (setIndex: number) => {
     const cur = exLog.sets[setIndex]
     if (cur.done) {
       updateSet(def.id, setIndex, { done: false })
@@ -292,19 +185,14 @@ export function Workout() {
   const go = (next: number) => {
     setIndex(Math.min(exercises.length - 1, Math.max(0, next)))
     setShowForm(false)
-    setHold(null)
+    setShowWarmup(false)
+    holdTimer.abandon()
   }
 
   const attemptFinish = () => {
-    if (performed.length === 0) {
-      cancelSession()
-      return
-    }
-    if (untouched.length === 0) {
-      finishSession()
-      return
-    }
-    setFinishPrompt(true)
+    if (performed.length === 0) cancelSession()
+    else if (untouched.length === 0) finishSession()
+    else setSheet({ name: 'finish' })
   }
 
   const nextIndex = nextExerciseIndex(exercises, index)
@@ -320,18 +208,44 @@ export function Workout() {
   // An unloaded time exercise is a hold (plank); a loaded one is timed work
   // with a kettlebell.
   const isHold = def.kind === 'time' && !loaded
-  const shortKg = (kg?: number) =>
-    kg == null ? '' : formatLoadShort(def.equipment, kg)
+  const guide = getGuide(def.id)
+  const plates = def.equipment === 'barbell' ? platesPerSide(weight) : null
+  const warmups = def.kind === 'reps' ? warmupSets(def.equipment, weight, increments) : []
+
+  // Coaching, most important first — folded to one line above the sets.
+  const notes: CoachNote[] = []
+  if (rec.justLeveledUp && rec.coach) notes.push({ tone: 'up', text: rec.coach })
+  if (rec.stalled && rec.coach) notes.push({ tone: 'stall', text: rec.coach })
+  if (!rec.justLeveledUp && !rec.stalled && rec.coach) notes.push({ tone: 'info', text: rec.coach })
+  // "too easy" would contradict the deliberate run-in on legs
+  if (rec.effortNote && !legsEasy) notes.push({ tone: 'info', text: rec.effortNote })
+  if (legsEasy) {
+    notes.push({
+      tone: 'info',
+      text: `Week ${abWeek} of the program: leave ~3 reps in the tank on leg work.`,
+    })
+  }
+  if (inAB && abWeek === 6) {
+    notes.push({
+      tone: 'info',
+      text: 'Week 6 — an optional lighter week: 2 sets each is plenty (Remove set below).',
+    })
+  }
+  if (inAB && part === 1 && doneSets === 0) {
+    notes.push({ tone: 'info', text: 'Warm up for about 5 minutes before your first set.' })
+  }
+
+  const padSet = sheet?.name === 'weight' ? sheet.setIndex : null
 
   return (
     <div className="overlay">
       <div className="overlay-head">
         <div className="row between">
           <button className="icon-btn" onClick={closeOverlay} aria-label="minimize">
-            <X size={18} />
+            <ChevronDown size={20} />
           </button>
           <button
-            onClick={() => setSheet('overview')}
+            onClick={() => setSheet({ name: 'overview' })}
             aria-label="workout overview"
             style={{ textAlign: 'center', background: 'none', border: 0, color: 'inherit', padding: 0 }}
           >
@@ -339,8 +253,9 @@ export function Workout() {
               <List size={16} />
               Workout{part > 1 ? ` · Part ${part}` : ''}
             </div>
-            <div className="tiny faint">
+            <div className="tiny faint" style={{ fontVariantNumeric: 'tabular-nums' }}>
               {index + 1} / {exercises.length} · {doneSets}/{totalSets} sets
+              <Clock since={clockSince} />
             </div>
           </button>
           <button className="btn btn-success btn-sm" onClick={attemptFinish}>
@@ -377,38 +292,33 @@ export function Workout() {
       </div>
 
       <div className="overlay-body" key={def.id}>
-        <div className="row between" style={{ marginBottom: 6 }}>
+        <div className="row between" style={{ marginBottom: 4 }}>
           <MuscleChip muscle={def.muscle} />
-          {block && (
-            <span className="tiny faint" style={{ fontWeight: 700 }}>
-              {block.name}
-              {group ? ` · round ${groupRound(exercises, group)}` : ''}
-            </span>
-          )}
+          <span className="tiny faint" style={{ fontWeight: 700, textAlign: 'right' }}>
+            {[
+              block ? block.name + (group ? ` · round ${groupRound(exercises, group)}` : '') : '',
+              slot && (slot.optional || block?.optional) ? 'optional' : '',
+              group ? 'alternate sets' : '',
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </span>
         </div>
-        <div className="row between" style={{ gap: 10 }}>
-          <h1 style={{ fontSize: 24, margin: '2px 0 4px' }}>{def.name}</h1>
+        <div className="row between" style={{ gap: 10, marginBottom: 8 }}>
+          <h1 style={{ fontSize: 24, margin: '2px 0' }}>{def.name}</h1>
           {slot && slot.optionIds.length > 1 && !exLog.sets.some((s) => s.done) && (
-            <button className="btn btn-sm" style={{ flexShrink: 0 }} onClick={() => setSheet('swap')}>
+            <button
+              className="btn btn-sm"
+              style={{ flexShrink: 0 }}
+              onClick={() => setSheet({ name: 'swap' })}
+            >
               Swap
             </button>
           )}
         </div>
-        {slot && (
-          <div className="tiny faint" style={{ marginBottom: 10 }}>
-            {slot.label}
-            {slot.optional || block?.optional ? ' · optional' : ''}
-            {group ? ' · alternate sets' : ''}
-          </div>
-        )}
-        {getGuide(def.id) && (
-          <p className="small muted" style={{ margin: '0 2px 12px' }}>
-            {getGuide(def.id)!.about}
-          </p>
-        )}
 
         {/* working load / hold target */}
-        <div className="card">
+        <div className="card" style={{ padding: '12px 16px' }}>
           <div className="row between">
             <div>
               <div className="tiny faint">
@@ -420,7 +330,7 @@ export function Workout() {
                       ? 'KETTLEBELL'
                       : 'WORKING LOAD'}
               </div>
-              <div className="display" style={{ fontSize: 28, fontWeight: 800 }}>
+              <div className="display" style={{ fontSize: 26, fontWeight: 800 }}>
                 {isHold ? formatSeconds(target) : formatLoad(def.equipment, weight)}
               </div>
               <div className="tiny muted">
@@ -443,7 +353,10 @@ export function Workout() {
                 >
                   <Minus size={20} />
                 </button>
-                <button aria-label="type a weight" onClick={() => setSheet('weight')}>
+                <button
+                  aria-label="type a weight"
+                  onClick={() => setSheet({ name: 'weight', setIndex: null })}
+                >
                   <Calculator size={20} />
                 </button>
                 <button
@@ -456,6 +369,13 @@ export function Workout() {
               </div>
             )}
           </div>
+          {plates && (
+            <div className="tiny muted" style={{ marginTop: 8 }}>
+              {plates.length
+                ? `Each side: ${plates.map((p) => formatKg(p).replace(' kg', '')).join(' + ')} kg`
+                : 'Just the bar'}
+            </div>
+          )}
           {def.holdNote && (
             <div className="tiny faint" style={{ marginTop: 8 }}>
               {def.holdNote}
@@ -463,29 +383,7 @@ export function Workout() {
           )}
         </div>
 
-        {/* coaching */}
-        <div style={{ marginBottom: 12 }}>
-          {inAB && part === 1 && doneSets === 0 && (
-            <Coach tone="info">Warm up for about 5 minutes before your first set.</Coach>
-          )}
-          {legsEasy && (
-            <Coach tone="info">
-              Week {abWeek} of the program: leave ~3 reps in the tank on leg work.
-            </Coach>
-          )}
-          {inAB && abWeek === 6 && (
-            <Coach tone="info">
-              Week 6 — an optional lighter week: 2 sets each is plenty (Remove set below).
-            </Coach>
-          )}
-          {rec.justLeveledUp && <Coach tone="up">{rec.coach}</Coach>}
-          {rec.stalled && <Coach tone="stall">{rec.coach}</Coach>}
-          {!rec.justLeveledUp && !rec.stalled && rec.coach && (
-            <Coach tone="info">{rec.coach}</Coach>
-          )}
-          {/* "too easy" would contradict the deliberate run-in on legs */}
-          {rec.effortNote && !legsEasy && <Coach tone="info">{rec.effortNote}</Coach>}
-        </div>
+        <CoachStrip notes={notes} />
 
         {/* timed set live countdown */}
         {def.kind === 'time' && hold && (
@@ -501,120 +399,44 @@ export function Workout() {
                 <div className="hold-clock">{formatSeconds(Math.max(0, hold.display))}</div>
               </>
             )}
-            <button className="btn btn-danger btn-block" onClick={stopHold} style={{ marginTop: 8 }}>
+            <button
+              className="btn btn-danger btn-block"
+              onClick={holdTimer.stop}
+              style={{ marginTop: 8 }}
+            >
               {hold.phase === 'ready' ? 'Cancel' : `Stop & log set ${hold.setIndex + 1}`}
             </button>
           </div>
         )}
 
         {/* sets */}
-        {rec.hasHistory && (
-          <div className="tiny faint" style={{ margin: '0 2px 6px' }}>
-            Grey = last session ({def.kind === 'time' ? 'seconds' : 'reps @ load'})
-          </div>
-        )}
-        <div className="card">
-          {def.kind === 'time'
-            ? exLog.sets.map((s, i) => (
-                <div className="set-row" key={i}>
-                  <div style={{ width: 52, textAlign: 'center' }}>
-                    <div className="set-no" style={{ margin: '0 auto' }}>
-                      {i + 1}
-                    </div>
-                    {rec.lastSets[i] != null && (
-                      <div className="tiny faint" style={{ marginTop: 5 }}>
-                        {formatSeconds(rec.lastSets[i])}
-                      </div>
-                    )}
-                  </div>
-                  <div className="grow">
-                    <div style={{ fontWeight: 800 }}>
-                      {s.done ? formatSeconds(s.seconds ?? 0) : `Target ${formatSeconds(target)}`}
-                    </div>
-                    <div className="tiny faint">
-                      {s.done
-                        ? isHold
-                          ? 'held'
-                          : 'done'
-                        : `tap ${isHold ? 'hold' : 'go'} for the countdown`}
-                    </div>
-                  </div>
-                  <button className="btn btn-sm" disabled={!!hold} onClick={() => startHold(i)}>
-                    {s.done ? 'Redo' : isHold ? 'Hold' : 'Go'}
-                  </button>
-                  <button
-                    className={'set-check' + (s.done ? ' done' : '')}
-                    onClick={() => togglePlankDone(i)}
-                    aria-label="toggle done"
-                  >
-                    <Check size={22} />
-                  </button>
-                </div>
-              ))
-            : exLog.sets.map((s, i) => {
-                const fallback = rec.lastSets[i] ?? def.repMin
-                const value = s.reps ?? fallback
-                return (
-                  <Fragment key={i}>
-                    <div className="set-row">
-                      <div style={{ width: 52, textAlign: 'center' }}>
-                        <div className="set-no" style={{ margin: '0 auto' }}>
-                          {i + 1}
-                        </div>
-                        {rec.lastSets[i] != null && (
-                          <div className="tiny faint" style={{ marginTop: 5, lineHeight: 1.15 }}>
-                            {rec.lastSets[i]}
-                            <br />
-                            {shortKg(rec.lastWeightKg)}
-                          </div>
-                        )}
-                      </div>
-                      <div className="grow row" style={{ justifyContent: 'center' }}>
-                        <Stepper
-                          value={value}
-                          min={0}
-                          max={60}
-                          onChange={(v) => updateSet(def.id, i, { reps: v })}
-                          unit={def.perArm ? '/side' : 'reps'}
-                        />
-                      </div>
-                      <button
-                        className={'set-check' + (s.done ? ' done' : '')}
-                        onClick={() => toggleRepDone(i, fallback)}
-                        aria-label="toggle done"
-                      >
-                        <Check size={22} />
-                      </button>
-                    </div>
-                    {s.done && (
-                      <div className="rir-strip">
-                        <span className="rir-label">reps left</span>
-                        {RIR_OPTIONS.map((o) => (
-                          <button
-                            key={o.v}
-                            className={
-                              'rir-chip' +
-                              (o.v === 0 ? ' fail' : '') +
-                              (s.rir === o.v ? ' on' : '')
-                            }
-                            onClick={() =>
-                              updateSet(def.id, i, {
-                                rir: s.rir === o.v ? undefined : o.v,
-                              })
-                            }
-                          >
-                            {o.label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </Fragment>
-                )
-              })}
+        <div className="card" style={{ paddingTop: 10, paddingBottom: 6 }}>
+          {def.kind === 'time' ? (
+            <TimeRows
+              exLog={exLog}
+              rec={rec}
+              target={target}
+              isHold={isHold}
+              hold={hold}
+              onStart={holdTimer.start}
+              onToggle={toggleTimeDone}
+            />
+          ) : (
+            <RepRows
+              def={def}
+              exLog={exLog}
+              rec={rec}
+              loaded={loaded}
+              onReps={(i, v) => updateSet(def.id, i, { reps: v })}
+              onToggle={toggleRepDone}
+              onEffort={logEffort}
+              onWeight={(i) => setSheet({ name: 'weight', setIndex: i })}
+            />
+          )}
         </div>
 
         {/* set count for today */}
-        <div className="row" style={{ gap: 8, margin: '-4px 0 12px' }}>
+        <div className="row" style={{ gap: 8, margin: '-4px 0 10px' }}>
           <button
             className="btn btn-sm btn-ghost grow"
             disabled={exLog.sets.length <= 1 || exLog.sets.every((s) => s.done)}
@@ -631,17 +453,81 @@ export function Workout() {
           </button>
         </div>
 
+        {/* a note for next time */}
+        {noteBefore && (
+          <div className="tiny muted" style={{ margin: '0 2px 6px' }}>
+            Last note: <em>{noteBefore}</em>
+          </div>
+        )}
+        <input
+          className="input note-input"
+          type="text"
+          value={exLog.note ?? ''}
+          onChange={(e) => setExerciseNote(def.id, e.target.value)}
+          placeholder="Note for next time (seat height, a niggle…)"
+          aria-label="exercise note"
+          maxLength={200}
+        />
+
+        {/* warm-up ramp */}
+        {warmups.length > 0 && (
+          <>
+            <button
+              className="btn btn-ghost btn-block btn-sm"
+              onClick={() => setShowWarmup((v) => !v)}
+              style={{ justifyContent: 'space-between', marginTop: 10 }}
+            >
+              <span>Warm-up sets</span>
+              <span className="faint">{showWarmup ? 'hide' : 'show'}</span>
+            </button>
+            {showWarmup && (
+              <div className="coach" style={{ marginTop: 8, display: 'block' }}>
+                <div className="row wrap" style={{ gap: 6 }}>
+                  {warmups.map((w, i) => {
+                    const key = `${def.id}:${w.weightKg}:${i}`
+                    const on = warmDone.has(key)
+                    return (
+                      <button
+                        key={key}
+                        className={'ex-pill' + (on ? ' done' : '')}
+                        onClick={() =>
+                          setWarmDone((prev) => {
+                            const next = new Set(prev)
+                            if (on) next.delete(key)
+                            else next.add(key)
+                            return next
+                          })
+                        }
+                      >
+                        {on && <Check size={13} />}
+                        <span className="nm">
+                          {formatLoad(def.equipment, w.weightKg)} × {w.reps}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="tiny faint" style={{ marginTop: 8 }}>
+                  Easy reps, short rests — not logged, just a ramp to{' '}
+                  {formatLoad(def.equipment, weight)}.
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
         {/* form cue */}
         <button
           className="btn btn-ghost btn-block btn-sm"
           onClick={() => setShowForm((v) => !v)}
-          style={{ justifyContent: 'space-between' }}
+          style={{ justifyContent: 'space-between', marginTop: 10 }}
         >
           <span>How to perform</span>
           <span className="faint">{showForm ? 'hide' : 'show'}</span>
         </button>
         {showForm && (
-          <div className="coach" style={{ marginTop: 8 }}>
+          <div className="coach" style={{ marginTop: 8, display: 'block' }}>
+            {guide && <p style={{ margin: '0 0 8px', color: 'var(--text)' }}>{guide.about}</p>}
             <span>{def.formCue}</span>
           </div>
         )}
@@ -657,15 +543,15 @@ export function Workout() {
       </div>
 
       <div className="overlay-foot">
-        {rest !== null && (
+        {timer.rest !== null && (
           <div className="rest-sheet" style={{ marginBottom: 10 }}>
             <Timer size={22} />
-            <div className="rest-time">{rest <= 0 ? 'Go!' : formatSeconds(rest)}</div>
+            <div className="rest-time">{timer.rest <= 0 ? 'Go!' : formatSeconds(timer.rest)}</div>
             <div className="grow" />
-            <button className="btn btn-sm" onClick={() => bumpRest(15)}>
+            <button className="btn btn-sm" onClick={() => timer.bump(15)}>
               +15s
             </button>
-            <button className="btn btn-sm btn-ghost" onClick={stopRest}>
+            <button className="btn btn-sm btn-ghost" onClick={timer.stop}>
               Skip
             </button>
           </div>
@@ -692,195 +578,55 @@ export function Workout() {
         </div>
       </div>
 
-      {sheet === 'overview' && (
-        <Modal title="This workout" onClose={() => setSheet(null)}>
-          <div style={{ maxHeight: '58vh', overflowY: 'auto', margin: '0 -4px', padding: '0 4px' }}>
-            {exercises.map((e, i) => {
-              const d = getExercise(e.exerciseId)
-              const b = blockFor(e.exerciseId, e.slot)
-              const done = e.sets.filter((s) => s.done).length
-              const prev = exercises[i - 1]
-              const prevBlock = prev ? blockFor(prev.exerciseId, prev.slot) : undefined
-              return (
-                <Fragment key={e.exerciseId}>
-                  {b && b.id !== prevBlock?.id && (
-                    <div className="eyebrow" style={{ margin: i === 0 ? '0 2px 6px' : '14px 2px 6px' }}>
-                      {b.name}
-                    </div>
-                  )}
-                  <div
-                    className="list-row"
-                    style={{
-                      borderRadius: 12,
-                      padding: '8px 10px',
-                      background: i === index ? 'var(--surface-2)' : undefined,
-                    }}
-                  >
-                    <button
-                      className="grow"
-                      style={{ background: 'none', border: 0, color: 'inherit', textAlign: 'left', padding: 0 }}
-                      onClick={() => {
-                        go(i)
-                        setSheet(null)
-                      }}
-                    >
-                      <div style={{ fontWeight: 700 }}>{d.name}</div>
-                      <div className="row" style={{ gap: 4, marginTop: 5 }}>
-                        {e.sets.map((s, j) => (
-                          <span
-                            key={j}
-                            className="dot"
-                            style={{ background: s.done ? 'var(--success)' : 'var(--surface-3)' }}
-                          />
-                        ))}
-                        <span className="tiny faint" style={{ marginLeft: 4 }}>
-                          {done}/{e.sets.length} sets
-                        </span>
-                      </div>
-                    </button>
-                    {done === 0 && exercises.length > 1 && (
-                      <button
-                        className="icon-btn"
-                        style={{ width: 36, height: 36, color: 'var(--danger)' }}
-                        aria-label={`remove ${d.name}`}
-                        onClick={() => {
-                          removeFromSession(e.exerciseId)
-                          if (i < index || index === exercises.length - 1) {
-                            setIndex(Math.max(0, index - 1))
-                          }
-                        }}
-                      >
-                        <X size={16} />
-                      </button>
-                    )}
-                  </div>
-                </Fragment>
-              )
-            })}
-          </div>
-          <button className="btn btn-block" style={{ marginTop: 12 }} onClick={() => setSheet('add')}>
-            <Plus size={18} /> Add exercise
-          </button>
-          <div className="tiny faint" style={{ textAlign: 'center', marginTop: 8 }}>
-            Changes apply to this workout only — your weekly plan stays as it is.
-          </div>
-        </Modal>
+      {sheet?.name === 'overview' && (
+        <OverviewSheet
+          exercises={exercises}
+          index={index}
+          onJump={(i) => {
+            go(i)
+            setSheet(null)
+          }}
+          onRemoved={(i) => {
+            if (i < index || index === exercises.length - 1) setIndex(Math.max(0, index - 1))
+          }}
+          onAdd={() => setSheet({ name: 'add' })}
+          onClose={() => setSheet(null)}
+        />
       )}
-
-      {sheet === 'add' && (
-        <Modal title="Add to this workout" onClose={() => setSheet('overview')}>
-          <div style={{ maxHeight: '62vh', overflowY: 'auto' }}>
-            {BLOCKS.map((b) => {
-              const inSession = new Set(exercises.map((e) => e.exerciseId))
-              const opts = blockOptions(b.id).filter((o) => !inSession.has(o.def.id))
-              if (!opts.length) return null
-              return (
-                <div key={b.id}>
-                  <div className="eyebrow" style={{ margin: '10px 2px 6px' }}>{b.name}</div>
-                  {opts.map(({ def: d, slotId }) => (
-                    <button
-                      key={d.id}
-                      className="list-row"
-                      style={{ width: '100%', background: 'none', border: 0, color: 'inherit', textAlign: 'left' }}
-                      onClick={() => {
-                        addToSession(d.id, slotId)
-                        setSheet('overview')
-                      }}
-                    >
-                      <div className="grow">
-                        <div style={{ fontWeight: 700 }}>{d.name}</div>
-                        <div className="tiny faint">
-                          {setScheme(effectiveDef(d, slotId))} · {SLOTS_BY_ID[slotId].label}
-                        </div>
-                      </div>
-                      <Plus size={16} className="faint" />
-                    </button>
-                  ))}
-                </div>
-              )
-            })}
-          </div>
-        </Modal>
+      {sheet?.name === 'add' && (
+        <AddSheet exercises={exercises} onClose={() => setSheet({ name: 'overview' })} />
       )}
-
-      {sheet === 'weight' && (
+      {sheet?.name === 'swap' && slot && (
+        <SwapSheet def={def} slot={slot} exercises={exercises} onClose={() => setSheet(null)} />
+      )}
+      {sheet?.name === 'weight' && (
         <WeightPad
           equipment={def.equipment}
-          weightKg={weight}
+          weightKg={padSet == null ? weight : setKg(exLog, exLog.sets[padSet] ?? { done: false })}
+          title={padSet == null ? 'Working load' : `Set ${padSet + 1} load`}
+          hint={
+            padSet == null
+              ? 'for the sets still to do'
+              : exLog.sets[padSet]?.done
+                ? 'this set only'
+                : 'this set and the ones after it'
+          }
           onClose={() => setSheet(null)}
           onSet={(kg) => {
-            setWorkingWeight(def.id, kg)
+            if (padSet == null) setWorkingWeight(def.id, kg)
+            else setSetWeight(def.id, padSet, kg)
             setSheet(null)
           }}
         />
       )}
-      {sheet === 'swap' && slot && (
-        <Modal title={`Swap ${def.name}`} onClose={() => setSheet(null)}>
-          <p className="small muted" style={{ marginTop: 0 }}>
-            For this workout only. Each variation keeps its own weight &amp; history.
-          </p>
-          {slotOptions(slot.id).map((opt) => {
-            const current = opt.id === def.id
-            const taken = !current && exercises.some((e) => e.exerciseId === opt.id)
-            return (
-              <button
-                key={opt.id}
-                className="list-row"
-                style={{ width: '100%', background: 'none', border: 0, color: 'inherit', textAlign: 'left' }}
-                disabled={current || taken}
-                onClick={() => {
-                  swapInSession(def.id, opt.id)
-                  setSheet(null)
-                }}
-              >
-                <div className="grow">
-                  <div style={{ fontWeight: 700 }}>
-                    {opt.name}
-                    {current && <span className="chip" style={{ marginLeft: 8 }}>current</span>}
-                    {taken && <span className="chip" style={{ marginLeft: 8 }}>in workout</span>}
-                  </div>
-                  <div className="tiny faint">{setScheme(effectiveDef(opt, slot.id))}</div>
-                </div>
-              </button>
-            )
-          })}
-        </Modal>
-      )}
-
-      {finishPrompt && (
-        <Modal title="Finish here?" onClose={() => setFinishPrompt(false)}>
-          <p className="small muted" style={{ marginTop: 0 }}>
-            You&rsquo;ve done {performed.length} of {exercises.length} exercises. Save the
-            remaining {untouched.length} as <strong>Part {part + 1}</strong> to finish
-            later — it still counts as one workout for the week.
-          </p>
-          <button
-            className="btn btn-primary btn-block"
-            onClick={() => {
-              setFinishPrompt(false)
-              splitSession()
-            }}
-          >
-            Split — save {untouched.length} for later
-          </button>
-          <button
-            className="btn btn-block"
-            style={{ marginTop: 8 }}
-            onClick={() => {
-              setFinishPrompt(false)
-              finishSession()
-            }}
-          >
-            Just finish for today
-          </button>
-          <button
-            className="btn btn-ghost btn-block"
-            style={{ marginTop: 8 }}
-            onClick={() => setFinishPrompt(false)}
-          >
-            Keep going
-          </button>
-        </Modal>
+      {sheet?.name === 'finish' && (
+        <FinishSheet
+          performed={performed.length}
+          untouched={untouched.length}
+          total={exercises.length}
+          part={part}
+          onClose={() => setSheet(null)}
+        />
       )}
     </div>
   )

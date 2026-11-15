@@ -10,6 +10,7 @@ import {
 import { mondayIndex, planSlotFor, trainingDayCount, WEEKDAYS_LONG } from './plan'
 import { computeRecommendation } from './progression'
 import { epley1RM, tracksOneRM } from './records'
+import { setKg, setVolumeKg } from './sets'
 import type {
   DayPlan,
   ExerciseProgress,
@@ -42,7 +43,7 @@ export function lifetimeStats(sessions: SessionLog[]): LifetimeStats {
       for (const set of ex.sets) {
         if (!set.done) continue
         sets += 1
-        if (ex.weightKg > 0 && (set.reps ?? 0) > 0) volume += ex.weightKg * set.reps!
+        volume += setVolumeKg(ex, set)
       }
     }
   }
@@ -112,9 +113,7 @@ export function fourWeekCompare(
     let vol = 0
     for (const ex of s.exercises) {
       for (const set of ex.sets) {
-        if (set.done && ex.weightKg > 0 && (set.reps ?? 0) > 0) {
-          vol += ex.weightKg * set.reps!
-        }
+        vol += setVolumeKg(ex, set)
       }
     }
     if (recent) {
@@ -169,9 +168,7 @@ export function weeklyVolumeSeries(
     let vol = 0
     for (const ex of s.exercises) {
       for (const set of ex.sets) {
-        if (set.done && ex.weightKg > 0 && (set.reps ?? 0) > 0) {
-          vol += ex.weightKg * set.reps!
-        }
+        vol += setVolumeKg(ex, set)
       }
     }
     b.volumeKg += vol
@@ -236,7 +233,7 @@ export function strengthGains(
     if (logs.length < 2) continue
     const bestRM = (log: (typeof logs)[number]) =>
       Math.max(
-        ...log.sets.map((x) => (x.done ? epley1RM(log.weightKg, x.reps ?? 0) : 0)),
+        ...log.sets.map((x) => (x.done ? epley1RM(setKg(log, x), x.reps ?? 0) : 0)),
       )
     const firstRM = bestRM(logs[0])
     const recentRM = Math.max(...logs.slice(-3).map(bestRM))

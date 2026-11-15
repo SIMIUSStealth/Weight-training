@@ -183,3 +183,67 @@ export function formatLoadShort(equipment: Equipment, weightKg: number): string 
   const kg = formatKg(Math.abs(weightKg)).replace(' ', '')
   return weightKg < 0 ? `−${kg}` : `+${kg}`
 }
+
+// ---------- plates on the bar ----------
+
+/** An Olympic bar, and the plates a gym has for it (kg). */
+export const BAR_KG = 20
+const PLATES_KG = [25, 20, 15, 10, 5, 2.5, 1.25] as const
+
+/**
+ * Plates to load on EACH side of the bar for a total, heaviest first — empty
+ * for the bar alone, null when the total can't be made (below the bar, or
+ * not a multiple of the smallest pair).
+ */
+export function platesPerSide(totalKg: number, barKg: number = BAR_KG): number[] | null {
+  let side = (totalKg - barKg) / 2
+  if (side < -1e-9) return null
+  const out: number[] = []
+  for (const p of PLATES_KG) {
+    while (side >= p - 1e-9) {
+      out.push(p)
+      side -= p
+    }
+  }
+  return side > 1e-9 ? null : out
+}
+
+// ---------- warm-up ramp ----------
+
+export interface WarmupSet {
+  weightKg: number
+  reps: number
+}
+
+/** The ramp: fraction of the working load × reps, light and many → heavy and few. */
+const RAMP: readonly [number, number][] = [
+  [0.5, 8],
+  [0.7, 5],
+  [0.85, 2],
+]
+
+/**
+ * Warm-up sets before a working load: ~50 % × 8, ~70 % × 5, ~85 % × 2, each
+ * snapped DOWN to a weight the equipment actually has (never up — a warm-up
+ * shouldn't cost you the working sets). Steps that land on the same weight
+ * merge, and anything not lighter than the working load is dropped; loads
+ * relative to bodyweight (assisted, belt) and unloaded moves have no ramp.
+ */
+export function warmupSets(
+  equipment: Equipment,
+  workingKg: number,
+  increments: Increments = DEFAULT_INCREMENTS,
+): WarmupSet[] {
+  if (equipment === 'none' || isRelativeLoad(equipment)) return []
+  const ladder = ladderFor(equipment, increments)
+  const out: WarmupSet[] = []
+  for (const [fraction, reps] of RAMP) {
+    const target = workingKg * fraction
+    const below = ladder.filter((w) => w <= target + 1e-9)
+    const weightKg = below.length ? below[below.length - 1] : ladder[0]
+    if (weightKg >= workingKg - 1e-9) continue
+    if (out.some((w) => Math.abs(w.weightKg - weightKg) < 1e-9)) continue
+    out.push({ weightKg, reps })
+  }
+  return out
+}

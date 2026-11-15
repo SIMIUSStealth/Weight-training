@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { collectBests, detectPRs, epley1RM } from './records'
+import { collectBests, detectPRs, epley1RM, restampPRs } from './records'
 import type { SessionLog, SetLog } from '../storage/types'
 
 const reps = (...rs: number[]): SetLog[] => rs.map((r) => ({ reps: r, done: true }))
@@ -114,5 +114,53 @@ describe('bodyweight-relative lifts', () => {
     const prs = detectPRs(next, history)
     expect(prs.map((p) => p.kind)).toEqual(['reps'])
     expect(prs[0].value).toBe(7)
+  })
+})
+
+describe('records with per-set loads', () => {
+  const base = sess('s1', '2026-01-01T10:00:00Z', 'bench-press', 40, reps(8, 8, 8))
+
+  it('judges each set at the load it was done at', () => {
+    // A heavier top set: no rep PR at 40 (8 again), but a new best 1RM from 50 × 5.
+    const top = sess('s2', '2026-01-03T10:00:00Z', 'bench-press', 40, [
+      { reps: 5, done: true, weightKg: 50 },
+      { reps: 8, done: true },
+      { reps: 8, done: true },
+    ])
+    expect(detectPRs(top, [base])).toEqual([
+      { exerciseId: 'bench-press', kind: 'onerm', weightKg: 50, reps: 5, value: epley1RM(50, 5) },
+    ])
+    const bests = collectBests('bench-press', [base, top])
+    expect(bests.repsAtWeight.get('50.00')).toBe(5)
+    expect(bests.topSet).toEqual({ weightKg: 50, reps: 5 })
+  })
+
+  it('a rep record at a back-off load counts at that load', () => {
+    const backoff = sess('s2', '2026-01-03T10:00:00Z', 'bench-press', 45, [
+      { reps: 6, done: true },
+      { reps: 10, done: true, weightKg: 40 },
+    ])
+    expect(detectPRs(backoff, [base])).toEqual([
+      { exerciseId: 'bench-press', kind: 'reps', weightKg: 40, value: 10 },
+      // …and the heavier 45 × 6 is the better strength estimate of the two.
+      { exerciseId: 'bench-press', kind: 'onerm', weightKg: 45, reps: 6, value: epley1RM(45, 6) },
+    ])
+  })
+})
+
+describe('restampPRs', () => {
+  it('re-derives stamps after history changes, returning only what changed', () => {
+    const a = sess('a', '2026-01-01T10:00:00Z', 'bench-press', 40, reps(8, 8, 8))
+    const b = {
+      ...sess('b', '2026-01-03T10:00:00Z', 'bench-press', 40, reps(10, 9, 8)),
+      prs: detectPRs(sess('b', '2026-01-03T10:00:00Z', 'bench-press', 40, reps(10, 9, 8)), [a]),
+    }
+    expect(b.prs).toHaveLength(2)
+    expect(restampPRs([a, b])).toEqual([]) // already right
+    // The first session is corrected to 11 reps: the second no longer beat it.
+    const fixed = sess('a', '2026-01-01T10:00:00Z', 'bench-press', 40, reps(11, 8, 8))
+    const changed = restampPRs([b, fixed])
+    expect(changed.map((s) => s.id)).toEqual(['b'])
+    expect(changed[0].prs).toBeUndefined()
   })
 })

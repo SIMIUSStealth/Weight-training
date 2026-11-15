@@ -22,6 +22,7 @@ import {
   nextRung,
   type Increments,
 } from './ladder'
+import { setKg } from './sets'
 import type {
   ExerciseLog,
   ExerciseProgress,
@@ -52,11 +53,16 @@ export function worstSet(log: ExerciseLog, kind: ExerciseKind): number {
 }
 
 /**
- * At least the program's `sets` working sets completed at or above `n`. Extra
- * sets added mid-workout count toward it but never block a level-up.
+ * At least the program's `sets` working sets completed at or above `n`, at the
+ * working load or heavier. Extra sets added mid-workout count toward it but
+ * never block a level-up; a lighter set (a drop set) doesn't count.
  */
 function allSetsAtLeast(log: ExerciseLog, def: ExerciseDef, n: number): boolean {
-  return doneSets(log).filter((s) => setValue(s, def.kind) >= n).length >= def.sets
+  return (
+    doneSets(log).filter(
+      (s) => setValue(s, def.kind) >= n && setKg(log, s) >= log.weightKg - 1e-9,
+    ).length >= def.sets
+  )
 }
 
 // ---------- initial state ----------
@@ -208,6 +214,8 @@ export interface Recommendation {
   targetSeconds?: number
   /** Per-set values from the most recent completed session (to beat). */
   lastSets: number[]
+  /** The load each of those sets was done at (kg), aligned with lastSets. */
+  lastLoads: number[]
   /** Weight used in that most recent completed session (kg). */
   lastWeightKg?: number
   hasHistory: boolean
@@ -268,6 +276,7 @@ export function computeRecommendation(
     return {
       ...base,
       lastSets: [],
+      lastLoads: [],
       hasHistory: false,
       justLeveledUp: false,
       stalled: false,
@@ -289,31 +298,35 @@ export function computeRecommendation(
   // This way the workout always shows a real number to beat — never a blank
   // for a set you didn't finish last time.
   const completedLogs = logs.map((l) => l.log)
-  let lastCompletedValue: number | undefined
+  let lastCompleted: { value: number; kg: number } | undefined
   for (const log of completedLogs) {
     for (let i = log.sets.length - 1; i >= 0; i--) {
       if (log.sets[i]?.done) {
-        lastCompletedValue = setValue(log.sets[i], def.kind)
+        lastCompleted = { value: setValue(log.sets[i], def.kind), kg: setKg(log, log.sets[i]) }
         break
       }
     }
-    if (lastCompletedValue !== undefined) break
+    if (lastCompleted) break
   }
   // Cover every set done last time, not just the program's count — a set
   // added on top of the scheme (a third round of a 2-set finisher) is still a
   // number to beat.
   const lastCount = last.sets.map((s) => s.done).lastIndexOf(true) + 1
   const lastSets: number[] = []
+  const lastLoads: number[] = []
   for (let i = 0; i < Math.max(def.sets, lastCount); i++) {
-    let v: number | undefined
+    let found: { value: number; kg: number } | undefined
     for (const log of completedLogs) {
       if (log.sets[i]?.done) {
-        v = setValue(log.sets[i], def.kind)
+        found = { value: setValue(log.sets[i], def.kind), kg: setKg(log, log.sets[i]) }
         break
       }
     }
-    const filled = v ?? lastCompletedValue
-    if (filled !== undefined) lastSets.push(filled)
+    const filled = found ?? lastCompleted
+    if (filled) {
+      lastSets.push(filled.value)
+      lastLoads.push(filled.kg)
+    }
   }
 
   // Effort signal from last session's reps-in-reserve (proximity to failure is
@@ -405,6 +418,7 @@ export function computeRecommendation(
   return {
     ...base,
     lastSets,
+    lastLoads,
     lastWeightKg: last.weightKg,
     hasHistory: true,
     justLeveledUp,

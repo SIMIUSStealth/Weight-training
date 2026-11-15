@@ -31,7 +31,8 @@ import {
   startingSets,
   type StartAssessment,
 } from '../program/progression'
-import { detectPRs } from '../program/records'
+import { detectPRs, restampPRs } from '../program/records'
+import { normalizeLoads } from '../program/sets'
 import { formatSeconds } from '../program/analytics'
 import {
   deleteBodyStat as dbDeleteBodyStat,
@@ -59,6 +60,19 @@ import {
   type Settings,
   type SetLog,
 } from '../storage/types'
+
+/** What the banner says when a write to the device fails. */
+const SAVE_FAILED =
+  'Couldn’t save to this device — your latest changes may be lost if the app closes. Back up now.'
+
+/**
+ * Run a write to the device without waiting on it. A failure (storage full,
+ * evicted, a private tab) raises the save-error banner instead of passing
+ * silently — the data is still in memory, so a backup can still rescue it.
+ */
+function save(write: Promise<unknown>): void {
+  write.catch(() => useStore.setState({ saveError: SAVE_FAILED }))
+}
 
 function uid(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -106,6 +120,8 @@ interface StoreState {
   bodyStats: BodyStat[]
   settings: Settings
   activeSession: SessionLog | null
+  /** Set when a write to the device failed, until dismissed. */
+  saveError: string | null
 
   tab: Tab
   overlay: Overlay
@@ -127,7 +143,18 @@ interface StoreState {
     setIndex: number,
     patch: Partial<SetLog>,
   ) => void
+  /**
+   * Change the exercise's working load: the sets still to do follow it, the
+   * ones already logged keep the load they were logged at.
+   */
   setWorkingWeight: (exerciseId: string, weightKg: number) => void
+  /**
+   * Change one set's load — and, for a set still to do, the unlogged sets
+   * after it (a load changed on set 2 is the load for set 3 too).
+   */
+  setSetWeight: (exerciseId: string, setIndex: number, weightKg: number) => void
+  /** A note on an exercise in the workout in progress. */
+  setExerciseNote: (exerciseId: string, note: string) => void
   /** Mid-workout edits (this session only — the weekly plan is untouched). */
   swapInSession: (exerciseId: string, toId: string) => void
   /** Add an exercise, into `slotId` (one that offers it) or its home slot. */
@@ -159,6 +186,12 @@ interface StoreState {
   // settings + data
   updateSettings: (patch: Partial<Settings>) => void
   deleteSession: (id: string) => void
+  /**
+   * Save an edited past session (reps, loads, notes, date). Current loads are
+   * left alone; personal-record stamps are re-derived across the whole log.
+   */
+  updateSession: (session: SessionLog) => void
+  dismissSaveError: () => void
   /** Build a backup object from the current in-memory state (synchronous). */
   getBackup: () => BackupFile
   /** Stamp "last backed up" as now. */
@@ -339,9 +372,13 @@ function commitActive(
   let setsLogged = 0
   let failureSets = 0
 
-  for (const log of active.exercises) {
-    const doneCount = log.sets.filter((s) => s.done).length
+  for (const raw of active.exercises) {
+    const doneCount = raw.sets.filter((s) => s.done).length
     if (doneCount === 0) continue
+    // The working load is the one most sets were done at; the odd ones out
+    // (a top set, a drop set) keep their own. Blank notes aren't kept.
+    const { note, ...rest } = normalizeLoads(raw)
+    const log: ExerciseLog = note?.trim() ? { ...rest, note: note.trim() } : rest
     setsLogged += doneCount
     failureSets += log.sets.filter((s) => s.done && s.rir === 0).length
 
@@ -410,6 +447,7 @@ function durationMinutes(startedAt: string, completedAt: string): number {
 
 export const useStore = create<StoreState>((set, get) => ({
   loaded: false,
+  saveError: null,
   sessions: [],
   progress: {},
   bodyStats: [],
@@ -422,13 +460,13 @@ export const useStore = create<StoreState>((set, get) => ({
     const data = await loadAll()
     // Seed the gym week on first run; replace a pre-gym (v1) plan.
     const settings = migrateSettings(data.settings)
-    if (settings !== data.settings) void putSettings(settings)
+    if (settings !== data.settings) save(putSettings(settings))
     const loaded: Record<string, ExerciseProgress> = {}
     for (const p of data.progress) loaded[p.exerciseId] = p
     if ((data.settings.version ?? 1) < 3) {
       const restarted = abStartLoads(loaded)
       for (const p of restarted) loaded[p.exerciseId] = p
-      void putProgress(restarted)
+      save(putProgress(restarted))
     }
     // Make sure every exercise the plan can use has a progression row.
     const plan = getWeeklyPlan(settings.weeklyPlan)
@@ -436,7 +474,7 @@ export const useStore = create<StoreState>((set, get) => ({
       planExercises(plan, settings.program),
       loaded,
     )
-    if (seeded.length) void putProgress(seeded)
+    if (seeded.length) save(putProgress(seeded))
     set({
       loaded: true,
       sessions: data.sessions,
@@ -464,9 +502,9 @@ export const useStore = create<StoreState>((set, get) => ({
       entries.map((e) => e.def),
       progress,
     )
-    if (res.seeded.length) void putProgress(res.seeded)
+    if (res.seeded.length) save(putProgress(res.seeded))
     const session = sessionFromEntries(entries, res.progress, weekday, get().sessions)
-    void putActiveSession(session)
+    save(putActiveSession(session))
     set({
       progress: res.progress,
       activeSession: session,
@@ -479,7 +517,7 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   cancelSession: () => {
-    void putActiveSession(null)
+    save(putActiveSession(null))
     set({ activeSession: null, overlay: null })
   },
 
@@ -512,18 +550,52 @@ export const useStore = create<StoreState>((set, get) => ({
     ) {
       next.startedAt = now.toISOString()
     }
-    void putActiveSession(next)
+    save(putActiveSession(next))
     set({ activeSession: next })
   },
 
   setWorkingWeight: (exerciseId, weightKg) => {
     const active = get().activeSession
     if (!active) return
+    const exercises = active.exercises.map((ex) => {
+      if (ex.exerciseId !== exerciseId) return ex
+      const sets = ex.sets.map((s): SetLog => {
+        // Logged at the old load: pin it there. Still to do: follow the new one.
+        if (s.done) return s.weightKg == null ? { ...s, weightKg: ex.weightKg } : s
+        const { weightKg: _own, ...rest } = s
+        return rest
+      })
+      return { ...ex, weightKg, sets }
+    })
+    const next = { ...active, exercises }
+    save(putActiveSession(next))
+    set({ activeSession: next })
+  },
+
+  setSetWeight: (exerciseId, setIndex, weightKg) => {
+    const active = get().activeSession
+    if (!active) return
+    const exercises = active.exercises.map((ex) => {
+      if (ex.exerciseId !== exerciseId || !ex.sets[setIndex]) return ex
+      const carries = !ex.sets[setIndex].done
+      const sets = ex.sets.map((s, i): SetLog =>
+        i === setIndex || (carries && i > setIndex && !s.done) ? { ...s, weightKg } : s,
+      )
+      return { ...ex, sets }
+    })
+    const next = { ...active, exercises }
+    save(putActiveSession(next))
+    set({ activeSession: next })
+  },
+
+  setExerciseNote: (exerciseId, note) => {
+    const active = get().activeSession
+    if (!active) return
     const exercises = active.exercises.map((ex) =>
-      ex.exerciseId === exerciseId ? { ...ex, weightKg } : ex,
+      ex.exerciseId === exerciseId ? { ...ex, note } : ex,
     )
     const next = { ...active, exercises }
-    void putActiveSession(next)
+    save(putActiveSession(next))
     set({ activeSession: next })
   },
 
@@ -537,7 +609,7 @@ export const useStore = create<StoreState>((set, get) => ({
     // Never throw away logged sets — swap only an exercise not yet started.
     if (!from || from.sets.some((s) => s.done)) return
     const res = withSeededProgress([to], get().progress)
-    if (res.seeded.length) void putProgress(res.seeded)
+    if (res.seeded.length) save(putProgress(res.seeded))
     // The swap takes over the slot, so it keeps the session's block and scheme.
     const exercises = active.exercises.map((ex) =>
       ex.exerciseId === exerciseId
@@ -550,7 +622,7 @@ export const useStore = create<StoreState>((set, get) => ({
         : ex,
     )
     const next = { ...active, exercises }
-    void putActiveSession(next)
+    save(putActiveSession(next))
     set({ activeSession: next, progress: res.progress })
   },
 
@@ -561,7 +633,7 @@ export const useStore = create<StoreState>((set, get) => ({
     if (!active || !def || def.retired || !slot) return
     if (active.exercises.some((e) => e.exerciseId === exerciseId)) return
     const res = withSeededProgress([def], get().progress)
-    if (res.seeded.length) void putProgress(res.seeded)
+    if (res.seeded.length) save(putProgress(res.seeded))
     const log = newLog(def, slot.id, res.progress, get().sessions)
     // Slot it in at its place in the routine order.
     const order = (e: ExerciseLog) => {
@@ -574,7 +646,7 @@ export const useStore = create<StoreState>((set, get) => ({
     if (at === -1) at = exercises.length
     exercises.splice(at, 0, log)
     const next = { ...active, exercises }
-    void putActiveSession(next)
+    save(putActiveSession(next))
     set({ activeSession: next, progress: res.progress })
   },
 
@@ -585,7 +657,7 @@ export const useStore = create<StoreState>((set, get) => ({
       ...active,
       exercises: active.exercises.filter((e) => e.exerciseId !== exerciseId),
     }
-    void putActiveSession(next)
+    save(putActiveSession(next))
     set({ activeSession: next })
   },
 
@@ -598,7 +670,7 @@ export const useStore = create<StoreState>((set, get) => ({
         : ex,
     )
     const next = { ...active, exercises }
-    void putActiveSession(next)
+    save(putActiveSession(next))
     set({ activeSession: next })
   },
 
@@ -613,7 +685,7 @@ export const useStore = create<StoreState>((set, get) => ({
       return { ...ex, sets: ex.sets.filter((_, j) => j !== i) }
     })
     const next = { ...active, exercises }
-    void putActiveSession(next)
+    save(putActiveSession(next))
     set({ activeSession: next })
   },
 
@@ -629,7 +701,7 @@ export const useStore = create<StoreState>((set, get) => ({
     )
     if (r.committedExercises.length === 0) {
       // nothing was actually performed — discard the empty session
-      void putActiveSession(null)
+      save(putActiveSession(null))
       set({ activeSession: null, overlay: null })
       return null
     }
@@ -654,9 +726,9 @@ export const useStore = create<StoreState>((set, get) => ({
       prs,
     }
 
-    void putSession(finished)
-    void putProgress(Object.values(r.newProgress))
-    void putActiveSession(null)
+    save(putSession(finished))
+    save(putProgress(Object.values(r.newProgress)))
+    save(putActiveSession(null))
 
     set({
       sessions: [...sessions, finished],
@@ -725,9 +797,9 @@ export const useStore = create<StoreState>((set, get) => ({
       split: { remaining: remaining.length, part: part + 1 },
     }
 
-    void putSession(finished)
-    void putProgress(Object.values(r.newProgress))
-    void putActiveSession(partB)
+    save(putSession(finished))
+    save(putProgress(Object.values(r.newProgress)))
+    save(putActiveSession(partB))
 
     set({
       sessions: [...sessions, finished],
@@ -746,7 +818,7 @@ export const useStore = create<StoreState>((set, get) => ({
     get().updateSettings({ program })
     const res = withSeededProgress([def], get().progress)
     if (res.seeded.length) {
-      void putProgress(res.seeded)
+      save(putProgress(res.seeded))
       set({ progress: res.progress })
     }
   },
@@ -776,7 +848,7 @@ export const useStore = create<StoreState>((set, get) => ({
       get().progress,
     )
     if (res.seeded.length) {
-      void putProgress(res.seeded)
+      save(putProgress(res.seeded))
       set({ progress: res.progress })
     }
   },
@@ -807,7 +879,7 @@ export const useStore = create<StoreState>((set, get) => ({
     get().updateSettings({ weeklyPlan: plan })
     const res = withSeededProgress([def], get().progress)
     if (res.seeded.length) {
-      void putProgress(res.seeded)
+      save(putProgress(res.seeded))
       set({ progress: res.progress })
     }
   },
@@ -855,7 +927,7 @@ export const useStore = create<StoreState>((set, get) => ({
     if (!cur) return
     const next = { ...cur, currentWeightKg: weightKg }
     progress[exerciseId] = next
-    void putProgress([next])
+    save(putProgress([next]))
     set({ progress })
   },
 
@@ -865,7 +937,7 @@ export const useStore = create<StoreState>((set, get) => ({
     if (!cur) return
     const next = { ...cur, targetSeconds: Math.max(0, seconds) }
     progress[exerciseId] = next
-    void putProgress([next])
+    save(putProgress([next]))
     set({ progress })
   },
 
@@ -874,25 +946,53 @@ export const useStore = create<StoreState>((set, get) => ({
     const bodyStats = [...others, stat].sort((a, b) =>
       a.date < b.date ? 1 : -1,
     )
-    void putBodyStat(stat)
+    save(putBodyStat(stat))
     set({ bodyStats })
   },
 
   removeBodyStat: (date) => {
-    void dbDeleteBodyStat(date)
+    save(dbDeleteBodyStat(date))
     set({ bodyStats: get().bodyStats.filter((b) => b.date !== date) })
   },
 
   updateSettings: (patch) => {
     const settings = { ...get().settings, ...patch }
-    void putSettings(settings)
+    save(putSettings(settings))
     set({ settings })
   },
 
   deleteSession: (id) => {
-    void dbDeleteSession(id)
-    set({ sessions: get().sessions.filter((s) => s.id !== id), overlay: null })
+    save(dbDeleteSession(id))
+    const left = get().sessions.filter((s) => s.id !== id)
+    // A record the deleted session held may now belong to a later one.
+    const restamped = restampPRs(left)
+    for (const s of restamped) save(putSession(s))
+    const byId = new Map(restamped.map((s) => [s.id, s]))
+    set({ sessions: left.map((s) => byId.get(s.id) ?? s), overlay: null })
   },
+
+  updateSession: (session) => {
+    if (!session.completedAt || !get().sessions.some((s) => s.id === session.id)) return
+    const edited: SessionLog = {
+      ...session,
+      exercises: session.exercises
+        .filter((e) => e.sets.some((s) => s.done))
+        .map((e) => {
+          const { note, ...rest } = normalizeLoads(e)
+          return note?.trim() ? { ...rest, note: note.trim() } : rest
+        }),
+      notes: session.notes?.trim() || undefined,
+    }
+    const swapped = get().sessions.map((s) => (s.id === edited.id ? edited : s))
+    const restamped = restampPRs(swapped)
+    const byId = new Map(restamped.map((s) => [s.id, s]))
+    const sessions = swapped.map((s) => byId.get(s.id) ?? s)
+    save(putSession(byId.get(edited.id) ?? edited))
+    for (const s of restamped) if (s.id !== edited.id) save(putSession(s))
+    set({ sessions })
+  },
+
+  dismissSaveError: () => set({ saveError: null }),
 
   getBackup: () => {
     const { sessions, progress, bodyStats, settings } = get()

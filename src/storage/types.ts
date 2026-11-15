@@ -34,6 +34,11 @@ export interface SetLog {
   done: boolean
   /** ISO date-time the set was ticked off (sets logged before this existed have none). */
   at?: string
+  /**
+   * Load this set was done at, in kg, when it differs from the exercise's
+   * working load (a heavier top set, a drop set). Missing = the working load.
+   */
+  weightKg?: number
 }
 
 /** One exercise as performed within a session. */
@@ -51,6 +56,8 @@ export interface ExerciseLog {
    */
   weightKg: number
   sets: SetLog[]
+  /** A note on how it went ("elbow niggle") — shown next time as context. */
+  note?: string
   /** Did this exercise level up (weight or plank time) at session commit? */
   leveledUp?: boolean
   /** New weight/time after level-up, for the summary screen. */
@@ -133,6 +140,8 @@ export interface Settings {
   weeklyPlan?: DayPlan[]
   /** Your gym's weight steps (dumbbell rack, barbell, machines/cables). */
   increments?: Partial<Increments>
+  /** Keep the screen on while a workout is open. Missing = on. */
+  keepAwake?: boolean
   /** Schema version, for future migrations. */
   version: number
 }
