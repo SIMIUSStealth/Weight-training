@@ -6,8 +6,11 @@ import { EmptyState, Modal } from '../ui/components'
 import { ArrowUp, Body, ChevronRight, History as HistoryIcon, Trophy } from '../ui/icons'
 import type { BodyStat } from '../storage/types'
 
+/** Today's local calendar date, YYYY-MM-DD (not UTC's — that's yesterday until 1–2 am here). */
 function today(): string {
-  return new Date().toISOString().slice(0, 10)
+  const d = new Date()
+  const two = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`
 }
 
 export function History() {

@@ -32,6 +32,8 @@ export interface SetLog {
   rir?: number
   /** Whether the set was logged at all (skipped sets stay null/undefined). */
   done: boolean
+  /** ISO date-time the set was ticked off (sets logged before this existed have none). */
+  at?: string
 }
 
 /** One exercise as performed within a session. */

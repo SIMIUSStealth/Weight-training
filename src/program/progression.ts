@@ -75,6 +75,33 @@ export function initialProgress(): ExerciseProgress[] {
   return [...new Set(SLOTS.map((s) => s.baseId))].map((id) => defaultProgress(getExercise(id)))
 }
 
+/** The most sets one exercise can hold in a workout. */
+export const MAX_SETS = 10
+
+/**
+ * How many sets a slot opens a workout with: the program's count, or more when
+ * you did more the last time you trained this slot — sets added on top of the
+ * scheme carry over instead of having to be re-added every session. It only
+ * ever grows the count: a cut-short or lighter day doesn't shrink the plan,
+ * and one session back at the program's count resets it.
+ */
+export function startingSets(
+  def: ExerciseDef,
+  slotId: string,
+  sessions: SessionLog[],
+): number {
+  let when = ''
+  let done = 0
+  for (const s of sessions) {
+    if (!s.completedAt || s.completedAt <= when) continue
+    const log = s.exercises.find((e) => e.slot === slotId && e.sets.some((x) => x.done))
+    if (!log) continue
+    when = s.completedAt
+    done = log.sets.filter((x) => x.done).length
+  }
+  return Math.min(MAX_SETS, Math.max(def.sets, done))
+}
+
 /** True when the exercise carries a load that climbs a ladder. */
 export function isLoaded(def: ExerciseDef): boolean {
   return def.equipment !== 'none'
@@ -101,11 +128,21 @@ export function applyProgression(
   increments: Increments = DEFAULT_INCREMENTS,
 ): ProgressionResult {
   const ladder = ladderFor(def.equipment, increments)
-  // A weight level-up only counts if the work was done at the current rung.
-  const atCurrentWeight =
-    Math.abs(log.weightKg - progress.currentWeightKg) < 1e-9
+  // The load you trained at is your load. A weight changed mid-workout (the
+  // stack felt light, the dumbbells were taken, a typed in-between weight) is
+  // where the next session opens and where a level-up climbs from — not a
+  // one-off the app forgets, leaving the old load to be corrected every time.
+  const trainedKg =
+    isLoaded(def) && doneSets(log).length ? log.weightKg : progress.currentWeightKg
+  const here: ExerciseProgress =
+    Math.abs(trainedKg - progress.currentWeightKg) < 1e-9
+      ? progress
+      : { ...progress, currentWeightKg: trainedKg }
+  const stay: ProgressionResult = { progress: here, leveledUp: false }
   const climb = (): ProgressionResult => {
-    const newWeightKg = nextRung(progress.currentWeightKg, ladder)
+    const newWeightKg = nextRung(trainedKg, ladder)
+    // Already on (or typed past) the top of the ladder: nowhere to climb.
+    if (newWeightKg <= trainedKg + 1e-9) return stay
     return {
       progress: { ...progress, currentWeightKg: newWeightKg },
       leveledUp: true,
@@ -117,14 +154,7 @@ export function applyProgression(
     const target = progress.targetSeconds ?? def.startSeconds ?? 30
     if (isLoaded(def)) {
       // Loaded time work (kettlebell): same time, next bell.
-      if (
-        atCurrentWeight &&
-        allSetsAtLeast(log, def, target) &&
-        !isTopRung(progress.currentWeightKg, ladder)
-      ) {
-        return climb()
-      }
-      return { progress, leveledUp: false }
+      return allSetsAtLeast(log, def, target) ? climb() : stay
     }
     if (allSetsAtLeast(log, def, target)) {
       const inc = def.timeIncrementSeconds ?? 10
@@ -135,19 +165,12 @@ export function applyProgression(
         newSeconds,
       }
     }
-    return { progress, leveledUp: false }
+    return stay
   }
 
   // reps exercise (an unloaded one sits on a one-rung ladder: it never climbs
   // a weight — the coach suggests a harder variation instead)
-  if (
-    atCurrentWeight &&
-    allSetsAtLeast(log, def, def.repMax) &&
-    !isTopRung(progress.currentWeightKg, ladder)
-  ) {
-    return climb()
-  }
-  return { progress, leveledUp: false }
+  return allSetsAtLeast(log, def, def.repMax) ? climb() : stay
 }
 
 // ---------- start-weight self-correction (the "adjust to your stats" bit) ----------
@@ -276,8 +299,12 @@ export function computeRecommendation(
     }
     if (lastCompletedValue !== undefined) break
   }
+  // Cover every set done last time, not just the program's count — a set
+  // added on top of the scheme (a third round of a 2-set finisher) is still a
+  // number to beat.
+  const lastCount = last.sets.map((s) => s.done).lastIndexOf(true) + 1
   const lastSets: number[] = []
-  for (let i = 0; i < def.sets; i++) {
+  for (let i = 0; i < Math.max(def.sets, lastCount); i++) {
     let v: number | undefined
     for (const log of completedLogs) {
       if (log.sets[i]?.done) {

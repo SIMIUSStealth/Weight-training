@@ -10,13 +10,14 @@ import {
   prevRung,
   resolveIncrements,
 } from './ladder'
-import { getExercise, SLOTS } from './exercises'
+import { effectiveDef, getExercise, SLOTS } from './exercises'
 import {
   applyProgression,
   assessStartWeight,
   computeRecommendation,
   defaultProgress,
   initialProgress,
+  startingSets,
 } from './progression'
 import type { ExerciseLog, SessionLog, SetLog, ExerciseProgress } from '../storage/types'
 
@@ -166,10 +167,21 @@ describe('applyProgression — reps', () => {
     expect(res.progress.currentWeightKg).toBe(30)
   })
 
-  it('does not count a level-up logged at the wrong weight', () => {
-    // Logged at 32,5kg while still officially on 30kg — ignored.
-    const res = applyProgression(bench, progressFor('bench-press'), repLog('bench-press', 32.5, reps(8, 8, 8)))
-    expect(res.leveledUp).toBe(false)
+  it('the load trained at becomes the current load', () => {
+    const at = (kg: number, ...rs: number[]) =>
+      applyProgression(bench, progressFor('bench-press'), repLog('bench-press', kg, reps(...rs)))
+    // Officially on 30 kg, trained at 35: next session opens at 35, not 30.
+    expect(at(35, 7, 6, 5)).toMatchObject({ leveledUp: false, progress: { currentWeightKg: 35 } })
+    // A lighter day sticks too — progression builds back from where you are.
+    expect(at(25, 7, 7, 6)).toMatchObject({ leveledUp: false, progress: { currentWeightKg: 25 } })
+    // Top of the range at the trained load climbs from that load.
+    expect(at(32.5, 8, 8, 8)).toMatchObject({ leveledUp: true, newWeightKg: 35 })
+    // A typed in-between weight climbs to the next real rung.
+    expect(at(31, 8, 8, 8)).toMatchObject({ leveledUp: true, newWeightKg: 32.5 })
+    // Nothing logged: the load is left alone.
+    const untouched = progressFor('bench-press')
+    const res = applyProgression(bench, untouched, repLog('bench-press', 50, [{ done: false }]))
+    expect(res.progress).toBe(untouched)
   })
 
   it('reps beyond the top still trigger the jump', () => {
@@ -338,6 +350,23 @@ describe('computeRecommendation', () => {
     expect(rec.lastSets).toEqual([12, 10, 11]) // set 3 falls back to the older session
   })
 
+  it('shows a number to beat for a set added on top of the scheme', () => {
+    // The arm finisher is 2 sets by the program; a third was added last time.
+    const curl = effectiveDef(getExercise('biceps-curl'), 'a-biceps')
+    expect(curl.sets).toBe(2)
+    const sessions = [
+      session('s1', '2026-01-01T10:00:00Z', [repLog('biceps-curl', 10, reps(9, 8, 8))]),
+      session('s2', '2026-01-03T10:00:00Z', [repLog('biceps-curl', 10, reps(8, 6, 5))]),
+    ]
+    const rec = computeRecommendation(curl, progressFor('biceps-curl'), sessions)
+    expect(rec.lastSets).toEqual([8, 6, 5])
+    // Back at two sets, the older third no longer lingers.
+    const two = session('s3', '2026-01-05T10:00:00Z', [repLog('biceps-curl', 10, reps(9, 7))])
+    expect(
+      computeRecommendation(curl, progressFor('biceps-curl'), [...sessions, two]).lastSets,
+    ).toEqual([9, 7])
+  })
+
   it('explains the rep drop right after a level-up', () => {
     // Last session logged at 8kg hit 3x12; progress now sits on 9kg.
     const sessions = [session('s1', '2026-01-03T10:00:00Z', [repLog('floor-press', 8, reps(12, 12, 12))])]
@@ -428,5 +457,44 @@ describe('computeRecommendation', () => {
     ]
     const rec = computeRecommendation(floor, progressFor('floor-press'), sessions)
     expect(rec.effortNote).toMatch(/failure|reserve/i)
+  })
+})
+
+// ---------- set count carried over ----------
+
+describe('startingSets', () => {
+  const curl = effectiveDef(getExercise('biceps-curl'), 'a-biceps') // 2 sets
+  const inSlot = (id: string, when: string, slot: string, sets: SetLog[]): SessionLog =>
+    session(id, when, [{ exerciseId: 'biceps-curl', slot, weightKg: 10, sets }])
+
+  it('is the program’s count with no history in the slot', () => {
+    expect(startingSets(curl, 'a-biceps', [])).toBe(2)
+    // Three sets in another slot (Session B's finisher) don't count here.
+    const b = inSlot('s1', '2026-01-01T10:00:00Z', 'b-biceps', reps(8, 8, 8))
+    expect(startingSets(curl, 'a-biceps', [b])).toBe(2)
+  })
+
+  it('opens with as many sets as were done there last time', () => {
+    const three = inSlot('s1', '2026-01-01T10:00:00Z', 'a-biceps', reps(8, 6, 6))
+    expect(startingSets(curl, 'a-biceps', [three])).toBe(3)
+    // Whichever exercise filled the slot — the count belongs to the slot.
+    const swapped = session('s2', '2026-01-02T10:00:00Z', [
+      { exerciseId: 'zottman-curl', slot: 'a-biceps', weightKg: 8, sets: reps(8, 8, 8, 8) },
+    ])
+    expect(startingSets(curl, 'a-biceps', [three, swapped])).toBe(4)
+  })
+
+  it('follows the most recent session, and never drops below the program', () => {
+    const three = inSlot('s1', '2026-01-01T10:00:00Z', 'a-biceps', reps(8, 6, 6))
+    const two = inSlot('s2', '2026-01-03T10:00:00Z', 'a-biceps', reps(9, 7))
+    const cutShort = inSlot('s3', '2026-01-05T10:00:00Z', 'a-biceps', [
+      { reps: 9, done: true },
+      { done: false },
+    ])
+    expect(startingSets(curl, 'a-biceps', [two, three])).toBe(2) // order-independent
+    expect(startingSets(curl, 'a-biceps', [three, two, cutShort])).toBe(2)
+    // Sets left unticked aren't counted; an unfinished session is ignored.
+    const open: SessionLog = { ...inSlot('s4', '', 'a-biceps', reps(8, 8, 8, 8)), completedAt: undefined }
+    expect(startingSets(curl, 'a-biceps', [three, open])).toBe(3)
   })
 })

@@ -4,6 +4,17 @@ Running list of shipped features and the backlog, so ideas aren't lost.
 
 ## Shipped
 
+- **The app remembers what you actually did (2026-11)** — three fixes from a
+  review of real logs. (1) Sets added on top of the scheme carry over: a slot
+  opens with as many sets as you did there last time (the 2-set arm finisher
+  done as 3 stays 3; one session back at the program's count resets it), and
+  every one of them shows its "last time" number. (2) The load you trained at
+  is your load: a weight changed mid-workout is where the next workout opens
+  and where a level-up climbs from, instead of snapping back to the old one.
+  (3) Sets are time-stamped: a workout opened long before training starts at
+  its first set, and one finished long after (Finish tapped days later) ends
+  at its last set — so it lands on the right day and week with a real
+  duration. Body stats are dated by the local day, not UTC's.
 - **Updates show on the next launch (2026-10)** — when a new deploy takes over
   the installed app, it reloads itself once instead of waiting for a second
   relaunch.
@@ -124,7 +135,6 @@ Running list of shipped features and the backlog, so ideas aren't lost.
 ### Not feasible / out of scope
 - Apple Health sync (needs a native app).
 - True scheduled push reminders (needs a server).
-- A/B program split (fights the plan's single full-body session 3×/week).
 
 ## Hevy gap analysis (2026-07, analysis only)
 
@@ -161,3 +171,36 @@ Adoptable (prioritized):
     app by design).
 
   - Exercise video library (hosting out of scope; form cues + could link out).
+
+## App review + Hevy comparison (2026-11)
+
+From reading the code, running the app on a real backup (35 sessions) and
+comparing with Hevy's logging screen. Coaching is still the edge; the gaps are
+in logging polish. Prioritized:
+
+- **Logging**
+  - Per-set weight (Hevy logs kg × reps per row; here the load is per
+    exercise, so a drop set or heavier top set can't be logged).
+  - Set rows above the fold: on a 390×844 screen the first row starts ~70 %
+    down, under the description, load card and up to three coach notes.
+    Collapse the notes to one line; move the description into "How to perform".
+  - Finish nudge: 11 of 35 sessions sat open for hours or days. Offer Finish
+    when the last set is ticked; on Today show "Finish <day>'s workout" rather
+    than "Resume · 0 left"; make the header ✕ (minimise) a chevron-down.
+  - Edit a past session (history feeds progression, so a typo sticks).
+  - Elapsed-time clock in the header; keep the screen awake (Wake Lock).
+  - Faster effort logging — RIR is on 45 % of sets and the coaching leans on it.
+  - Exercise / session notes, warm-up sets, plate calculator (all in backlog).
+- **History & progress**
+  - History cards: session name (Session A / B), duration, volume and a line
+    of exercises — two cards on one date are indistinguishable today.
+  - Estimated-1RM chart per exercise; calendar / monthly recap.
+  - Body & recovery has never been used (0 entries): surface it on Today
+    after a workout, or drop it.
+- **Robustness**
+  - Error boundary with a one-tap export (a render crash is a white screen
+    over on-device-only data).
+  - IndexedDB writes are fire-and-forget; surface a failed save.
+  - Backups lapse (23 days at review time): offer one on the summary screen.
+  - Split `Workout.tsx` (timers, sheets, set rows) before adding per-set weight.
+

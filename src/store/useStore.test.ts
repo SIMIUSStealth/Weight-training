@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { migrateSettings, useStore } from './useStore'
 import { overview } from '../program/analytics'
 import { ROUTINE, defaultWeeklyPlan } from '../program/plan'
@@ -516,6 +516,39 @@ describe('store: the A/B program', () => {
     expect(useStore.getState().progress['shoulder-press'].currentWeightKg).toBe(30)
   })
 
+  it('a set added to the finisher is there again next time, with its number to beat', () => {
+    useStore.getState().startDay(0)
+    logAll('pull-up', 6, 6, 6)
+    useStore.getState().addSetToSession('biceps-curl') // "I always do three"
+    logAll('biceps-curl', 8, 6, 5)
+    logAll('cable-pushdown', 10, 9) // the program's two
+    useStore.getState().finishSession()
+    const saved = useStore.getState().sessions[0]
+    expect(saved.exercises.find((e) => e.exerciseId === 'biceps-curl')!.sets.map((x) => x.reps)).toEqual([8, 6, 5])
+
+    useStore.getState().startDay(0)
+    expect(log('biceps-curl').sets).toHaveLength(3)
+    expect(log('cable-pushdown').sets).toHaveLength(2)
+    expect(log('pull-up').sets).toHaveLength(3)
+    // Session B's finisher is its own slot: still the program's two.
+    useStore.getState().cancelSession()
+    useStore.getState().startDay(2)
+    expect(log('biceps-curl').sets).toHaveLength(2)
+  })
+
+  it('a load changed mid-workout is the load the next workout opens at', () => {
+    useStore.getState().startDay(0)
+    expect(log('cable-row').weightKg).toBe(35)
+    useStore.getState().setWorkingWeight('cable-row', 45) // 35 was too light
+    logAll('cable-row', 8, 7, 6)
+    useStore.getState().setWorkingWeight('db-bench-press', 30) // changed, never trained
+    useStore.getState().finishSession()
+    expect(useStore.getState().progress['cable-row'].currentWeightKg).toBe(45)
+    expect(useStore.getState().progress['db-bench-press'].currentWeightKg).toBe(18)
+    useStore.getState().startDay(0)
+    expect(log('cable-row').weightKg).toBe(45)
+  })
+
   it('a swap keeps the session’s slot, scheme and straight sets', () => {
     const s = useStore.getState()
     s.startDay(0)
@@ -592,5 +625,54 @@ describe('store: the A/B program', () => {
     await flush()
     await useStore.getState().init()
     expect(useStore.getState().progress['lat-pulldown'].currentWeightKg).toBe(45)
+  })
+})
+
+describe('store: a workout left open', () => {
+  beforeEach(async () => {
+    await useStore.getState().resetEverything()
+    vi.useFakeTimers({ toFake: ['Date'] })
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  const at = (iso: string) => vi.setSystemTime(new Date(iso))
+
+  it('finished days later, it ends at its last set and starts at its first', () => {
+    at('2026-11-09T06:00:00Z') // opened over breakfast
+    useStore.getState().startDay(0)
+    at('2026-11-09T18:00:00Z') // trained in the evening
+    logSet('pull-up', 0, 6)
+    at('2026-11-09T18:40:00Z')
+    logSet('pull-up', 1, 6)
+    useStore.getState().updateSet('pull-up', 1, { rir: 1 }) // an edit keeps the stamp
+    at('2026-11-11T20:00:00Z') // Finish tapped two days on
+    const summary = useStore.getState().finishSession()!
+    const saved = useStore.getState().sessions[0]
+    expect(saved.startedAt).toBe('2026-11-09T18:00:00.000Z')
+    expect(saved.completedAt).toBe('2026-11-09T18:40:00.000Z')
+    expect(summary.durationMin).toBe(40)
+  })
+
+  it('finished right after the last set, it ends now', () => {
+    at('2026-11-09T18:00:00Z')
+    useStore.getState().startDay(0)
+    at('2026-11-09T18:05:00Z')
+    logSet('pull-up', 0, 6)
+    at('2026-11-09T18:50:00Z')
+    logSet('pull-up', 1, 6)
+    logSet('pull-up', 2, 6)
+    useStore.getState().updateSet('pull-up', 2, { done: false }) // un-ticked: no stamp
+    at('2026-11-09T18:55:00Z')
+    useStore.getState().finishSession()
+    const saved = useStore.getState().sessions[0]
+    expect(saved.startedAt).toBe('2026-11-09T18:00:00.000Z') // warm-up counts
+    expect(saved.completedAt).toBe('2026-11-09T18:55:00.000Z')
+    expect(saved.exercises[0].sets.map((x) => x.at)).toEqual([
+      '2026-11-09T18:05:00.000Z',
+      '2026-11-09T18:50:00.000Z',
+      undefined,
+    ])
   })
 })

@@ -24,9 +24,11 @@ import {
 } from '../program/plan'
 import { formatLoad, resolveIncrements, type Increments } from '../program/ladder'
 import {
+  MAX_SETS,
   applyProgression,
   assessStartWeight,
   defaultProgress,
+  startingSets,
   type StartAssessment,
 } from '../program/progression'
 import { detectPRs } from '../program/records'
@@ -165,18 +167,22 @@ interface StoreState {
   resetEverything: () => Promise<void>
 }
 
-/** A fresh log for one exercise in a slot: the slot's set count, the current load. */
+/**
+ * A fresh log for one exercise in a slot, at the current load: the slot's set
+ * count, or as many as were done there last time (see startingSets).
+ */
 function newLog(
   def: ExerciseDef,
   slotId: string,
   progress: Record<string, ExerciseProgress>,
+  sessions: SessionLog[],
 ): ExerciseLog {
   return {
     exerciseId: def.id,
     slot: slotId,
     weightKg: progress[def.id]?.currentWeightKg ?? def.startWeightKg,
     sets: Array.from(
-      { length: effectiveDef(def, slotId).sets },
+      { length: startingSets(effectiveDef(def, slotId), slotId, sessions) },
       () => ({ done: false }) as SetLog,
     ),
   }
@@ -186,14 +192,40 @@ function sessionFromEntries(
   entries: DayEntry[],
   progress: Record<string, ExerciseProgress>,
   weekday: number,
+  sessions: SessionLog[],
 ): SessionLog {
   return {
     id: uid(),
     startedAt: new Date().toISOString(),
     part: 1,
     weekday,
-    exercises: entries.map((e) => newLog(e.def, e.slotId, progress)),
+    exercises: entries.map((e) => newLog(e.def, e.slotId, progress, sessions)),
   }
+}
+
+/**
+ * A workout left open: opened this long before its first set, or finished this
+ * long after its last one, it is timed by the sets themselves instead.
+ */
+const IDLE_MS = 30 * 60_000
+
+/**
+ * When a workout ended: now — unless its last set was ticked off a good while
+ * ago (Finish tapped the next morning, or days later), in which case it ended
+ * with that set. Keeps the session on the day it was trained, in the right
+ * week, with a real duration.
+ */
+function finishedAt(active: SessionLog, now = Date.now()): string {
+  let last = 0
+  for (const ex of active.exercises) {
+    for (const s of ex.sets) {
+      const t = s.done && s.at ? Date.parse(s.at) : NaN
+      if (t > last) last = t
+    }
+  }
+  // Never before the start, whatever the clock did in between.
+  const from = Math.max(last, Date.parse(active.startedAt) || 0)
+  return new Date(last && now - last > IDLE_MS ? Math.min(from, now) : now).toISOString()
 }
 
 /** Deep-ish copy of a weekly plan so edits never mutate stored state. */
@@ -433,7 +465,7 @@ export const useStore = create<StoreState>((set, get) => ({
       progress,
     )
     if (res.seeded.length) void putProgress(res.seeded)
-    const session = sessionFromEntries(entries, res.progress, weekday)
+    const session = sessionFromEntries(entries, res.progress, weekday, get().sessions)
     void putActiveSession(session)
     set({
       progress: res.progress,
@@ -454,21 +486,31 @@ export const useStore = create<StoreState>((set, get) => ({
   updateSet: (exerciseId, setIndex, patch) => {
     const active = get().activeSession
     if (!active) return
+    const now = new Date()
     const exercises = active.exercises.map((ex) => {
       if (ex.exerciseId !== exerciseId) return ex
-      const sets = ex.sets.map((s, i) => (i === setIndex ? { ...s, ...patch } : s))
+      const sets = ex.sets.map((s, i) => {
+        if (i !== setIndex) return s
+        const merged: SetLog = { ...s, ...patch }
+        // Stamp the moment a set is ticked off (kept through later rep / effort
+        // edits, dropped if it's un-ticked) — see finishedAt.
+        if (patch.done === true && !s.done) merged.at = now.toISOString()
+        else if (patch.done === false) delete merged.at
+        return merged
+      })
       return { ...ex, sets }
     })
     const next = { ...active, exercises }
     // A split continuation is created at the moment of the split but may be
-    // picked up hours or days later — re-stamp its start at the first logged
-    // set so the session duration reflects the actual sitting.
+    // picked up hours or days later, and any workout can be opened long before
+    // the first rep — re-stamp the start at the first logged set so the
+    // session duration reflects the actual sitting.
     if (
       patch.done === true &&
-      (active.part ?? 1) > 1 &&
-      !active.exercises.some((ex) => ex.sets.some((s) => s.done))
+      !active.exercises.some((ex) => ex.sets.some((s) => s.done)) &&
+      ((active.part ?? 1) > 1 || now.getTime() - Date.parse(active.startedAt) > IDLE_MS)
     ) {
-      next.startedAt = new Date().toISOString()
+      next.startedAt = now.toISOString()
     }
     void putActiveSession(next)
     set({ activeSession: next })
@@ -520,7 +562,7 @@ export const useStore = create<StoreState>((set, get) => ({
     if (active.exercises.some((e) => e.exerciseId === exerciseId)) return
     const res = withSeededProgress([def], get().progress)
     if (res.seeded.length) void putProgress(res.seeded)
-    const log = newLog(def, slot.id, res.progress)
+    const log = newLog(def, slot.id, res.progress, get().sessions)
     // Slot it in at its place in the routine order.
     const order = (e: ExerciseLog) => {
       const s = slotFor(e.exerciseId, e.slot)
@@ -551,7 +593,7 @@ export const useStore = create<StoreState>((set, get) => ({
     const active = get().activeSession
     if (!active) return
     const exercises = active.exercises.map((ex) =>
-      ex.exerciseId === exerciseId && ex.sets.length < 10
+      ex.exerciseId === exerciseId && ex.sets.length < MAX_SETS
         ? { ...ex, sets: [...ex.sets, { done: false } as SetLog] }
         : ex,
     )
@@ -592,7 +634,7 @@ export const useStore = create<StoreState>((set, get) => ({
       return null
     }
 
-    const completedAt = new Date().toISOString()
+    const completedAt = finishedAt(activeSession)
     const finished: SessionLog = {
       ...activeSession,
       exercises: r.committedExercises,
@@ -646,7 +688,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
     const groupId = activeSession.groupId ?? activeSession.id
     const part = activeSession.part ?? 1
-    const completedAt = new Date().toISOString()
+    const completedAt = finishedAt(activeSession)
 
     const finished: SessionLog = {
       ...activeSession,

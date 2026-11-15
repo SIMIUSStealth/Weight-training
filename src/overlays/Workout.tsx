@@ -13,7 +13,12 @@ import {
   slotOptions,
 } from '../program/exercises'
 import { abProgramWeek } from '../program/plan'
-import { computeRecommendation, defaultProgress, isLoaded } from '../program/progression'
+import {
+  MAX_SETS,
+  computeRecommendation,
+  defaultProgress,
+  isLoaded,
+} from '../program/progression'
 import {
   formatLoad,
   formatLoadShort,
@@ -420,10 +425,10 @@ export function Workout() {
               </div>
               <div className="tiny muted">
                 {isHold
-                  ? `${def.sets} sets · hold steady`
+                  ? `${exLog.sets.length} sets · hold steady`
                   : def.kind === 'time'
-                    ? `${def.sets} rounds × ${formatSeconds(target)}`
-                    : `${def.sets} × ${repTarget(def)} reps${
+                    ? `${exLog.sets.length} rounds × ${formatSeconds(target)}`
+                    : `${exLog.sets.length} × ${repTarget(def)} reps${
                         def.perArm ? ' · each side' : ''
                       }`}
                 {def.restSeconds ? ` · rest ${formatSeconds(def.restSeconds)}` : ''}
@@ -619,7 +624,7 @@ export function Workout() {
           </button>
           <button
             className="btn btn-sm btn-ghost grow"
-            disabled={exLog.sets.length >= 10}
+            disabled={exLog.sets.length >= MAX_SETS}
             onClick={() => addSetToSession(def.id)}
           >
             <Plus size={16} /> Add set
