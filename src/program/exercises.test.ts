@@ -87,10 +87,10 @@ describe('slots & program selection', () => {
     }
   })
 
-  it('runs a fixed rep target as one number', () => {
-    expect(setScheme(effectiveDef(getExercise('db-bench-press'), 'a-press'))).toBe('3 × 8')
-    expect(setScheme(effectiveDef(getExercise('pallof-press'), 'b-core'))).toBe('3 × 10 · ea')
-    expect(setScheme(effectiveDef(getExercise('lat-pulldown'), 'b-pull'))).toBe('3 × 8–10')
+  it('runs a slot’s rep range; a fixed target is one number', () => {
+    expect(setScheme(effectiveDef(getExercise('db-bench-press'), 'a-press'))).toBe('3 × 6–10')
+    expect(setScheme(effectiveDef(getExercise('pallof-press'), 'b-core'))).toBe('2 × 10–12 · ea')
+    expect(setScheme({ ...getExercise('bench-press'), repMin: 8, repMax: 8 })).toBe('3 × 8')
   })
 
   it('mirrors the routine: compounds 3 × 5–8, core triplet 3 × 8–12, KB moves 30 s', () => {
@@ -125,7 +125,7 @@ describe('exercise guides', () => {
   })
 })
 
-describe('Session A / B', () => {
+describe('Sessions A / B / C', () => {
   // The default lineup — add-ons (shrugs) only join a day they're added to.
   const lineup = (block: string) =>
     SLOTS.filter((s) => s.block === block && !s.extra).map((s) => {
@@ -137,28 +137,44 @@ describe('Session A / B', () => {
 
   it('Session A: the program as written', () => {
     expect(lineup('session-a')).toEqual([
-      'Single-Leg Leg Press 3 × 10 · ea 90s',
-      'Pull-up 3 × 6–8 90s',
-      'Dumbbell Bench Press 3 × 8 90s',
-      'Dumbbell RDL 3 × 10 90s',
-      'Close-Grip Cable Row 3 × 10 75s',
-      'Abdominal Crunch Machine 3 × 10–12 60s',
-      'Biceps Curl 2 × 8–12 · ea (optional)',
-      'Cable Triceps Pushdown 2 × 8–12 (optional)',
+      'Pull-up 3 × 6–10 120s',
+      'Dumbbell Bench Press 3 × 6–10 120s',
+      'Close-Grip Cable Row 3 × 8–12 120s',
+      'Bulgarian Split Squat 3 × 8–12 · ea 120s',
+      'Lateral Raise 3 × 12–20 75s',
+      'Abdominal Crunch Machine 3 × 8–12 75s',
+      'Biceps Curl 2 × 8–12 · ea 75s',
+      'Cable Triceps Pushdown 2 × 10–15 75s',
     ])
   })
 
   it('Session B: the program as written', () => {
     expect(lineup('session-b')).toEqual([
-      'Leg Press 3 × 10 90s',
-      'Lat Pulldown 3 × 8–10 90s',
-      'Shoulder Press 3 × 8 90s',
-      'Back Extension 3 × 12 75s',
-      'Dip 3 × 8 75s',
-      'Pallof Press 3 × 10 · ea 60s',
-      'Biceps Curl 2 × 8–12 · ea (optional)',
-      'Cable Triceps Pushdown 2 × 8–12 (optional)',
+      'Leg Press 3 × 10–15 120s',
+      'Hamstring Curl 3 × 10–15 75s',
+      'Calf Raise 3 × 12–15 75s',
+      'Lat Pulldown 3 × 8–12 90s',
+      'Shoulder Press 3 × 6–10 90s',
+      'Dip 3 × 6–10 90s',
+      'Back Extension 2 × 10–15 75s',
+      'Pallof Press 2 × 10–12 · ea 60s',
+      'Lateral Raise 2 × 12–20 60s (optional)',
     ])
+  })
+
+  it('Session C: upper only — nothing for the legs the day before the long run', () => {
+    expect(lineup('session-c')).toEqual([
+      'Pull-up 3 × 6–10 120s',
+      'Machine Chest Press 3 × 8–12 90s',
+      'Machine Row 3 × 10–12 120s',
+      'Lateral Raise 3 × 12–20 75s',
+      'Kneeling Cable Crunch 3 × 8–12 75s',
+      'Biceps Curl 2 × 8–12 · ea 75s',
+      'Cable Triceps Pushdown 2 × 10–15 75s',
+    ])
+    for (const s of SLOTS.filter((x) => x.block === 'session-c')) {
+      for (const d of slotOptions(s.id)) expect(d.muscle, d.id).not.toBe('Legs')
+    }
   })
 
   it('starts from the stated loads', () => {
@@ -175,7 +191,7 @@ describe('Session A / B', () => {
   it('every exercise can be swapped for a similar one — on other kit when it’s busy', () => {
     for (const slot of SLOTS.filter((s) => AB_BLOCKS.includes(s.block))) {
       expect(slot.optionIds.length, slot.id).toBeGreaterThanOrEqual(2)
-      if (slot.optional) continue // the arm finisher: curls / pushdowns
+      if (/-(biceps|triceps)$/.test(slot.id)) continue // the arm finisher: curls / pushdowns
       const kit = new Set(slotOptions(slot.id).map((d) => d.equipment))
       expect(kit.size, slot.id).toBeGreaterThanOrEqual(2)
     }
@@ -183,7 +199,7 @@ describe('Session A / B', () => {
 
   it('a swap keeps the slot’s scheme; the exercise elsewhere keeps its own', () => {
     const press = effectiveDef(getExercise('machine-chest-press'), 'a-press')
-    expect([press.sets, press.repMin, press.repMax, press.restSeconds]).toEqual([3, 8, 8, 90])
+    expect([press.sets, press.repMin, press.repMax, press.restSeconds]).toEqual([3, 6, 10, 120])
     expect(setScheme(effectiveDef(getExercise('machine-chest-press'), 'push'))).toBe('3 × 5–8')
     // A slot that doesn't offer the exercise changes nothing.
     expect(effectiveDef(getExercise('bench-press'), 'a-row')).toBe(getExercise('bench-press'))

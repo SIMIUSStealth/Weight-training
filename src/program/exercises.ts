@@ -1,5 +1,5 @@
 // The gym routine (Training Spec §3). A session is built from routine BLOCKS —
-// Session A and Session B (the twice-a-week A/B program), the three pairs, the
+// Sessions A, B and C (the three-a-week program), the three pairs, the
 // optional isolations, the leg-day extras and the core triplet (or the
 // kettlebell core circuit) — in a fixed order. Each block is a list of SLOTS,
 // and each slot is filled by one exercise from its options, the first being
@@ -9,7 +9,7 @@
 // An exercise has one HOME slot (ExerciseDef.slot), but other slots may offer
 // it too — Session A's pull is the pull-up with the lat pulldown as its swap,
 // Session B's the other way round. A slot can also set its own scheme (sets,
-// reps, rest), so whichever option fills it runs the session's 3 × 8.
+// reps, rest), so whichever option fills it runs the session's 3 × 6–10.
 //
 // The single-dumbbell home program the app started with is retired to
 // ./home-exercises.ts: still registered (so old sessions resolve), never offered.
@@ -67,6 +67,7 @@ const ASSIST_NOTE =
 export type BlockId =
   | 'session-a'
   | 'session-b'
+  | 'session-c'
   | 'pair-1'
   | 'pair-2'
   | 'pair-3'
@@ -93,12 +94,12 @@ export interface Block {
 }
 
 const AB_NOTE =
-  '~50 min. Warm up 5 min first. Straight sets — finish all sets of one exercise before moving on.'
+  'Warm up 5 min first. Straight sets. Leave 1–2 reps in reserve on the big lifts; go to failure only on the last set of an isolation.'
 
 export const BLOCKS: readonly Block[] = [
   {
     id: 'session-a',
-    name: 'Session A',
+    name: 'Session A · Upper + legs',
     short: 'Session A',
     alternate: false,
     optional: false,
@@ -106,11 +107,19 @@ export const BLOCKS: readonly Block[] = [
   },
   {
     id: 'session-b',
-    name: 'Session B',
+    name: 'Session B · Legs + shoulders',
     short: 'Session B',
     alternate: false,
     optional: false,
     note: AB_NOTE,
+  },
+  {
+    id: 'session-c',
+    name: 'Session C · Upper, no legs',
+    short: 'Session C',
+    alternate: false,
+    optional: false,
+    note: `No legs — run it the day before the long run. ${AB_NOTE}`,
   },
   {
     id: 'pair-1',
@@ -174,8 +183,8 @@ export const BLOCKS_BY_ID: Record<BlockId, Block> = Object.fromEntries(
   BLOCKS.map((b) => [b.id, b]),
 ) as Record<BlockId, Block>
 
-/** The A/B program's two sessions (alternate them, about twice a week). */
-export const AB_BLOCKS: readonly BlockId[] = ['session-a', 'session-b']
+/** The program's three sessions (A, B and C — one of each a week). */
+export const AB_BLOCKS: readonly BlockId[] = ['session-a', 'session-b', 'session-c']
 
 export function isBlockId(v: unknown): v is BlockId {
   return typeof v === 'string' && v in BLOCKS_BY_ID
@@ -270,6 +279,37 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
     perArm: false,
     formCue:
       'Kneel facing a high cable, rope held beside your head. Keep the hips still and curl your ribs down toward your hips — round the spine, don’t sit back onto your heels. Squeeze, then return slowly.',
+  },
+  {
+    id: 'db-lateral-raise',
+    name: 'Lateral Raise',
+    muscle: 'Shoulders',
+    slot: 'a-delts',
+    sets: 3,
+    kind: 'reps',
+    repMin: 12,
+    repMax: 20,
+    equipment: 'dumbbell',
+    startWeightKg: 6,
+    perArm: false,
+    holdNote: ONE_DUMBBELL,
+    formCue:
+      'A dumbbell in each hand, slight bend in the elbows. Raise both out to the sides to shoulder height, leading with the elbows, then lower slowly. No swinging — if you need momentum, go lighter. The side delt is small: strict and light wins.',
+  },
+  {
+    id: 'cable-lateral-raise',
+    name: 'Cable Lateral Raise',
+    muscle: 'Shoulders',
+    slot: 'a-delts',
+    sets: 3,
+    kind: 'reps',
+    repMin: 12,
+    repMax: 20,
+    equipment: 'cable',
+    startWeightKg: 5,
+    perArm: true,
+    formCue:
+      'Stand side-on to a low cable, handle in the far hand, cable crossing in front of you. Raise the arm out to shoulder height, leading with the elbow, and lower slowly — the cable keeps tension at the bottom. Full count one arm, then switch.',
   },
   {
     id: 'db-shoulder-press',
@@ -899,6 +939,22 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
     formCue:
       'Standing or seated calf machine, balls of the feet on the edge. Lower the heels into a deep stretch, rise as high as you can, pause at the top. Slow and full-range beats heavy and bouncy.',
   },
+  {
+    id: 'db-calf-raise',
+    name: 'Dumbbell Calf Raise',
+    muscle: 'Legs',
+    slot: 'calves',
+    sets: 3,
+    kind: 'reps',
+    repMin: 12,
+    repMax: 20,
+    equipment: 'dumbbell',
+    startWeightKg: 14,
+    perArm: false,
+    holdNote: ONE_DUMBBELL,
+    formCue:
+      'Balls of the feet on a step or plate, a dumbbell in each hand. Lower the heels into a deep stretch, rise as high as you can, pause at the top. Hold on to something if balance is the limit.',
+  },
 
   // ----- Core triplet -----
   {
@@ -1116,74 +1172,120 @@ function scheme(sets: number, reps: number | [number, number], restSeconds: numb
   return { sets, repMin, repMax, restSeconds }
 }
 
-/** The optional arm finisher both sessions end on: 2 sets each. */
-const ARMS = { optional: true, scheme: { sets: 2 } }
+/** The arm finisher Sessions A and C end on: 2 sets each. */
+const CURLS = { scheme: scheme(2, [8, 12], 75) }
+const PUSHDOWNS = { scheme: scheme(2, [10, 15], 75) }
+/** Session B has no arm work of its own: there they're an add-on. */
+const ARMS_EXTRA = { extra: true, optional: true, scheme: { sets: 2 } }
 /** Shrugs — an add-on wherever you want them: either session, or the isolations. */
 const SHRUGS = ['db-shrug', 'barbell-shrug']
 const BICEPS = ['biceps-curl', 'zottman-curl']
 const TRICEPS = ['cable-pushdown', 'bar-pushdown', 'overhead-cable-extension']
+const LATERALS = ['db-lateral-raise', 'cable-lateral-raise']
 
+// Rest: 2 min on pull-ups, bench, rows and the leg slots; 60–90 s on the rest.
 export const SLOTS: readonly Slot[] = [
-  // Session A — every slot offers swaps on other equipment, in case it's taken
-  slot(
-    'a-legs',
-    'session-a',
-    'Legs · single-leg',
-    ['single-leg-leg-press', 'bulgarian-split-squat', 'leg-press', 'goblet-squat'],
-    { scheme: scheme(3, 10, 90) },
-  ),
+  // Session A — upper + legs. Every slot offers swaps on other equipment.
   slot('a-pull', 'session-a', 'Vertical pull', ['pull-up', 'lat-pulldown', 'close-grip-lat-pulldown'], {
-    scheme: scheme(3, [6, 8], 90),
+    scheme: scheme(3, [6, 10], 120),
   }),
   slot(
     'a-press',
     'session-a',
     'Chest press',
     ['db-bench-press', 'machine-chest-press', 'incline-db-press', 'bench-press', 'push-up'],
-    { scheme: scheme(3, 8, 90) },
+    { scheme: scheme(3, [6, 10], 120) },
+  ),
+  slot('a-row', 'session-a', 'Row', ['cable-row', 'machine-row', 'one-arm-db-row', 't-bar-row'], {
+    scheme: scheme(3, [8, 12], 120),
+  }),
+  // Single-leg here (hips and balance, for the running); two legs in Session B.
+  slot(
+    'a-legs',
+    'session-a',
+    'Legs · single-leg',
+    ['bulgarian-split-squat', 'single-leg-leg-press', 'leg-press', 'goblet-squat'],
+    { scheme: scheme(3, [8, 12], 120) },
   ),
   slot('a-hinge', 'session-a', 'Hip hinge', ['db-rdl', 'barbell-rdl', 'hip-thrust'], {
-    scheme: scheme(3, 10, 90),
+    extra: true,
+    scheme: scheme(3, [8, 12], 90),
   }),
-  slot('a-row', 'session-a', 'Row', ['cable-row', 'machine-row', 'one-arm-db-row', 't-bar-row'], {
-    scheme: scheme(3, 10, 75),
-  }),
+  slot('a-delts', 'session-a', 'Side delts', LATERALS, { scheme: scheme(3, [12, 20], 75) }),
   slot(
     'a-abs',
     'session-a',
     'Abs',
     ['machine-ab-crunch', 'cable-crunch', 'machine-ab-crunch-feet-anchored', 'hanging-leg-raise'],
-    { scheme: scheme(3, [10, 12], 60) },
+    { scheme: scheme(3, [8, 12], 75) },
   ),
   slot('a-traps', 'session-a', 'Traps', SHRUGS, { extra: true, scheme: { restSeconds: 60 } }),
-  slot('a-biceps', 'session-a', 'Arms · biceps', BICEPS, ARMS),
-  slot('a-triceps', 'session-a', 'Arms · triceps', TRICEPS, ARMS),
-  // Session B
+  slot('a-biceps', 'session-a', 'Arms · biceps', BICEPS, CURLS),
+  slot('a-triceps', 'session-a', 'Arms · triceps', TRICEPS, PUSHDOWNS),
+  // Session B — legs + shoulders
   slot('b-legs', 'session-b', 'Legs', ['leg-press', 'goblet-squat', 'back-squat'], {
-    scheme: scheme(3, 10, 90),
+    scheme: scheme(3, [10, 15], 120),
+  }),
+  slot('b-curl', 'session-b', 'Hamstrings', ['hamstring-curl', 'db-rdl', 'barbell-rdl'], {
+    scheme: scheme(3, [10, 15], 75),
+  }),
+  slot('b-calves', 'session-b', 'Calves', ['machine-calf-raise', 'db-calf-raise'], {
+    scheme: scheme(3, [12, 15], 75),
   }),
   slot(
     'b-pull',
     'session-b',
     'Vertical pull',
     ['lat-pulldown', 'close-grip-lat-pulldown', 'wide-grip-lat-pulldown', 'pull-up'],
-    { scheme: scheme(3, [8, 10], 90) },
+    { scheme: scheme(3, [8, 12], 90) },
   ),
   slot('b-press', 'session-b', 'Overhead press', ['shoulder-press', 'db-shoulder-press'], {
-    scheme: scheme(3, 8, 90),
-  }),
-  slot('b-hinge', 'session-b', 'Hip extension', ['back-extension', 'db-rdl', 'hip-thrust'], {
-    scheme: scheme(3, 12, 75),
+    scheme: scheme(3, [6, 10], 90),
   }),
   slot('b-dip', 'session-b', 'Dips', ['dip', 'machine-dip', 'bench-dip'], {
-    scheme: scheme(3, 8, 75),
+    scheme: scheme(3, [6, 10], 90),
+  }),
+  slot('b-hinge', 'session-b', 'Hip extension', ['back-extension', 'db-rdl', 'hip-thrust'], {
+    scheme: scheme(2, [10, 15], 75),
   }),
   slot('b-core', 'session-b', 'Anti-rotation', ['pallof-press', 'ab-wheel-rollout'], {
-    scheme: scheme(3, 10, 60),
+    scheme: scheme(2, [10, 12], 60),
+  }),
+  slot('b-delts', 'session-b', 'Side delts', LATERALS, {
+    optional: true,
+    scheme: scheme(2, [12, 20], 60),
   }),
   slot('b-traps', 'session-b', 'Traps', SHRUGS, { extra: true, scheme: { restSeconds: 60 } }),
-  slot('b-biceps', 'session-b', 'Arms · biceps', BICEPS, ARMS),
-  slot('b-triceps', 'session-b', 'Arms · triceps', TRICEPS, ARMS),
+  slot('b-biceps', 'session-b', 'Arms · biceps', BICEPS, ARMS_EXTRA),
+  slot('b-triceps', 'session-b', 'Arms · triceps', TRICEPS, ARMS_EXTRA),
+  // Session C — upper only: the day before the long run
+  slot('c-pull', 'session-c', 'Vertical pull', ['pull-up', 'lat-pulldown', 'close-grip-lat-pulldown'], {
+    scheme: scheme(3, [6, 10], 120),
+  }),
+  slot(
+    'c-press',
+    'session-c',
+    'Chest press',
+    ['machine-chest-press', 'db-bench-press', 'incline-db-press', 'push-up'],
+    { scheme: scheme(3, [8, 12], 90) },
+  ),
+  slot(
+    'c-row',
+    'session-c',
+    'Row or pulldown',
+    ['machine-row', 'lat-pulldown', 'cable-row', 'one-arm-db-row'],
+    { scheme: scheme(3, [10, 12], 120) },
+  ),
+  slot('c-delts', 'session-c', 'Side delts', LATERALS, { scheme: scheme(3, [12, 20], 75) }),
+  slot(
+    'c-abs',
+    'session-c',
+    'Abs',
+    ['cable-crunch', 'hanging-leg-raise', 'machine-ab-crunch'],
+    { scheme: scheme(3, [8, 12], 75) },
+  ),
+  slot('c-biceps', 'session-c', 'Arms · biceps', BICEPS, CURLS),
+  slot('c-triceps', 'session-c', 'Arms · triceps', TRICEPS, PUSHDOWNS),
   // Pair 1 — compounds
   slot('pull', 'pair-1', 'Pull-up progression', ['pull-up']),
   slot('squat', 'pair-1', 'Squat progression', ['back-squat', 'goblet-squat']),
@@ -1229,7 +1331,7 @@ export const SLOTS: readonly Slot[] = [
   slot('hamstring-curl', 'leg-day', 'Hamstring curl', ['hamstring-curl']),
   slot('leg-raise', 'leg-day', 'Leg raises', ['leg-extension', 'hanging-leg-raise']),
   slot('split-squat', 'leg-day', 'Bulgarian split squat', ['bulgarian-split-squat']),
-  slot('calves', 'leg-day', 'Calf raises', ['machine-calf-raise']),
+  slot('calves', 'leg-day', 'Calf raises', ['machine-calf-raise', 'db-calf-raise']),
   // Core triplet
   slot('anti-extension', 'core', 'Anti-extension', ['ab-wheel-rollout']),
   slot('anti-rotation', 'core', 'Anti-rotation', ['pallof-press']),

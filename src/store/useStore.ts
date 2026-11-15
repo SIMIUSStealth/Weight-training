@@ -280,8 +280,8 @@ function blockSlotIds(block: BlockId): Set<string> {
  * home program with muscle-group days: its weekly plan (and slot swaps, which
  * name home slots) can't carry over, so the gym week replaces them. v2 → v3:
  * the A/B program takes over Monday (Session A) and Wednesday (Session B);
- * the other days stay as they were. History, progress and every other
- * setting are kept.
+ * the other days stay as they were. v3 → v4: Session C takes Friday, unless a
+ * day already runs it. History, progress and every other setting are kept.
  */
 export function migrateSettings(settings: Settings): Settings {
   let next = settings
@@ -297,6 +297,15 @@ export function migrateSettings(settings: Settings): Settings {
     const plan = clonePlan(next.weeklyPlan)
     plan[0] = { blocks: ['session-a'] }
     plan[2] = { blocks: ['session-b'] }
+    next = { ...next, weeklyPlan: plan }
+  }
+  if (
+    (settings.version ?? 1) < 4 &&
+    isCurrentPlan(next.weeklyPlan) &&
+    !next.weeklyPlan.some((d) => d.blocks.includes('session-c'))
+  ) {
+    const plan = clonePlan(next.weeklyPlan)
+    plan[4] = { blocks: ['session-c'] }
     next = { ...next, weeklyPlan: plan }
   }
   if ((next.version ?? 1) < SETTINGS_VERSION) next = { ...next, version: SETTINGS_VERSION }

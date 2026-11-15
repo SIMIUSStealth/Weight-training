@@ -10,7 +10,7 @@ triplet), moved to a gym: barbells, dumbbells, machines, cables and kettlebells
 replace the bodyweight-only steps where the gym does them better.
 
 **Who it's for:** an adult training for strength and muscle, with a commercial
-gym's equipment — the A/B program twice a week, the pairs routine on other days. (The single-dumbbell home program this
+gym's equipment — Sessions A, B and C through the week, with the pairs routine there for any other day. (The single-dumbbell home program this
 replaced is kept in [`home-dumbbell-program.md`](home-dumbbell-program.md).)
 
 ---
@@ -31,46 +31,77 @@ Unchanged from the home program, and still the point of the app:
 
 ## 2. The routine
 
-### The A/B program (Monday and Wednesday)
+### The three sessions (Monday, Wednesday, Friday)
 
-Two full-body sessions of **~50 minutes**, alternated about twice a week.
-**Straight sets** — finish all sets of one exercise before moving on.
+Three sessions a week, one of each. **Straight sets** — finish all sets of one
+exercise before moving on.
 
-**Session A**
+**General rules**
 
-| # | Exercise | Sets × reps | Rest | Swaps (similar, other kit) |
-|---|---|---|---|---|
-| 1 | Single-leg leg press | 3 × 10 / side | 90 s | Bulgarian split squat · Leg press · Goblet squat |
-| 2 | Assisted pull-up (14 kg assist) | 3 × 6–8 | 90 s | Lat pulldown · Close-grip pulldown |
-| 3 | DB bench press (18 kg) | 3 × 8 | 90 s | Machine chest press · Incline DB press · Barbell bench · Push-up |
-| 4 | DB Romanian deadlift | 3 × 10 | 90 s | Barbell RDL · Barbell hip thrust |
-| 5 | Close-grip cable row (35 kg) | 3 × 10 | 75 s | Machine row · One-arm DB row · T-bar row |
-| 6 | Ab crunch machine (50 kg) | 3 × 10–12 | 60 s | Kneeling cable crunch · Crunch machine (feet anchored) · Hanging leg raise |
-| — | *Optional:* biceps curl + triceps pushdown | 2 sets each | — | Zottman curl · Bar pushdown · Overhead cable extension |
+- Double progression: go up in weight only once you hit the top of the rep
+  range on all sets.
+- Leave 1–2 reps in reserve on the compound lifts; failure only on the last set
+  of an isolation exercise.
+- Rest 2 min on pull-ups, bench, rows and the leg slots; 60–90 s on everything
+  else.
+- Session C is always the day before the long run (no legs).
 
-**Session B**
+**Session A — upper + legs**
 
 | # | Exercise | Sets × reps | Rest | Swaps (similar, other kit) |
 |---|---|---|---|---|
-| 1 | Leg press | 3 × 10 | 90 s | Goblet squat · Barbell back squat |
-| 2 | Lat pulldown (40 kg) | 3 × 8–10 | 90 s | Close-grip / wide-grip pulldown · Assisted pull-up |
-| 3 | Shoulder press (25 kg) | 3 × 8 | 90 s | DB shoulder press |
-| 4 | Back extension | 3 × 12 | 75 s | DB Romanian deadlift · Barbell hip thrust |
-| 5 | Assisted dip (14 kg assist) | 3 × 8 | 75 s | Machine dip · Bench dip |
-| 6 | Pallof press | 3 × 10 / side | 60 s | Ab wheel rollout |
-| — | *Optional:* biceps curl + triceps pushdown | 2 sets each | — | as Session A |
+| 1 | Assisted pull-up (14 kg assist) | 3 × 6–10 | 2 min | Lat pulldown · Close-grip pulldown |
+| 2 | DB bench press (18 kg) | 3 × 6–10 | 2 min | Machine chest press · Incline DB press · Barbell bench · Push-up |
+| 3 | Close-grip cable row (35 kg) | 3 × 8–12 | 2 min | Machine row · One-arm DB row · T-bar row |
+| 4 | Bulgarian split squat | 3 × 8–12 / side | 2 min | Single-leg leg press · Leg press · Goblet squat |
+| 5 | Lateral raise | 3 × 12–20 | 75 s | Cable lateral raise |
+| 6 | Ab crunch machine (50 kg) | 3 × 8–12 | 75 s | Kneeling cable crunch · Crunch machine (feet anchored) · Hanging leg raise |
+| 7 | Biceps curl (DB) | 2 × 8–12 | 75 s | Zottman curl |
+| 8 | Cable pushdown | 2 × 10–15 | 75 s | Bar pushdown · Overhead cable extension |
+
+The leg slot is single-leg on purpose: the split squat trains the glutes and
+hips one side at a time, which the two-leg press in Session B doesn't, and it
+is the work that carries over to running. It counts toward quad volume like
+the leg press it replaces. *Add-ons:* a hip hinge (DB RDL, 3 × 8–12) and shrugs.
+
+**Session B — legs + shoulders**
+
+| # | Exercise | Sets × reps | Rest | Swaps (similar, other kit) |
+|---|---|---|---|---|
+| 1 | Leg press | 3 × 10–15 | 2 min | Goblet squat · Barbell back squat |
+| 2 | Leg curl | 3 × 10–15 | 75 s | DB Romanian deadlift · Barbell RDL |
+| 3 | Calf raise | 3 × 12–15 (start light, build up gradually) | 75 s | Dumbbell calf raise |
+| 4 | Lat pulldown (40 kg) | 3 × 8–12 | 90 s | Close-grip / wide-grip pulldown · Assisted pull-up |
+| 5 | Shoulder press (25 kg, until 3 × 10) | 3 × 6–10 | 90 s | DB shoulder press |
+| 6 | Assisted dip (14 kg assist) | 3 × 6–10 | 90 s | Machine dip · Bench dip |
+| 7 | Back extension | 2 × 10–15 | 75 s | DB Romanian deadlift · Barbell hip thrust |
+| 8 | Pallof press | 2 × 10–12 / side | 60 s | Ab wheel rollout |
+| 9 | *Optional:* lateral raise | 2 × 12–20 | 60 s | Cable lateral raise |
+
+*Add-ons:* biceps curl + triceps pushdown (2 sets each), shrugs.
+
+**Session C — upper, no legs**
+
+| # | Exercise | Sets × reps | Rest | Swaps (similar, other kit) |
+|---|---|---|---|---|
+| 1 | Assisted pull-up | 3 × 6–10 | 2 min | Lat pulldown · Close-grip pulldown |
+| 2 | Machine chest press | 3 × 8–12 | 90 s | DB bench press · Incline DB press · Push-up |
+| 3 | Machine row | 3 × 10–12 | 2 min | Lat pulldown · Cable row · One-arm DB row |
+| 4 | Lateral raise | 3 × 12–20 | 75 s | Cable lateral raise |
+| 5 | Kneeling cable crunch (weighted) | 3 × 8–12 | 75 s | Hanging leg raise · Ab crunch machine |
+| 6 | Biceps curl (DB) | 2 × 8–12 | 75 s | Zottman curl |
+| 7 | Cable pushdown | 2 × 10–15 | 75 s | Bar pushdown · Overhead cable extension |
 
 **How to run it**
 
-- Alternate A and B, about 2× per week. Warm up 5 min before starting.
-- Weeks 1–2: leave ~3 reps in the tank on leg work.
 - Hit the top of the rep range on all sets → add load next time (+2 kg per
   dumbbell, +1 plate / pin, or −2 kg assist).
-- Week 6: optional lighter week (2 sets each).
+- Weeks 1–2 of the program: leave ~3 reps in the tank on leg work. Week 6:
+  optional lighter week (2 sets each).
 
 A swap takes over the slot's sets, reps and rest — swap the DB bench for the
-machine chest press and it's still 3 × 8, 90 s — and keeps its own load and
-history. The app counts the program's weeks from the first A or B workout and
+machine chest press and it's still 3 × 6–10, 2 min — and keeps its own load and
+history. The app counts the program's weeks from the first session workout and
 says when it's a run-in week (1–2) or the lighter week (6).
 
 ### The pairs routine
@@ -100,8 +131,9 @@ the core triplet (keep the back extension).
 
 | Mon | Tue | Wed | Thu | Fri | Sat | Sun |
 |---|---|---|---|---|---|---|
-| Session A | rest | Session B | rest | Full routine + Isolations | rest | rest |
+| Session A | rest | Session B | rest | Session C | long run | rest |
 
+Session C sits the day before the long run; move it if the long run moves.
 "Full routine" = Pairs 1–3 + the core triplet. Every day is editable: switch
 blocks on/off, swap a slot's exercise, remove one, or add an extra from any block.
 
@@ -109,13 +141,14 @@ blocks on/off, swap a slot's exercise, remove one, or add an extra from any bloc
 
 ## 3. The exercises
 
-Every exercise is **3 working sets** (the A/B program's arm finisher: 2). The
+Every exercise is **3 working sets** (the sessions' arm finisher, and Session B's last three lifts: 2). The
 first option in each slot is the default; the others are swaps (each keeps its
 own load and history). Start loads are the A/B program's stated loads where it
 gives one, estimates otherwise — the app flags a clearly-wrong start after the
 first session. The A/B program's own new lifts: single-leg leg press (50 kg),
 DB Romanian deadlift (16 kg), one-arm DB row (18 kg), kneeling cable crunch
-(25 kg), DB shoulder press (10 kg) — all estimates.
+(25 kg), DB shoulder press (10 kg), lateral raise (6 kg dumbbells; cable 5 kg),
+dumbbell calf raise (14 kg) — all estimates.
 
 ### Pair 1 · Compounds (3 × 5–8)
 

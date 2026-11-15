@@ -17,37 +17,38 @@ import {
 import type { DayPlan, SessionLog } from '../storage/types'
 
 describe('weekly plan', () => {
-  it('default = Session A Mon, Session B Wed, the full routine + isolations Fri', () => {
+  it('default = Session A Mon, Session B Wed, Session C Fri', () => {
     const plan = defaultWeeklyPlan()
     expect(plan).toHaveLength(7)
     expect(trainingDayCount(plan)).toBe(3)
     expect(plan[0].blocks).toEqual(['session-a'])
     expect(plan[1].blocks).toHaveLength(0) // Tue rest
     expect(plan[2].blocks).toEqual(['session-b'])
-    expect(plan[4].blocks).toEqual([...ROUTINE, 'isolation'])
+    expect(plan[4].blocks).toEqual(['session-c'])
   })
 
   it('Monday runs Session A and Wednesday Session B, in the program’s order', () => {
     const [mon, , wed] = defaultWeeklyPlan()
     expect(dayEntries(mon).map((e) => `${e.def.id}@${e.slotId}`)).toEqual([
-      'single-leg-leg-press@a-legs',
       'pull-up@a-pull',
       'db-bench-press@a-press',
-      'db-rdl@a-hinge',
       'cable-row@a-row',
+      'bulgarian-split-squat@a-legs',
+      'db-lateral-raise@a-delts',
       'machine-ab-crunch@a-abs',
       'biceps-curl@a-biceps',
       'cable-pushdown@a-triceps',
     ])
     expect(dayExercises(wed).map((e) => e.id)).toEqual([
       'leg-press',
+      'hamstring-curl',
+      'machine-calf-raise',
       'lat-pulldown',
       'shoulder-press',
-      'back-extension',
       'dip',
+      'back-extension',
       'pallof-press',
-      'biceps-curl',
-      'cable-pushdown',
+      'db-lateral-raise',
     ])
   })
 
@@ -207,7 +208,8 @@ describe('weekly plan', () => {
   it('labels days by their blocks', () => {
     expect(dayLabel(defaultWeeklyPlan()[0])).toBe('Session A')
     expect(dayLabel(defaultWeeklyPlan()[2])).toBe('Session B')
-    expect(dayLabel(defaultWeeklyPlan()[4])).toBe('Full routine · Isolations')
+    expect(dayLabel(defaultWeeklyPlan()[4])).toBe('Session C')
+    expect(dayLabel({ blocks: [...ROUTINE, 'isolation'] })).toBe('Full routine · Isolations')
     expect(dayLabel({ blocks: [...ROUTINE, 'leg-day'] })).toBe('Full routine · Leg day')
     expect(dayLabel({ blocks: ['core', 'pair-1'] })).toBe('Pair 1 · Core')
     expect(dayLabel({ blocks: ['pair-1', 'pair-2', 'pair-3', 'kb-core'] })).toBe(

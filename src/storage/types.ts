@@ -149,9 +149,10 @@ export interface Settings {
 /**
  * Settings schema version. 2 = the gym routine (block-based weekly plan); a
  * v1 plan (muscle-group days, home program) is replaced on load. 3 = the A/B
- * program: Monday runs Session A and Wednesday Session B.
+ * program: Monday runs Session A and Wednesday Session B. 4 = three sessions
+ * a week: Session C (upper, no legs) takes Friday unless a day already runs it.
  */
-export const SETTINGS_VERSION = 3
+export const SETTINGS_VERSION = 4
 
 export const DEFAULT_SETTINGS: Settings = {
   restSeconds: 90,

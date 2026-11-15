@@ -48,8 +48,8 @@ export function todayIndex(): number {
 export const ROUTINE: BlockId[] = ['pair-1', 'pair-2', 'pair-3', 'core']
 
 /**
- * Default plan: Session A on Monday, Session B on Wednesday, the full routine +
- * isolations on Friday — rest otherwise.
+ * Default plan: Session A on Monday, Session B on Wednesday, Session C on
+ * Friday (no legs — the day before a Saturday long run) — rest otherwise.
  */
 export function defaultWeeklyPlan(): DayPlan[] {
   const rest = (): DayPlan => ({ blocks: [] })
@@ -58,7 +58,7 @@ export function defaultWeeklyPlan(): DayPlan[] {
     rest(),
     { blocks: ['session-b'] },
     rest(),
-    { blocks: [...ROUTINE, 'isolation'] },
+    { blocks: ['session-c'] },
     rest(),
     rest(),
   ]
@@ -179,7 +179,7 @@ export function planSlotFor(
 
 /**
  * Week of the A/B program, 1-based: counted from the day of the first workout
- * that ran Session A or B (week 1 until there is one).
+ * that ran Session A, B or C (week 1 until there is one).
  */
 export function abProgramWeek(sessions: SessionLog[], now: Date = new Date()): number {
   let first: number | undefined

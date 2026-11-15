@@ -187,11 +187,24 @@ describe('store: moving from the home program to the gym', () => {
     const next = migrateSettings(v1)
     expect(next.weeklyPlan).toEqual(defaultWeeklyPlan())
     expect(next.program).toEqual({ bench: 'db-bench-press' }) // home slots dropped
-    expect(next.version).toBe(3)
+    expect(next.version).toBe(4)
     expect(next.restSeconds).toBe(75)
     expect(next.restAlert).toBe(false)
     // already current → untouched (same object, no needless write)
     expect(migrateSettings(next)).toBe(next)
+  })
+
+  it('v3 → v4: Session C takes Friday — unless a day already runs it', () => {
+    const v3 = (weeklyPlan: DayPlan[]): Settings => ({ restSeconds: 90, restAlert: true, version: 3, weeklyPlan })
+    const old = defaultWeeklyPlan()
+    old[4] = { blocks: [...ROUTINE, 'isolation'] }
+    const next = migrateSettings(v3(old))
+    expect(next.weeklyPlan).toEqual(defaultWeeklyPlan())
+    expect(next.version).toBe(4)
+    const moved = defaultWeeklyPlan()
+    moved[4] = { blocks: [] }
+    moved[5] = { blocks: ['session-c'] } // long run on Sunday
+    expect(migrateSettings(v3(moved)).weeklyPlan).toEqual(moved)
   })
 
   it('restores a home-era backup: history kept, gym week installed, training goes on', async () => {
@@ -229,7 +242,7 @@ describe('store: moving from the home program to the gym', () => {
     // Biceps curl carried over into the gym catalog with its weight.
     expect(st.progress['biceps-curl'].currentWeightKg).toBe(11.5)
     // The gym routine is seeded and trainable.
-    expect(st.progress['bench-press'].currentWeightKg).toBe(30)
+    expect(st.progress['machine-chest-press'].currentWeightKg).toBe(30)
     st.startDay(0) // Session A
     logSet('db-bench-press', 0, 7)
     expect(useStore.getState().finishSession()).not.toBeNull()
@@ -484,22 +497,22 @@ describe('store: the A/B program', () => {
   it('Monday runs Session A as written, at the stated loads', () => {
     useStore.getState().startDay(0)
     expect(active().exercises.map((e) => `${e.exerciseId}@${e.slot} ${e.weightKg} ×${e.sets.length}`)).toEqual([
-      'single-leg-leg-press@a-legs 50 ×3',
       'pull-up@a-pull -14 ×3',
       'db-bench-press@a-press 18 ×3',
-      'db-rdl@a-hinge 16 ×3',
       'cable-row@a-row 35 ×3',
+      'bulgarian-split-squat@a-legs 10 ×3',
+      'db-lateral-raise@a-delts 6 ×3',
       'machine-ab-crunch@a-abs 50 ×3',
-      'biceps-curl@a-biceps 8 ×2', // optional finisher, 2 sets
+      'biceps-curl@a-biceps 8 ×2', // the arm finisher, 2 sets
       'cable-pushdown@a-triceps 15 ×2',
     ])
   })
 
   it('levels up by the session’s scheme: top of the range on every set → next step', () => {
     useStore.getState().startDay(0)
-    logAll('db-bench-press', 8, 8, 8) // 3 × 8 → +2 kg per dumbbell
-    logAll('pull-up', 8, 8, 8) // 3 × 6–8 → 2 kg less assist
-    logAll('cable-row', 10, 10, 9) // 3 × 10 not there yet
+    logAll('db-bench-press', 10, 10, 10) // 3 × 6–10 → +2 kg per dumbbell
+    logAll('pull-up', 10, 10, 10) // 3 × 6–10 → 2 kg less assist
+    logAll('cable-row', 12, 12, 11) // 3 × 8–12 not there yet
     logAll('biceps-curl', 12, 12) // the finisher's 2 sets at the top
     useStore.getState().finishSession()
     const prog = useStore.getState().progress
@@ -509,8 +522,8 @@ describe('store: the A/B program', () => {
     expect(prog['biceps-curl'].currentWeightKg).toBe(10)
 
     useStore.getState().startDay(2) // Session B
-    logAll('lat-pulldown', 10, 10, 10) // 3 × 8–10 → next plate
-    logAll('shoulder-press', 8, 8, 8) // 3 × 8
+    logAll('lat-pulldown', 12, 12, 12) // 3 × 8–12 → next plate
+    logAll('shoulder-press', 10, 10, 10) // 3 × 6–10: 25 kg until 3 × 10
     useStore.getState().finishSession()
     expect(useStore.getState().progress['lat-pulldown'].currentWeightKg).toBe(45)
     expect(useStore.getState().progress['shoulder-press'].currentWeightKg).toBe(30)
@@ -530,9 +543,9 @@ describe('store: the A/B program', () => {
     expect(log('biceps-curl').sets).toHaveLength(3)
     expect(log('cable-pushdown').sets).toHaveLength(2)
     expect(log('pull-up').sets).toHaveLength(3)
-    // Session B's finisher is its own slot: still the program's two.
+    // Session C's finisher is its own slot: still the program's two.
     useStore.getState().cancelSession()
-    useStore.getState().startDay(2)
+    useStore.getState().startDay(4)
     expect(log('biceps-curl').sets).toHaveLength(2)
   })
 
@@ -554,7 +567,7 @@ describe('store: the A/B program', () => {
     s.startDay(0)
     s.swapInSession('cable-row', 'machine-row') // the cable is taken
     expect(log('machine-row').slot).toBe('a-row')
-    // Machine row is 3 × 5–8 elsewhere; here it's Session A's 3 × 10.
+    // Machine row is 3 × 5–8 elsewhere; here it's Session A's 3 × 8–12.
     logAll('machine-row', 8, 8, 8)
     useStore.getState().finishSession()
     expect(useStore.getState().progress['machine-row'].currentWeightKg).toBe(35) // no jump at 8
@@ -568,7 +581,7 @@ describe('store: the A/B program', () => {
     expect(active().exercises.map((e) => e.exerciseId)).toContain('lat-pulldown')
     s.cancelSession()
     s.startDay(2)
-    expect(active().exercises[1]).toMatchObject({ exerciseId: 'lat-pulldown', slot: 'b-pull' })
+    expect(active().exercises[3]).toMatchObject({ exerciseId: 'lat-pulldown', slot: 'b-pull' })
     // Session B's dip slot can't take a pull.
     s.swapExercise('b-dip', 'pull-up')
     expect(useStore.getState().settings.program?.['b-dip']).toBeUndefined()
@@ -580,9 +593,9 @@ describe('store: the A/B program', () => {
     s.addToSession('zottman-curl', 'a-biceps')
     expect(log('zottman-curl')).toMatchObject({ slot: 'a-biceps' })
     expect(log('zottman-curl').sets).toHaveLength(2)
-    logAll('single-leg-leg-press', 10, 10, 10)
+    logAll('pull-up', 8, 8, 8)
     useStore.getState().splitSession()
-    expect(active().exercises.find((e) => e.exerciseId === 'pull-up')?.slot).toBe('a-pull')
+    expect(active().exercises.find((e) => e.exerciseId === 'db-bench-press')?.slot).toBe('a-press')
   })
 
   it('removing a session’s exercise from the day omits its slot; re-adding brings it back', () => {
@@ -593,9 +606,10 @@ describe('store: the A/B program', () => {
     expect(useStore.getState().settings.weeklyPlan![0]).toEqual({ blocks: ['session-a'], omit: [] })
   })
 
-  it('moves a v2 install onto the program: Mon/Wed replaced, Fri kept, stated loads set once', async () => {
+  it('moves a v2 install onto the program: Mon/Wed/Fri run A/B/C, stated loads set once', async () => {
     const v2Plan = pairsWeek()
-    v2Plan[4] = { blocks: ['pair-1', 'core'], add: ['face-pull'] } // a customised Friday
+    v2Plan[4] = { blocks: ['pair-1', 'core'], add: ['face-pull'] } // the old Friday
+    v2Plan[5] = { blocks: ['leg-day'] } // other days are left alone
     const backup: BackupFile = {
       app: 'iron-ladder',
       version: 2,
@@ -611,10 +625,11 @@ describe('store: the A/B program', () => {
     }
     await useStore.getState().importData(backup)
     const st = useStore.getState()
-    expect(st.settings.version).toBe(3)
+    expect(st.settings.version).toBe(4)
     expect(st.settings.weeklyPlan![0]).toEqual({ blocks: ['session-a'] })
     expect(st.settings.weeklyPlan![2]).toEqual({ blocks: ['session-b'] })
-    expect(st.settings.weeklyPlan![4]).toEqual(v2Plan[4])
+    expect(st.settings.weeklyPlan![4]).toEqual({ blocks: ['session-c'] })
+    expect(st.settings.weeklyPlan![5]).toEqual(v2Plan[5])
     expect(st.progress['pull-up'].currentWeightKg).toBe(-14)
     expect(st.progress['lat-pulldown']).toMatchObject({ currentWeightKg: 40, startConfirmed: true })
     expect(st.progress['db-bench-press'].currentWeightKg).toBe(18)

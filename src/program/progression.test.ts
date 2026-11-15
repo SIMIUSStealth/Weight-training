@@ -124,7 +124,7 @@ describe('initialProgress', () => {
     expect(new Set(rows.map((r) => r.exerciseId)).size).toBe(rows.length)
     expect(rows.find((r) => r.exerciseId === 'bench-press')?.currentWeightKg).toBe(30)
     expect(rows.find((r) => r.exerciseId === 'pull-up')?.currentWeightKg).toBe(-14) // 14 kg assist
-    expect(rows.find((r) => r.exerciseId === 'single-leg-leg-press')).toBeDefined()
+    expect(rows.find((r) => r.exerciseId === 'db-lateral-raise')?.currentWeightKg).toBe(6)
     expect(rows.find((r) => r.exerciseId === 'plank')?.targetSeconds).toBe(30)
   })
 })

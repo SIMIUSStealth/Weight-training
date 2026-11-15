@@ -59,6 +59,14 @@ Running list of shipped features and the backlog, so ideas aren't lost.
 - **Updates show on the next launch (2026-10)** — when a new deploy takes over
   the installed app, it reloads itself once instead of waiting for a second
   relaunch.
+- **Three sessions a week: A, B and C (2026-11)** — the A/B program grows a
+  third session and real rep ranges. Session A is upper + legs (pull-up, bench
+  and row first, then a Bulgarian split squat, lateral raises, abs, arms);
+  Session B is legs + shoulders (leg press, leg curl, calves, pulldown,
+  shoulder press, dips, back extension, Pallof press, optional lateral raise);
+  Session C is upper only, for the day before the long run, and takes Friday.
+  Rest is 2 min on the big lifts, 60–90 s elsewhere. New lifts: lateral raise
+  (dumbbell / cable) and a dumbbell calf raise.
 - **A/B program on Monday & Wednesday (2026-10)** — Session A (single-leg leg
   press, assisted pull-up, DB bench, DB RDL, cable row, ab crunch) and Session B
   (leg press, lat pulldown, shoulder press, back extension, assisted dip, Pallof

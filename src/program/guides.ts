@@ -36,6 +36,15 @@ export const GUIDES: Record<string, ExerciseGuide> = {
   'cable-crunch': {
     about: 'Kneeling at a high cable, curl your ribs down toward your hips. Loaded abs work.',
   },
+  'db-lateral-raise': {
+    about: 'Raise two dumbbells out to your sides to shoulder height. Side delts — the width of the shoulder.',
+  },
+  'cable-lateral-raise': {
+    about: 'The lateral raise on a low cable, one arm at a time. Side delts, with tension the whole way.',
+  },
+  'db-calf-raise': {
+    about: 'Calf raises off a step holding dumbbells, for when the calf machine is taken.',
+  },
   'db-shoulder-press': {
     about: 'Seated, press two dumbbells from your shoulders to overhead. Shoulders and triceps.',
   },
