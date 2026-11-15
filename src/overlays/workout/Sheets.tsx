@@ -62,7 +62,7 @@ export function OverviewSheet({
               <div
                 className="list-row"
                 style={{
-                  borderRadius: 12,
+                  borderRadius: 'var(--radius-sm)',
                   padding: '8px 10px',
                   background: i === index ? 'var(--surface-2)' : undefined,
                 }}

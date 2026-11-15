@@ -21,8 +21,8 @@ export default defineConfig({
         short_name: 'Iron Ladder',
         description:
           'A personal gym strength coach. Guided pairs-based sessions, double-progression overload, and progress tracking.',
-        theme_color: '#f4f6f8',
-        background_color: '#f4f6f8',
+        theme_color: '#f2eee6',
+        background_color: '#f2eee6',
         display: 'standalone',
         orientation: 'portrait',
         icons: [

@@ -87,7 +87,7 @@ export function History() {
       <div className="topbar">
         <div>
           <h1>History</h1>
-          <div className="sub">{total} sessions logged</div>
+          <div className="sub">{total} session{total === 1 ? '' : 's'} logged</div>
         </div>
       </div>
 

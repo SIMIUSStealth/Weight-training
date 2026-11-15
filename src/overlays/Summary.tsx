@@ -6,7 +6,7 @@ import { useStore, type SessionSummary } from '../store/useStore'
 import { BodyModal, todayKey } from '../ui/BodyModal'
 import { daysSince, performBackup } from '../ui/backup'
 import { Coach } from '../ui/components'
-import { ArrowUp, Body, Check, Download, Info, Trophy } from '../ui/icons'
+import { ArrowUp, Body, Download, Info, Trophy } from '../ui/icons'
 import type { PRRecord } from '../storage/types'
 
 function prLabel(pr: PRRecord): string {
@@ -57,27 +57,31 @@ export function Summary({ summary }: { summary: SessionSummary }) {
   return (
     <div className="overlay">
       <div className="overlay-body" style={{ paddingTop: 'calc(var(--safe-top) + 28px)' }}>
-        <div style={{ textAlign: 'center', marginBottom: 18 }}>
-          <div
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: 20,
-              background: 'var(--success-dim)',
-              color: 'var(--success)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Check size={34} />
-          </div>
-          <h1 style={{ margin: '14px 0 2px' }}>
-            {summary.split ? `Part ${summary.split.part - 1} logged` : 'Session logged'}
-          </h1>
-          <div className="muted small">
-            {summary.setsLogged} sets
-            {summary.durationMin > 0 ? ` · ${summary.durationMin} min` : ''}
+        <div className="topbar" style={{ display: 'block' }}>
+          <h1>{summary.split ? `Part ${summary.split.part - 1} logged` : 'Session logged'}</h1>
+          <div className="row" style={{ gap: 22, marginTop: 14, alignItems: 'baseline' }}>
+            <span>
+              <span className="figure" style={{ fontSize: 34 }}>
+                {summary.setsLogged}
+              </span>{' '}
+              <span className="small muted">sets</span>
+            </span>
+            {summary.durationMin > 0 && (
+              <span>
+                <span className="figure" style={{ fontSize: 34 }}>
+                  {summary.durationMin}
+                </span>{' '}
+                <span className="small muted">min</span>
+              </span>
+            )}
+            {summary.levelUps.length > 0 && (
+              <span>
+                <span className="figure" style={{ fontSize: 34, color: 'var(--success)' }}>
+                  {summary.levelUps.length}
+                </span>{' '}
+                <span className="small muted">leveled up</span>
+              </span>
+            )}
           </div>
         </div>
 
@@ -131,9 +135,9 @@ export function Summary({ summary }: { summary: SessionSummary }) {
                 <ArrowUp size={14} /> Leveled up ({summary.levelUps.length})
               </span>
             </div>
-            <div className="card">
+            <div className="ledger">
               {summary.levelUps.map((lu) => (
-                <div className="set-row" key={lu.exerciseId}>
+                <div className="ledger-row" key={lu.exerciseId}>
                   <span style={{ color: 'var(--success)' }}>
                     <ArrowUp size={20} />
                   </span>
@@ -145,8 +149,8 @@ export function Summary({ summary }: { summary: SessionSummary }) {
                         : 'load raised'}
                     </div>
                   </div>
-                  <div style={{ fontWeight: 800 }}>
-                    <span className="muted" style={{ fontWeight: 600 }}>
+                  <div className="figure" style={{ fontSize: 20 }}>
+                    <span className="faint" style={{ fontWeight: 600 }}>
                       {lu.from}
                     </span>{' '}
                     → {lu.to}

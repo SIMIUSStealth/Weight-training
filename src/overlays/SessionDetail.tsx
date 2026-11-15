@@ -237,7 +237,7 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
                         {formatLoad(def.equipment, e.weightKg)}
                       </button>
                     ) : (
-                      <span style={{ fontWeight: 800 }}>{formatLoad(def.equipment, e.weightKg)}</span>
+                      <span className="figure" style={{ fontSize: 20 }}>{formatLoad(def.equipment, e.weightKg)}</span>
                     ))}
                 </div>
               </div>
@@ -313,14 +313,11 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
                 </>
               ) : (
                 <>
-                  <div className="row wrap" style={{ gap: 8, marginTop: 10 }}>
+                  <div className="figure muted" style={{ fontSize: 17, marginTop: 6, whiteSpace: 'normal' }}>
                     {e.sets
                       .filter((s) => s.done)
-                      .map((s, i) => (
-                        <span key={i} className="chip" style={{ background: 'var(--surface-3)' }}>
-                          {setLabel(def, e, s)}
-                        </span>
-                      ))}
+                      .map((s) => setLabel(def, e, s))
+                      .join('  ·  ')}
                   </div>
                   {e.note && (
                     <div className="tiny muted" style={{ marginTop: 8, fontStyle: 'italic' }}>

@@ -18,7 +18,7 @@ import {
 } from '../program/analytics'
 import { useStore } from '../store/useStore'
 import { performBackup, daysSince } from '../ui/backup'
-import { Coach, muscleColor } from '../ui/components'
+import { Coach } from '../ui/components'
 import { Check, Download, Flame, Play } from '../ui/icons'
 
 export function Today() {
@@ -67,12 +67,7 @@ export function Today() {
     if (res !== 'cancelled') recordBackup()
   }
 
-  const greeting = (() => {
-    const h = new Date().getHours()
-    if (h < 12) return 'Good morning'
-    if (h < 18) return 'Good afternoon'
-    return 'Good evening'
-  })()
+  const dateLine = new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'long' })
 
   const activeLeft = activeSession
     ? activeSession.exercises.filter((e) => !e.sets.some((s) => s.done)).length
@@ -89,31 +84,26 @@ export function Today() {
     <div className="screen fade-in">
       <div className="topbar">
         <div>
-          <h1>{greeting}</h1>
+          <h1>{WEEKDAYS_LONG[today]}</h1>
           <div className="sub">
-            {stats.lastSessionAt
-              ? `Last session ${relativeDay(stats.lastSessionAt)}`
-              : 'Ready when you are'}
+            {dateLine}
+            {stats.lastSessionAt ? ` · last session ${relativeDay(stats.lastSessionAt)}` : ''}
           </div>
         </div>
       </div>
 
       {target > 0 && (
-        <div className="card" style={{ marginBottom: 14 }}>
-          <div className="row between" style={{ marginBottom: 10 }}>
-            <span className="row" style={{ gap: 7 }}>
-              <Flame
-                size={18}
-                style={{ color: streak > 0 ? 'var(--accent-ink)' : 'var(--faint)' }}
-              />
-              <span style={{ fontWeight: 800 }}>
-                {streak > 0
-                  ? `${streak}-week streak`
-                  : 'Finish the week to start a streak'}
-              </span>
+        <div style={{ marginBottom: 18 }}>
+          <div className="row between" style={{ marginBottom: 8, alignItems: 'baseline' }}>
+            <span>
+              <span className="figure" style={{ fontSize: 24 }}>
+                {doneThisWeek}/{target}
+              </span>{' '}
+              <span className="small muted">this week</span>
             </span>
-            <span className="small muted" style={{ fontWeight: 700 }}>
-              {doneThisWeek}/{target} this week
+            <span className="small muted row" style={{ gap: 5 }}>
+              {streak > 0 && <Flame size={15} style={{ color: 'var(--accent-ink)' }} />}
+              {streak > 0 ? `${streak}-week streak` : 'Finish the week to start a streak'}
             </span>
           </div>
           <div className="week-seg">
@@ -158,13 +148,13 @@ export function Today() {
       ) : target > 0 ? (
         <Coach tone="up">
           Week complete — all {target} days done. Rest and grow; the streak is
-          yours. 💪
+          yours.
         </Coach>
       ) : null}
 
       {otherDays.length > 0 && (
         <>
-          <div className="tiny faint" style={{ margin: '14px 2px 8px', fontWeight: 700 }}>
+          <div className="small muted" style={{ margin: '16px 0 8px' }}>
             {upNext != null ? 'Or start a different workout' : 'Extra session'}
           </div>
           <div className="row wrap" style={{ gap: 6 }}>
@@ -204,61 +194,43 @@ export function Today() {
       )}
 
       <div className="eyebrow">Your week</div>
-      <div className="card" style={{ padding: '4px 16px' }}>
+      <div className="ledger">
         {statuses.map((d) => {
           const isToday = d.weekday === today
           const day = plan[d.weekday]
           return (
             <button
               key={d.weekday}
-              className="list-row"
-              style={{ width: '100%', background: 'none', border: 0, color: 'inherit', textAlign: 'left' }}
+              className="ledger-row"
               onClick={() => openOverlay({ name: 'day', weekday: d.weekday })}
             >
               <div style={{ width: 44, flexShrink: 0 }}>
-                <div
-                  style={{
-                    fontWeight: 800,
-                    fontSize: 13,
-                    color: isToday ? 'var(--accent-ink)' : 'var(--text)',
-                  }}
-                >
-                  {WEEKDAYS[d.weekday]}
+                <div style={{ fontWeight: 800, fontSize: 13.5 }}>
+                  <span className={isToday ? 'hl' : undefined}>{WEEKDAYS[d.weekday]}</span>
                 </div>
-                {isToday && (
-                  <div className="tiny" style={{ color: 'var(--accent-ink)', fontWeight: 700 }}>
-                    today
-                  </div>
-                )}
+                {isToday && <div className="tiny muted">today</div>}
               </div>
 
               <div className="grow">
                 {d.status === 'rest' ? (
-                  <span className="muted small">Rest day</span>
+                  <span className="faint small">Rest</span>
                 ) : (
                   <>
-                    <div style={{ fontWeight: 600 }}>{dayLabel(day)}</div>
-                    <div className="row" style={{ gap: 4, marginTop: 4 }}>
-                      {dayMuscles(day, settings.program).map((m) => (
-                        <span
-                          key={m}
-                          className="dot"
-                          title={m}
-                          style={{ background: muscleColor(m) }}
-                        />
-                      ))}
+                    <div style={{ fontWeight: 700 }}>{dayLabel(day)}</div>
+                    <div className="tiny muted clip-line" style={{ marginTop: 2 }}>
+                      {dayMuscles(day, settings.program).join(' · ')}
                     </div>
                   </>
                 )}
               </div>
 
               {d.status === 'done' && (
-                <span className="chip" style={{ color: 'var(--success)' }}>
-                  <Check size={13} /> Done
+                <span className="small row" style={{ gap: 4, fontWeight: 700 }}>
+                  <Check size={15} /> Done
                 </span>
               )}
               {d.status === 'inprogress' && (
-                <span className="chip" style={{ color: 'var(--accent-ink)', fontWeight: 700 }}>
+                <span className="small" style={{ color: 'var(--accent-ink)', fontWeight: 700 }}>
                   In progress
                 </span>
               )}
@@ -267,7 +239,7 @@ export function Today() {
         })}
       </div>
 
-      <div className="tiny faint" style={{ textAlign: 'center', marginTop: 14 }}>
+      <div className="tiny faint" style={{ marginTop: 10 }}>
         Tap a day to train it or edit its exercises.
       </div>
     </div>

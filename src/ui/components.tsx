@@ -164,9 +164,9 @@ export function Modal({
           width: '100%',
           maxWidth: 520,
           background: 'var(--surface)',
-          borderTopLeftRadius: 22,
-          borderTopRightRadius: 22,
-          border: '1px solid var(--border)',
+          borderTopLeftRadius: 10,
+          borderTopRightRadius: 10,
+          boxShadow: 'var(--shadow)',
           padding: '16px 16px calc(env(safe-area-inset-bottom, 0px) + 18px)',
         }}
       >

@@ -1,92 +1,104 @@
 # Iron Ladder — Design System
 
 The visual language of the app, written so it can be applied consistently by a
-person or a coding agent. **Light theme only.** Be prescriptive: use the tokens
-below (CSS variables in `src/index.css`), never ad-hoc colors. Aesthetic target:
-**crisp, calm, and airy** — Apple Fitness / Linear clarity, not flashy. The app
-is used mid-set, so legibility and big tap targets beat decoration.
+person or a coding agent. **Light theme only.** Use the tokens below (CSS
+variables in `src/index.css`), never ad-hoc colors.
+
+Aesthetic target: **a training logbook** — warm paper, black ink, ruled lines,
+big stamped figures. It should read like something kept in a gym bag, not like a
+SaaS dashboard. The app is used mid-set, so legibility and big tap targets beat
+decoration.
 
 ## Principles
 
-1. **Off-white canvas, white cards.** The page is a soft off-white; content sits
-   on clean white cards with a hairline border and a whisper of shadow. Never
-   pure-white pages or heavy drop shadows.
-2. **One accent, used sparingly.** Amber is the brand. Use the bright amber only
-   as a *fill* (one primary action per screen). For amber *text/icons* use the
-   dark "ink" amber so it stays legible on white.
-3. **Strong type hierarchy, few sizes.** Big bold display numbers, small quiet
-   labels. A distinctive display font for headings/metrics; the system font for
-   body and UI (correct + legible on iOS).
-4. **8-pt spacing rhythm.** Generous whitespace; let things breathe.
-5. **Soft depth.** Hairline borders + one subtle shadow token. No glows, no
-   gradients-as-decoration.
-6. **Motion is restrained.** One staggered page-load fade per screen; quick
-   press feedback. No scattered micro-animations.
+1. **Paper and ink.** A warm off-white page with near-black ink. Structure comes
+   from rules (hairlines and one heavy ink rule per section), not from stacks of
+   floating boxes.
+2. **Lists are ruled, not carded.** Anything that is a list of like things —
+   the week, lifts, level-ups — is a `.ledger`: rows separated by hairlines. A
+   `.card` is for a group of *controls* that belong together (the set table, a
+   settings group), and it is flat: one border, no shadow.
+3. **Ink is the action, amber is the highlighter.** The primary button, a ticked
+   set, a selected option are solid ink. Amber is never a button: it marks —
+   progress, today, a set whose load differs.
+4. **Figures are the heroes.** Loads, reps, timers and counts are set condensed
+   and heavy (`.figure` / `.display`), always tabular. Labels stay small and
+   quiet next to them.
+5. **Colour means something.** Green = you levelled up. Red = destructive.
+   Muscle pigments identify a muscle and appear only next to its name or on its
+   data. Nothing is coloured for decoration.
+6. **Motion is restrained.** One short fade per screen; press states are an
+   immediate colour change, not a bounce or a scale.
 
-## Color tokens (light)
+## Color tokens
 
 | Token | Hex | Use |
 |---|---|---|
-| `--bg` | `#f4f6f8` | page canvas (off-white) |
-| `--surface` | `#ffffff` | cards, sheets, nav |
-| `--surface-2` | `#eef1f4` | insets, steppers, secondary buttons |
-| `--surface-3` | `#e3e7ec` | chips, pressed states |
-| `--border` | `#e6eaef` | hairline borders |
-| `--border-strong` | `#d3d9e0` | dividers needing weight |
-| `--text` | `#131720` | primary text (≈15:1 on bg) |
-| `--muted` | `#5a6573` | secondary text |
-| `--faint` | `#97a1af` | tertiary text, icons-at-rest |
-| `--accent` | `#f5a623` | amber **fill** only (primary buttons, progress) |
-| `--accent-press` | `#e0930f` | pressed amber fill |
-| `--accent-ink` | `#b4530a` | amber **text/icons** on white (legible) |
-| `--on-accent` | `#2a1505` | text on amber fill |
-| `--success` | `#15924f` | level-ups, positive |
-| `--success-dim` | `#e6f5ec` | success surfaces |
-| `--danger` | `#d92d20` | destructive |
-| `--info` | `#2563eb` | informational |
+| `--bg` | `#f2eee6` | page (paper) |
+| `--surface` | `#fbf9f4` | cards, sheets, secondary buttons |
+| `--surface-2` | `#e9e4d8` | control wells: steppers, keypad keys, notes |
+| `--surface-3` | `#dad3c4` | pressed states, empty track |
+| `--border` | `#dcd6c9` | hairlines |
+| `--border-strong` | `#b5ad9c` | control outlines |
+| `--text` / `--ink` | `#1b1914` | text, heavy rules, primary fills |
+| `--on-ink` | `#fbf9f4` | text on ink |
+| `--muted` | `#5c564b` | secondary text |
+| `--faint` | `#7b7467` | tertiary text |
+| `--accent` | `#f2a31b` | amber highlighter: progress, today, own-load mark |
+| `--accent-dim` | `#f6e6c2` | caution note background |
+| `--accent-ink` | `#9c4707` | amber as text/icon (legible on paper) |
+| `--success` | `#2c6e3f` | level-ups, finish |
+| `--success-dim` | `#e1ebd8` | level-up note background |
+| `--danger` | `#b42c1e` | destructive |
 
-Muscle dots: chest `#ef4444`, back `#3b82f6`, shoulders `#f59e0b`,
-arms `#10b981`, legs `#ec4899`, core `#8b5cf6`, forearms `#64748b` (home-era
-history only).
+Muscle pigments: chest `#c0432b`, back `#3b6a8e`, shoulders `#c9921a`,
+arms `#5c8a47`, legs `#8a4875`, core `#2c8580`, forearms `#7a7468`.
 
 ## Typography
 
-- `--font-display`: **Bricolage Grotesque Variable** — headings (`h1`), the stat
-  numbers, weights, and timers. Weights 600–800. Tight tracking (`-0.02em`).
-- Body / UI: system stack (`-apple-system`, SF Pro …). 16px base (prevents iOS
-  zoom), 13px small, 11.5px tiny.
-- Numbers that change use `font-variant-numeric: tabular-nums`.
-- Hierarchy by **weight + size jumps**, not color. Labels are uppercase 11px
-  `--faint` with `0.06em` tracking.
+One family, **Archivo Variable**, using its width axis as the expressive tool:
 
-## Spacing, radius, elevation
+- **Screen titles** (`.topbar h1`): expanded (`font-stretch: 118%`), 800, tight.
+- **Figures** (`.figure`, `.display`, steppers, keypad, timers): condensed
+  (`font-stretch: 78%`), 800, `tabular-nums`.
+- **Everything else**: normal width. 16px base (prevents iOS zoom), 13px small,
+  11.5px tiny.
+- Section heads (`.eyebrow`) are sentence case, 13px/800, in ink, sitting on a
+  heavy rule. No tracked-out grey capitals.
 
-- Spacing scale: 4 · 8 · 12 · 16 · 20 · 24 · 32.
-- Radius: cards `16px` (`--radius`), controls `11px` (`--radius-sm`), pills `999px`.
-- Elevation: `--shadow-sm` (cards) `0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.05)`;
-  `--shadow` (sheets/popovers) `0 10px 30px rgba(16,24,40,.10)`.
+## Shape and depth
+
+- Radius: `6px` cards and large buttons, `4px` controls. No pills.
+- No shadows on the page. The only shadow (`--shadow`) lifts a bottom sheet.
+- The rest timer is the one dark slab on screen — it should be findable at a
+  glance from a metre away.
 
 ## Components
 
-- **Card:** white, 1px `--border`, `--shadow-sm`, 16px radius, 16px padding.
-- **Primary button:** amber fill, `--on-accent` text, 700 weight. One per screen.
-- **Secondary button:** `--surface-2` fill, `--border`, `--text`.
-- **Success button** (finish): `--success` fill, white text.
-- **Nav (bottom):** white, blurred, hairline top border. Active item = `--accent-ink`.
-- **Coach notes:** tinted surfaces — up=green, stall=amber, info=blue — never the
-  hard dark boxes.
-- **Inputs/steppers:** `--surface-2`, focus ring = `--accent`.
+- **Section head** `.eyebrow`: label on a 1.5px ink rule. Followed by a
+  `.ledger`, the rule doubles as the list's top edge.
+- **Ledger** `.ledger` > `.ledger-row`: name left, figure right.
+- **Card** `.card`: `--surface`, 1px `--border`, 6px radius.
+- **Buttons**: primary = ink; secondary = paper with an outline; success
+  (finish) = green; danger = red outline; ghost = text only.
+- **Set tick** `.set-check`: outlined box, fills solid ink when done.
+- **Options** (`.segmented`, `.ex-pill`, `.rir-chip`): selected = solid ink.
+- **Coach notes** `.coach`: flat tinted block, no border. Green = progress,
+  amber = caution, neutral = information.
+- **Today** is marked with `.hl`, a stroke of amber under the text.
 
-## Do / Don't
+## Don't
 
-- ✅ Off-white page, white cards, hairline borders, one amber action.
-- ✅ Big display numerals, quiet uppercase labels, lots of air.
-- ❌ Pure-white pages, heavy shadows, multiple accent colors competing.
-- ❌ Amber as small text/icon on white (use `--accent-ink`).
-- ❌ Inter/Roboto for headings; decorative gradients; cluttered dashboards.
+- Shadowed white cards, one per item. Pill-shaped chips. Tracked-out grey
+  uppercase labels. Icon-in-a-rounded-tile heroes.
+- Amber buttons, or amber as small text (use `--accent-ink`).
+- A coloured stripe down one edge of a box.
+- Emoji in UI copy; greetings or filler headings where a fact would do.
+- Colours outside the tokens; a second typeface.
 
 ## Agent guide
 
 When changing UI: read tokens from `:root` in `src/index.css`; reuse the classes
 in that file; keep the screenshot → compare → refine loop (Playwright at a
-390×844 viewport) before shipping. Verify text contrast ≥ 4.5:1 on `--bg`/`--surface`.
+390×844 viewport) before shipping. Verify text contrast ≥ 4.5:1 on
+`--bg`/`--surface`.

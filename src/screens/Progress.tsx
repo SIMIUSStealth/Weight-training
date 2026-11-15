@@ -186,7 +186,11 @@ function ExercisesPane({ byMuscle }: { byMuscle: Map<Muscle, ExerciseDef[]> }) {
 
       {MUSCLE_ORDER.filter((m) => byMuscle.get(m)!.length > 0).map((muscle) => (
         <div key={muscle}>
-          <div className="eyebrow">{muscle}</div>
+          <div className="eyebrow">
+            <span className="dot" style={{ background: muscleColor(muscle) }} />
+            {muscle}
+          </div>
+          <div className="ledger">
           {byMuscle.get(muscle)!.map((def) => {
             const series = seriesById.get(def.id) ?? []
             const last = series[series.length - 1]
@@ -200,59 +204,51 @@ function ExercisesPane({ byMuscle }: { byMuscle: Map<Muscle, ExerciseDef[]> }) {
             return (
               <button
                 key={def.id}
-                className="card tap"
+                className="ledger-row"
                 onClick={() => openOverlay({ name: 'exercise', exerciseId: def.id })}
               >
-                <div className="row between">
-                  <div className="row" style={{ gap: 9 }}>
-                    <span
-                      className="dot"
-                      style={{
-                        width: 9,
-                        height: 9,
-                        borderRadius: '50%',
-                        background: muscleColor(def.muscle),
-                      }}
-                    />
-                    <span className="card-title">{def.name}</span>
+                <div className="grow">
+                  <div className="clip-line" style={{ fontWeight: 700 }}>
+                    {def.name}
                   </div>
-                  <ChevronRight size={18} className="faint" />
+                  <div className="tiny muted">
+                    {series.length
+                      ? `${series.length} session${series.length === 1 ? '' : 's'} · last ${
+                          last.isTime ? formatSeconds(last.best) : `${last.total} reps`
+                        }`
+                      : 'not started'}
+                  </div>
                 </div>
-                <div className="row between" style={{ marginTop: 8 }}>
-                  <div>
-                    <div className="display" style={{ fontSize: 22, fontWeight: 800 }}>
-                      {current}
-                    </div>
-                    <div className="tiny faint">
-                      {series.length
-                        ? `${series.length} session${series.length === 1 ? '' : 's'} · last ${
-                            last.isTime ? formatSeconds(last.best) : `${last.total} reps`
-                          }`
-                        : 'not started'}
-                    </div>
+                {series.length > 1 && (
+                  <div style={{ width: 64, flexShrink: 0 }}>
+                    <Sparkline values={series.map((s) => s.load)} color="var(--text)" />
                   </div>
-                  <div style={{ width: 120 }}>
-                    <Sparkline
-                      values={series.map((s) => s.load)}
-                      color={muscleColor(def.muscle)}
-                    />
-                  </div>
+                )}
+                <div
+                  className="figure"
+                  style={{
+                    fontSize: 20,
+                    textAlign: 'right',
+                    color: series.length ? 'var(--text)' : 'var(--faint)',
+                  }}
+                >
+                  {current}
                 </div>
               </button>
             )
           })}
+          </div>
         </div>
       ))}
 
       {earlier.length > 0 && (
         <>
           <div className="eyebrow">Earlier exercises · history</div>
-          <div className="card" style={{ padding: '4px 16px' }}>
+          <div className="ledger">
             {earlier.map(({ def, count }) => (
               <button
                 key={def.id}
-                className="list-row"
-                style={{ width: '100%', background: 'none', border: 0, color: 'inherit', textAlign: 'left' }}
+                className="ledger-row"
                 onClick={() => openOverlay({ name: 'exercise', exerciseId: def.id })}
               >
                 <span
@@ -356,7 +352,7 @@ function InsightsPane({
       <div className="eyebrow">Needs attention</div>
       {alerts.length === 0 ? (
         <Coach tone="up">
-          Nothing falling behind — the plan is on track. Keep stacking weeks. 💪
+          Nothing falling behind — the plan is on track. Keep stacking weeks.
         </Coach>
       ) : (
         alerts.map((a, i) =>
