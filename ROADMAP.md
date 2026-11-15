@@ -4,6 +4,11 @@ Running list of shipped features and the backlog, so ideas aren't lost.
 
 ## Shipped
 
+- **Searchable exercise picker (2026-11)** — "Add exercise" in a workout lists
+  every exercise once, grouped by muscle (sticky headers, A–Z within), with a
+  search box (name, muscle, kit, "db") and a muscle filter. An exercise joins
+  the block the workout is running where it has a slot there, so it keeps the
+  session's sets, reps and rest.
 - **Shrugs (2026-11)** — dumbbell shrug (16 kg to start) and barbell shrug
   (40 kg), 3 × 10–15, as an add-on for the traps: offered in Session A,
   Session B (before the arm finisher, 60 s rest) and the isolations. Like the

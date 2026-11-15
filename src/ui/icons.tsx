@@ -123,6 +123,13 @@ export const ChevronDown = (p: P) => (
   </Svg>
 )
 
+export const Search = (p: P) => (
+  <Svg {...p}>
+    <circle cx="11" cy="11" r="7" />
+    <path d="M20 20l-3.6-3.6" />
+  </Svg>
+)
+
 export const X = (p: P) => (
   <Svg {...p}>
     <path d="M6 6l12 12M18 6L6 18" />

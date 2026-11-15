@@ -1,22 +1,21 @@
 // The workout's bottom sheets: the overview of every exercise, adding one,
 // swapping the current one, and the finish prompt.
 
-import { Fragment } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
+import { addableToWorkout, pickerGroups } from '../../program/catalog'
 import {
-  BLOCKS,
-  SLOTS_BY_ID,
   blockFor,
-  blockOptions,
   effectiveDef,
   getExercise,
   setScheme,
   slotOptions,
   type ExerciseDef,
+  type Muscle,
   type Slot,
 } from '../../program/exercises'
 import { useStore } from '../../store/useStore'
-import { Modal } from '../../ui/components'
-import { Plus, X } from '../../ui/icons'
+import { Modal, muscleColor } from '../../ui/components'
+import { Plus, Search, X } from '../../ui/icons'
 import type { ExerciseLog } from '../../storage/types'
 
 const rowButton = {
@@ -111,42 +110,128 @@ export function OverviewSheet({
   )
 }
 
+/**
+ * How much of the bottom of the screen the on-screen keyboard covers, in px —
+ * so a list in a bottom sheet can still be scrolled clear of it.
+ */
+function useKeyboardInset(): number {
+  const [inset, setInset] = useState(0)
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const update = () =>
+      setInset(Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)))
+    update()
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
+  }, [])
+  return inset
+}
+
+/**
+ * Pick an exercise to add: every exercise not yet in the workout, grouped by
+ * muscle, with a search box and a muscle filter.
+ */
 export function AddSheet({ exercises, onClose }: { exercises: ExerciseLog[]; onClose: () => void }) {
   const addToSession = useStore((s) => s.addToSession)
-  const inSession = new Set(exercises.map((e) => e.exerciseId))
+  const [query, setQuery] = useState('')
+  const [muscle, setMuscle] = useState<Muscle | null>(null)
+  const keyboard = useKeyboardInset()
+
+  const all = useMemo(() => addableToWorkout(exercises), [exercises])
+  const muscles = useMemo(() => pickerGroups(all).map((g) => g.muscle), [all])
+  const groups = useMemo(() => pickerGroups(all, query, muscle), [all, query, muscle])
+
   return (
     <Modal title="Add to this workout" onClose={onClose}>
-      <div style={{ maxHeight: '62vh', overflowY: 'auto' }}>
-        {BLOCKS.map((b) => {
-          const opts = blockOptions(b.id).filter((o) => !inSession.has(o.def.id))
-          if (!opts.length) return null
-          return (
-            <div key={b.id}>
-              <div className="eyebrow" style={{ margin: '10px 2px 6px' }}>
-                {b.name}
+      <div className="search-box">
+        <Search size={18} />
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search exercises"
+          aria-label="search exercises"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint="search"
+        />
+        {query && (
+          <button aria-label="clear search" onClick={() => setQuery('')}>
+            <X size={16} />
+          </button>
+        )}
+      </div>
+      <div className="pick-chips" role="tablist" aria-label="muscle group">
+        <button
+          role="tab"
+          aria-selected={muscle === null}
+          className={'ex-pill' + (muscle === null ? ' on' : '')}
+          onClick={() => setMuscle(null)}
+        >
+          All
+        </button>
+        {muscles.map((m) => (
+          <button
+            key={m}
+            role="tab"
+            aria-selected={muscle === m}
+            className={'ex-pill' + (muscle === m ? ' on' : '')}
+            onClick={() => setMuscle(muscle === m ? null : m)}
+          >
+            <span className="dot" style={{ background: muscleColor(m) }} />
+            {m}
+          </button>
+        ))}
+      </div>
+      {/* a fixed height, so the sheet doesn't jump as the results narrow */}
+      <div className="pick-list" style={{ paddingBottom: keyboard }}>
+        {groups.length === 0 ? (
+          <div className="center-empty small" style={{ padding: '28px 12px' }}>
+            {query.trim() ? (
+              <>
+                Nothing matches &ldquo;{query.trim()}&rdquo;
+                {muscle ? ` in ${muscle}` : ''}.
+              </>
+            ) : (
+              'Every exercise is already in this workout.'
+            )}
+          </div>
+        ) : (
+          groups.map((g) => (
+            <div key={g.muscle}>
+              <div className="pick-head">
+                <span className="dot" style={{ background: muscleColor(g.muscle) }} />
+                {g.muscle}
+                <span className="count">{g.entries.length}</span>
               </div>
-              {opts.map(({ def: d, slotId }) => (
+              {g.entries.map(({ def: d, slot }) => (
                 <button
                   key={d.id}
                   className="list-row"
                   style={rowButton}
                   onClick={() => {
-                    addToSession(d.id, slotId)
+                    addToSession(d.id, slot.id)
                     onClose()
                   }}
                 >
                   <div className="grow">
                     <div style={{ fontWeight: 700 }}>{d.name}</div>
                     <div className="tiny faint">
-                      {setScheme(effectiveDef(d, slotId))} · {SLOTS_BY_ID[slotId].label}
+                      {setScheme(effectiveDef(d, slot.id))} · {slot.label}
                     </div>
                   </div>
                   <Plus size={16} className="faint" />
                 </button>
               ))}
             </div>
-          )
-        })}
+          ))
+        )}
       </div>
     </Modal>
   )
