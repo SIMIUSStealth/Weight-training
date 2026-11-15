@@ -191,6 +191,16 @@ export const GUIDES: Record<string, ExerciseGuide> = {
   'face-pull': {
     about: 'Pull a rope on a high cable toward your face, elbows high. Rear delts, rotator cuff and upper back — the counterweight to all the pressing.',
   },
+  'db-shrug': {
+    about: 'Dumbbells at your sides, lift your shoulders straight up to your ears. Upper traps — the muscle between neck and shoulder.',
+    url: exrx('TrapeziusUpper/DBShrug'),
+    source: EXRX,
+  },
+  'barbell-shrug': {
+    about: 'The shrug with a bar in front of your thighs — the easiest version to load heavy. Upper traps.',
+    url: exrx('TrapeziusUpper/BBShrug'),
+    source: EXRX,
+  },
 
   // ----- Leg day -----
   'leg-press': {

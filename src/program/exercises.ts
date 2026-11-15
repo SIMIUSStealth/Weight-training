@@ -759,6 +759,37 @@ export const GYM_EXERCISES: readonly ExerciseDef[] = [
     formCue:
       'Rope on a cable at about forehead height, thumbs pointing back. Pull the rope toward your face, splitting the ends past your ears with the elbows high, and finish with the knuckles pointing up — squeeze the upper back. Return slowly. Light and strict: if you have to lean back, drop the weight.',
   },
+  {
+    id: 'db-shrug',
+    name: 'Dumbbell Shrug',
+    muscle: 'Shoulders',
+    slot: 'traps',
+    sets: 3,
+    kind: 'reps',
+    repMin: 10,
+    repMax: 15,
+    equipment: 'dumbbell',
+    startWeightKg: 16,
+    perArm: false,
+    holdNote: ONE_DUMBBELL,
+    formCue:
+      'Stand tall with a dumbbell in each hand at your sides, arms straight. Lift your shoulders straight up toward your ears as high as they go, pause for a second at the top, then lower slowly to a full stretch. Arms stay long — no bending the elbows, no rolling the shoulders, no bouncing with the knees.',
+  },
+  {
+    id: 'barbell-shrug',
+    name: 'Barbell Shrug',
+    muscle: 'Shoulders',
+    slot: 'traps',
+    sets: 3,
+    kind: 'reps',
+    repMin: 10,
+    repMax: 15,
+    equipment: 'barbell',
+    startWeightKg: 40,
+    perArm: false,
+    formCue:
+      'Bar in front of your thighs, hands just outside the hips, arms straight. Shrug the shoulders straight up toward your ears, pause at the top, then lower slowly to a full stretch. Keep the chin level and the bar close; if you have to jerk it up, it’s too heavy. Use straps if your grip gives out first.',
+  },
 
   // ----- Leg day extras -----
   {
@@ -1087,6 +1118,8 @@ function scheme(sets: number, reps: number | [number, number], restSeconds: numb
 
 /** The optional arm finisher both sessions end on: 2 sets each. */
 const ARMS = { optional: true, scheme: { sets: 2 } }
+/** Shrugs — an add-on wherever you want them: either session, or the isolations. */
+const SHRUGS = ['db-shrug', 'barbell-shrug']
 const BICEPS = ['biceps-curl', 'zottman-curl']
 const TRICEPS = ['cable-pushdown', 'bar-pushdown', 'overhead-cable-extension']
 
@@ -1122,6 +1155,7 @@ export const SLOTS: readonly Slot[] = [
     ['machine-ab-crunch', 'cable-crunch', 'machine-ab-crunch-feet-anchored', 'hanging-leg-raise'],
     { scheme: scheme(3, [10, 12], 60) },
   ),
+  slot('a-traps', 'session-a', 'Traps', SHRUGS, { extra: true, scheme: { restSeconds: 60 } }),
   slot('a-biceps', 'session-a', 'Arms · biceps', BICEPS, ARMS),
   slot('a-triceps', 'session-a', 'Arms · triceps', TRICEPS, ARMS),
   // Session B
@@ -1147,6 +1181,7 @@ export const SLOTS: readonly Slot[] = [
   slot('b-core', 'session-b', 'Anti-rotation', ['pallof-press', 'ab-wheel-rollout'], {
     scheme: scheme(3, 10, 60),
   }),
+  slot('b-traps', 'session-b', 'Traps', SHRUGS, { extra: true, scheme: { restSeconds: 60 } }),
   slot('b-biceps', 'session-b', 'Arms · biceps', BICEPS, ARMS),
   slot('b-triceps', 'session-b', 'Arms · triceps', TRICEPS, ARMS),
   // Pair 1 — compounds
@@ -1187,6 +1222,7 @@ export const SLOTS: readonly Slot[] = [
     'wide-grip-lat-pulldown',
   ]),
   slot('rear-delts', 'isolation', 'Rear delts', ['face-pull'], { extra: true }),
+  slot('traps', 'isolation', 'Traps', SHRUGS, { extra: true }),
   // Leg day extras
   slot('leg-press', 'leg-day', 'Leg press', ['leg-press']),
   slot('rdl', 'leg-day', 'Romanian deadlift', ['barbell-rdl']),

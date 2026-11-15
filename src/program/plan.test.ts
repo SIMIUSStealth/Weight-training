@@ -143,6 +143,29 @@ describe('weekly plan', () => {
     expect(ids).not.toContain('bench-press') // another block
   })
 
+  it('shrugs are an add-on in either session and the isolations, sitting before the arm work', () => {
+    const monday: DayPlan = { blocks: ['session-a'] }
+    expect(dayExercises(monday).map((e) => e.id)).not.toContain('db-shrug')
+    for (const block of ['session-a', 'session-b', 'isolation'] as const) {
+      const ids = addableForBlock(block, { blocks: [block] }).map((o) => o.def.id)
+      expect(ids, block).toEqual(expect.arrayContaining(['db-shrug', 'barbell-shrug']))
+    }
+    // Added to a Session A day it takes Session A's shrug slot, after the abs.
+    const withShrugs = dayEntries({ ...monday, add: ['db-shrug'] })
+    expect(withShrugs.map((e) => `${e.def.id}@${e.slotId}`).slice(-4)).toEqual([
+      'machine-ab-crunch@a-abs',
+      'db-shrug@a-traps',
+      'biceps-curl@a-biceps',
+      'cable-pushdown@a-triceps',
+    ])
+    // On an isolations day it's the home slot, after the face pull's.
+    const friday = dayEntries({ blocks: ['isolation'], add: ['barbell-shrug', 'face-pull'] })
+    expect(friday.map((e) => `${e.def.id}@${e.slotId}`).slice(-2)).toEqual([
+      'face-pull@rear-delts',
+      'barbell-shrug@traps',
+    ])
+  })
+
   it('add-ons (face pull, crunches) only appear when added', () => {
     const day: DayPlan = { blocks: ['isolation', 'core'] }
     const ids = dayExercises(day).map((e) => e.id)

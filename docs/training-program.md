@@ -151,6 +151,8 @@ as the place to perfect it.
 | Biceps curl | **Zottman curl** · Biceps curl | 8 kg dumbbells |
 | Extra chest | **Low-to-high cable fly** (upper chest) · High-to-low cable fly (lower chest) | 5 kg per stack |
 | Lats (also the pull-up replacement) | **Lat pulldown** · Close-grip · Wide-grip | 40 · 30 · 25 kg |
+| Rear delts *(add-on)* | **Face pull** | 10 kg |
+| Traps *(add-on — also offered in Session A and B)* | **Dumbbell shrug** · Barbell shrug (3 × 10–15) | 16 kg dumbbells · 40 kg |
 
 ### Leg day extras (3 × 8–12)
 

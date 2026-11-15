@@ -4,6 +4,11 @@ Running list of shipped features and the backlog, so ideas aren't lost.
 
 ## Shipped
 
+- **Shrugs (2026-11)** — dumbbell shrug (16 kg to start) and barbell shrug
+  (40 kg), 3 × 10–15, as an add-on for the traps: offered in Session A,
+  Session B (before the arm finisher, 60 s rest) and the isolations. Like the
+  face pull, they only appear on a day you add them to — or mid-workout via
+  Add exercise.
 - **Logging polish, history you can fix, and a safety net (2026-11)** — the
   whole review list below.
   - *Workout screen:* the set table sits right under the load (description

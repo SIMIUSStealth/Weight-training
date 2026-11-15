@@ -126,8 +126,9 @@ describe('exercise guides', () => {
 })
 
 describe('Session A / B', () => {
+  // The default lineup — add-ons (shrugs) only join a day they're added to.
   const lineup = (block: string) =>
-    SLOTS.filter((s) => s.block === block).map((s) => {
+    SLOTS.filter((s) => s.block === block && !s.extra).map((s) => {
       const def = effectiveDef(getExercise(s.baseId), s.id)
       return `${def.name} ${setScheme(def)}${def.restSeconds ? ` ${def.restSeconds}s` : ''}${
         s.optional ? ' (optional)' : ''
